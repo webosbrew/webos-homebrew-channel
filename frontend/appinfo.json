@@ -1,0 +1,22 @@
+{
+	"id": "tv.rootmy.hbchannel",
+	"title": "Homebrew Channel",
+	"main": "index.html",
+	"resolution": "1280x720",
+	"iconColor": "white",
+	"icon": "icon160.png",
+	"type": "web",
+	"version": "0.0.1",
+	"keyFilterTable": [
+		{
+			"from": "16777237",
+			"to": "16777217"
+		},
+		{
+			"from": "16777235",
+			"to": "16777217",
+			"modifier": "16777248"
+		}
+	],
+	"trustLevel": "trusted"
+}

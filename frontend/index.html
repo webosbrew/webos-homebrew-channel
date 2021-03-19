@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<link rel="stylesheet" href="style.css">
+		<title>title</title>
+	</head>
+	<body>
+		<script type="text/javascript" src="main.js"></script>
+		<script type="text/javascript" src="webOSTV.js"></script>
+		<h1>WebOS Homebrew Channel</h1>
+		<header>
+
+<!--Waves Container https://codepen.io/goodkatz/pen/LYPGxQz -->
+<div>
+<svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
+<defs>
+<path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+</defs>
+<g class="parallax">
+<use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(255,160,0,0.6" />
+<use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(254,200,1,0.4)" />
+<use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(254,184,1,0.3)" />
+<use xlink:href="#gentle-wave" x="48" y="7" fill="rgba(254,184,1,1.0)" />
+</g>
+</svg>
+</div>
+<!--Waves end-->
+
+
+		</header>
+		<div class="bubbles"></div>
+		<input class="searchbox" type="search" placeholder="Search"></input>
+		<pre id="log-window"></pre>
+		<section class="applist" tabindex="-1">
+			<ul>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App<span class="author"> &mdash; by Foo Bar</span></h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App which is really really long and overflows the line because the author is bad at being concise</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+				<li>
+					<button onclick="alert('clicked')">
+						<img src="http://placekitten.com/64/64"></img>
+						<h3>The Name of an App</h3>
+						<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+					</button>
+				</li>
+			</ul>
+		</section>
+		<section class="app-modal">
+			<div>
+				<div class="app-modal-header">
+					<img src="http://placekitten.com/64/64"></img>
+					<button>Install</button>
+					<h2>App Name</h2>
+					<p><strong>Developer:</strong>	Somebody</p>
+					<p><strong>Version:</strong>	0.123</p>
+				</div>
+				<h3>Description:</h3>
+				<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut pulvinar tristique mauris ac commodo. Vivamus venenatis facilisis elit, ac ultrices sem ornare semper. Fusce quis tellus risus. Maecenas euismod diam ac nunc feugiat hendrerit. Vivamus rutrum augue sed augue euismod faucibus. Morbi id ligula in metus tincidunt vehicula. Vestibulum interdum facilisis enim at consequat. Donec vel suscipit quam. Vivamus sollicitudin orci quis diam tristique, vitae pellentesque elit dignissim. Etiam volutpat turpis est, nec bibendum tellus cursus et. Phasellus turpis orci, blandit a risus vel, efficitur blandit mi. Aliquam quis dui id purus pharetra sollicitudin. Nullam ornare, ante a suscipit lacinia, augue metus elementum magna, non vestibulum velit lorem eget mi. Morbi quis metus pulvinar, semper dolor eget, suscipit neque. Nulla facilisi. </p>
+			</div>
+		</section>
+	</body>
+</html>
