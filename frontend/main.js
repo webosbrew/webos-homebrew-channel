@@ -126,11 +126,13 @@ function render_appinfo_modal_dom(appinfo) {
 	modal_header.appendChild(app_title)
 	
 	var app_author = document.createElement("p");
-	app_author.innerText = appinfo.vendor;
+	app_author.innerHTML = "<strong>Developer:</strong>"
+	app_author.insertAdjacentText("beforeend", appinfo.vendor);
 	modal_header.appendChild(app_author);
 	
 	var app_version = document.createElement("p");
-	app_version.innerText = appinfo.version;
+	app_version.innerHTML = "<strong>Version:</strong>"
+	app_version.insertAdjacentText("beforeend", appinfo.version);
 	modal_header.appendChild(app_version);
 	
 	var desctitle = document.createElement("h3");
