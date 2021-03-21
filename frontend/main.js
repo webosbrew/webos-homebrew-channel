@@ -82,6 +82,7 @@ function randFloat(a, b) {
 }
 
 function do_app_modal(appinfo) {
+	window.location.hash = "#appinfo-" + appinfo.id;
 	render_appinfo_modal_dom(appinfo);
 }
 
@@ -227,3 +228,8 @@ window.onerror = function myErrorHandler(errorMsg, url, lineNumber) {
 	return false;
 }
 
+window.onhashchange = function() {
+	if (window.location.hash == "") {
+		close_app_modal();
+	}
+}
