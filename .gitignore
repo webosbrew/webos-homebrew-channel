@@ -104,3 +104,7 @@ dist
 .tern-port
 
 *.ipk
+
+# doas binaries
+services/bin/doas
+tools/doas/doas
