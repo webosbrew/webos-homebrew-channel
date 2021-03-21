@@ -1,0 +1,9 @@
+{
+  "id": "tv.rootmy.hbchannel.service",
+  "description": "Homebrew Channel Service",
+  "services": [
+    {
+      "name": "tv.rootmy.hbchannel.service"
+    }
+  ]
+}
