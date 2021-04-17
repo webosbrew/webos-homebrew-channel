@@ -18,6 +18,8 @@ import {createHash} from 'crypto';
 fetch.Promise = Promise;
 const pipelinePromise = Promise.promisify(pipeline);
 const execPromise = Promise.promisify(child_process.exec);
+const unlinkPromise = Promise.promisify(fs.unlink);
+const writeFilePromise = Promise.promisify(fs.writeFile);
 
 // Register com.yourdomain.@DIR@.service, on both buses
 var service = new Service(pkgInfo.name);
@@ -148,6 +150,50 @@ service.register("install", async (message) => {
 }, () => {
   console.info('canceled!');
   // TODO
+});
+
+async function flagRead(name) {
+  return fs.existsSync(`/var/luna/preferences/${name}`);
+}
+
+async function flagSet(name, value) {
+  if (value === true) {
+    if (!await flagRead(name)) {
+      await writeFilePromise(`/var/luna/preferences/${name}`, '1');
+    }
+  } else {
+    if (await flagRead(name)) {
+      await unlinkPromise(`/var/luna/preferences/${name}`);
+    }
+  }
+
+  return flagRead(name);
+}
+
+service.register("getConfiguration", async (message) => {
+  message.respond({
+    returnValue: true,
+    root: process.getuid() === 0,
+    disableTelnet: await flagRead('webosbrew_disable_telnet'),
+  });
+});
+
+service.register("setConfiguration", async (message) => {
+  try {
+    const resp = {};
+    if (message.payload.disableTelnet !== undefined) {
+      resp.disableTelnet = await flagSet('webosbrew_disable_telnet', message.payload.disableTelnet);
+    }
+    message.respond({
+      returnValue: true,
+      ...resp
+    });
+  } catch (err) {
+    message.respond({
+      returnValue: false,
+      errorText: err.toString(),
+    });
+  }
 });
 
 service.register("checkRoot", function (message) {
