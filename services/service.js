@@ -6,6 +6,7 @@ import "es6-shim";
 import pkgInfo from './package.json';
 import Service from 'webos-service';
 import child_process from 'child_process';
+import path from 'path';
 
 import * as Promise from "bluebird";
 import fs from 'fs';
@@ -16,15 +17,26 @@ import {createHash} from 'crypto';
 
 fetch.Promise = Promise;
 const pipelinePromise = Promise.promisify(pipeline);
+const execPromise = Promise.promisify(child_process.exec);
 
 // Register com.yourdomain.@DIR@.service, on both buses
 var service = new Service(pkgInfo.name);
 
-service.register("checkRoot", function (message) {
-  message.respond({
-    returnValue: process.getuid() === 0,
+function promiseCall(svc, uri, args) {
+  return new Promise((resolve, reject) => {
+    svc.call(uri, args, ({payload}) => {
+      if (payload.returnValue) {
+        resolve(payload);
+      } else {
+        reject(payload);
+      }
+    })
   });
-});
+}
+
+function createToast(message) {
+  return promiseCall(service, 'luna://com.webos.notification/createToast', {sourceId: pkgInfo.name, message});
+}
 
 /**
  * Generate local file checksum
@@ -58,7 +70,7 @@ async function installPackage(filePath) {
       console.info(res.payload);
 
       if (res.payload.statusValue === 30) {
-        resolve(true);
+        resolve(res.payload.details.packageId);
         req.cancel();
       }
     });
@@ -104,13 +116,26 @@ service.register("install", async (message) => {
       statusText: 'installing',
     });
 
-    await installPackage(targetPath);
+    const installedPackageId = await installPackage(targetPath);
 
     message.respond({
       statusText: 'finished',
       finished: true,
       returnValue: true
     });
+
+    await createToast(`Application installed: ${installedPackageId}`);
+
+    if (installedPackageId === 'org.webosbrew.hbchannel') {
+      if (process.getuid() === 0) {
+        console.info('Elevating service...');
+        await execPromise(path.join(__dirname, 'elevate-service'));
+        console.info('Finished, dying as soon as possible.');
+      }
+
+      service.activityManager.idleTimeout = 1;
+      await createToast('Homebrew Channel update finished');
+    }
   } catch (err) {
     console.error(err);
     console.log(err.stack);
@@ -125,17 +150,11 @@ service.register("install", async (message) => {
   // TODO
 });
 
-function promiseCall(svc, uri, args) {
-  return new Promise((resolve, reject) => {
-    svc.call(uri, args, ({payload}) => {
-      if (payload.returnValue) {
-        resolve(payload);
-      } else {
-        reject(payload);
-      }
-    })
+service.register("checkRoot", function (message) {
+  message.respond({
+    returnValue: process.getuid() === 0,
   });
-}
+});
 
 // This roughly replicates com.webos.applicationManager/getAppInfo request in an
 // environment-independent way (non-root vs root)

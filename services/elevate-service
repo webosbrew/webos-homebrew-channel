@@ -9,12 +9,12 @@ sed -i 's;/usr/bin;/media/developer/apps/usr/palm/services/org.webosbrew.hbchann
 echo "[ ] Refreshing services..."
 ls-control scan-services
 
-if [[ "$2" != "--no-restart" ]]; then
-    echo "[ ] Restarting service..."
-    pkill -x -f $SERVICE_NAME || echo "    Not running."
-
-    echo "[ ] Checking..."
-    ls-monitor -i $SERVICE_NAME
-    echo
-    ps u -C $SERVICE_NAME
-fi
+#if [[ "$2" != "--no-restart" ]]; then
+#    echo "[ ] Restarting service..."
+#    pkill -x -f $SERVICE_NAME || echo "    Not running."
+#
+#    echo "[ ] Checking..."
+#    ls-monitor -i $SERVICE_NAME
+#    echo
+#    ps u -C $SERVICE_NAME
+#fi
