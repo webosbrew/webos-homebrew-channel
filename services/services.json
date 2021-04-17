@@ -1,9 +1,9 @@
 {
-  "id": "tv.rootmy.hbchannel.service",
-  "description": "Homebrew Channel Service",
-  "services": [
-    {
-      "name": "tv.rootmy.hbchannel.service"
-    }
-  ]
+    "id": "org.webosbrew.hbchannel.service",
+    "description": "Homebrew Channel Service",
+    "services": [
+        {
+            "name": "org.webosbrew.hbchannel.service"
+        }
+    ]
 }

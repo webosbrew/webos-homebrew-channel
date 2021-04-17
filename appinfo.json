@@ -1,0 +1,12 @@
+{
+    "id": "org.webosbrew.hbchannel",
+    "version": "0.0.1",
+    "vendor": "webosbrew.org",
+    "title": "Homebrew Channel",
+    "icon": "assets/icon160.png",
+    "main": "index.html",
+    "iconColor": "white",
+    "type": "web",
+    "trustLevel": "trusted",
+    "uiRevision": 2
+}

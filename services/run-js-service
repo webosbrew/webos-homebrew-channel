@@ -1,0 +1,4 @@
+#! /bin/sh
+
+# :^)
+eval "$(cat /usr/bin/run-js-service | sed 's/^thirdparty_jail=.*/thirdparty_jail=off/')"

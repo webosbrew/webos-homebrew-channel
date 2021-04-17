@@ -1,0 +1,50 @@
+{
+    "name": "webos-homebrew-channel",
+    "version": "1.0.0",
+    "description": "Manual installation:",
+    "main": "frontend/index.js",
+    "moduleDir": "frontend",
+    "scripts": {
+        "build": "enyo pack",
+        "build-service": "webpack",
+        "package": "ares-package dist/",
+        "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
+        "launch": "ares-launch org.webosbrew.hbchannel"
+    },
+    "assets": [
+        "appinfo.json",
+        "assets/**",
+        "services/bin/**",
+        "services/services.json",
+        "services/package.json",
+        "services/run-js-service",
+        "services/elevate-service"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/webosbrew/webos-homebrew-channel.git"
+    },
+    "author": "webOSBrew Team",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/webosbrew/webos-homebrew-channel/issues"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.13.15",
+        "@babel/plugin-transform-object-assign": "^7.12.13",
+        "@babel/preset-env": "^7.13.15",
+        "@webosose/ares-cli": "^2.1.0",
+        "babel-loader": "^8.2.2",
+        "enyo-dev": "^1.0.0",
+        "webpack": "^5.33.2",
+        "webpack-cli": "^4.6.0"
+    },
+    "dependencies": {
+        "bluebird": "^3.7.2",
+        "es6-shim": "^0.35.6",
+        "node-fetch": "^2.6.1",
+        "progress-stream": "^2.0.0",
+        "stream.pipeline-shim": "^1.1.0"
+    },
+    "homepage": "https://github.com/webosbrew/webos-homebrew-channel#readme"
+}
