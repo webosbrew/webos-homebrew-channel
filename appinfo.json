@@ -5,8 +5,7 @@
     "title": "Homebrew Channel",
     "icon": "assets/icon160.png",
     "main": "index.html",
-    "iconColor": "white",
+    "iconColor": "#ffffff",
     "type": "web",
-    "trustLevel": "trusted",
-    "uiRevision": 2
+    "appDescription": "webOS Homebrew installer"
 }
