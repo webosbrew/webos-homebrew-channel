@@ -174,15 +174,15 @@ service.register("getConfiguration", async (message) => {
   message.respond({
     returnValue: true,
     root: process.getuid() === 0,
-    disableTelnet: await flagRead('webosbrew_disable_telnet'),
+    telnetDisabled: await flagRead('webosbrew_telnet_disabled'),
   });
 });
 
 service.register("setConfiguration", async (message) => {
   try {
     const resp = {};
-    if (message.payload.disableTelnet !== undefined) {
-      resp.disableTelnet = await flagSet('webosbrew_disable_telnet', message.payload.disableTelnet);
+    if (message.payload.telnetDisabled !== undefined) {
+      resp.telnetDisabled = await flagSet('webosbrew_telnet_disabled', message.payload.telnetDisabled);
     }
     message.respond({
       returnValue: true,

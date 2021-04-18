@@ -33,14 +33,8 @@ module.exports = kind({
             {
               components: [
                 {kind: Divider, content: 'Root configuration'},
-                {kind: ToggleItem, content: 'Telnet', checked: true, onchange: 'itemChanged'},
-                {kind: ToggleItem, content: 'SSH Server', onchange: 'itemChanged'},
-                {
-                  kind: TooltipDecorator, components: [
-                    {kind: ToggleItem, content: 'Disable metrics', onchange: 'itemChanged', checked: true},
-                    {kind: Tooltip, content: 'This disables certain metrics reporting to TV manufacturer (crash logs, system logs)', position: 'below'}, // , position: 'right-below'}
-                  ], style: 'width: 100%',
-                },
+                {kind: ToggleItem, name: 'telnet', disabled: true, content: 'Telnet', onchange: 'updateConfiguration'},
+                {kind: ToggleItem, name: 'ssh', disabled: true, content: 'SSH Server', onchange: 'updateConfiguration'},
                 {kind: Divider, content: 'System information'},
                 {
                   kind: LabeledTextItem,
@@ -78,24 +72,42 @@ module.exports = kind({
       ]
     },
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
-    {kind: LunaService, name: 'checkroot', service: 'luna://org.webosbrew.hbchannel.service', method: 'checkRoot', onResponse: 'onCheckRoot', onError: 'onCheckRoot'},
+    {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
+    {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
   ],
 
   rootStatus: 'pending...',
+  telnetEnabled: false,
+
   bindings: [
     {from: "rootStatus", to: '$.rootStatus.text'},
+    // FIXME: shall this be a true/false/null value tranformed around?
+    {from: "rootStatus", to: '$.telnet.disabled', transform: function (v) {return v !== 'ok';}},
+    {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
   ],
   create: function () {
     this.inherited(arguments);
-    this.$.checkroot.send({});
+    this.$.getConfiguration.send({});
   },
-  onCheckRoot: function (sender, response) {
+  onGetConfiguration: function (sender, response) {
     console.info(sender, response);
     if (response.errorText) {
       this.set('rootStatus', response.errorText);
     } else {
-      this.set('rootStatus', response.returnValue ? 'ok' : 'unelevated');
+      this.set('rootStatus', response.root ? 'ok' : 'unelevated');
+      this.set('telnetEnabled', !response.telnetDisabled);
     }
+  },
+  onSetConfiguration: function (sender, response) {
+    if (response.errorText) {
+      this.$.errorPopup.set('content', 'An error occured during configuration change: ' + response.errorText);
+      this.$.errorPopup.show();
+    }
+  },
+  updateConfiguration: function () {
+    this.$.setConfiguration.send({
+      telnetDisabled: !this.telnetEnabled,
+    })
   },
   versionTap: function (sender, evt) {
     var t = new Date().getTime();
