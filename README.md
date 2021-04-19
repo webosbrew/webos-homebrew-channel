@@ -41,6 +41,7 @@ rm -rf dist && npm run build -- --production && npm run build-service -- --env p
 ### Full application testing / deployment
 ```sh
 rm -rf dist && npm run build && npm run build-service && npm run package && npm run deploy && npm run launch
+ssh root@10.0.0.2 -p 9922 /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
 ```
 
 ### Service testing
