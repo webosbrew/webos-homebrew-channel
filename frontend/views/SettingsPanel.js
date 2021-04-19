@@ -35,6 +35,16 @@ module.exports = kind({
                 {kind: Divider, content: 'Root configuration'},
                 {kind: ToggleItem, name: 'telnet', disabled: true, content: 'Telnet', onchange: 'updateConfiguration'},
                 {kind: ToggleItem, name: 'ssh', disabled: true, content: 'SSH Server', onchange: 'updateConfiguration'},
+                {
+                  kind: TooltipDecorator, components: [
+                    {kind: ToggleItem, name: 'failsafe', disabled: true, content: 'Failsafe mode', onchange: 'updateConfiguration'},
+                    {
+                      kind: Tooltip, position: 'right bottom', components: [
+                        {content: 'This disables all early system modifications and leaves recovery telnet running. Gets automatically tripped in case of a reboot/crash during early system startup.', uppercase: false, style: 'width: 30rem; white-space: normal'}
+                      ]
+                    },
+                  ], style: 'width: 100%',
+                },
                 {kind: Divider, content: 'System information'},
                 {
                   kind: LabeledTextItem,
@@ -48,6 +58,12 @@ module.exports = kind({
                   text: 'unknown',
                   name: 'rootStatus',
                   disabled: true,
+                },
+                {
+                  kind: LabeledTextItem,
+                  label: 'System reboot',
+                  text: 'Configuration changes require a system reboot to apply.',
+                  ontap: 'reboot',
                 },
               ],
               classes: 'moon-6h',
@@ -74,16 +90,22 @@ module.exports = kind({
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
     {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
     {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
+    {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
   ],
 
   rootStatus: 'pending...',
   telnetEnabled: false,
+  failsafe: false,
+  rebootRequired: false,
 
   bindings: [
     {from: "rootStatus", to: '$.rootStatus.text'},
     // FIXME: shall this be a true/false/null value tranformed around?
     {from: "rootStatus", to: '$.telnet.disabled', transform: function (v) {return v !== 'ok';}},
+    {from: "rootStatus", to: '$.failsafe.disabled', transform: function (v) {return v !== 'ok';}},
+    {from: "rootStatus", to: '$.reboot.disabled', transform: function (v) {return v !== 'ok';}},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
+    {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
   ],
   create: function () {
     this.inherited(arguments);
@@ -96,6 +118,7 @@ module.exports = kind({
     } else {
       this.set('rootStatus', response.root ? 'ok' : 'unelevated');
       this.set('telnetEnabled', !response.telnetDisabled);
+      this.set('failsafe', response.failsafe);
     }
   },
   onSetConfiguration: function (sender, response) {
@@ -105,9 +128,18 @@ module.exports = kind({
     }
   },
   updateConfiguration: function () {
+    this.set('rebootRequired', true);
     this.$.setConfiguration.send({
       telnetDisabled: !this.telnetEnabled,
+      failsafe: this.failsafe,
     })
+  },
+  reboot: function () {
+    this.$.reboot.send({reason: 'SwDownload'});
+    this.$.errorPopup.set('content', 'Rebooting...');
+    this.$.errorPopup.set('allowBackKey', false);
+    this.$.errorPopup.set('spotlightModal', true);
+    this.$.errorPopup.show();
   },
   versionTap: function (sender, evt) {
     var t = new Date().getTime();

@@ -175,6 +175,7 @@ service.register("getConfiguration", async (message) => {
     returnValue: true,
     root: process.getuid() === 0,
     telnetDisabled: await flagRead('webosbrew_telnet_disabled'),
+    failsafe: await flagRead('webosbrew_failsafe'),
   });
 });
 
@@ -184,9 +185,26 @@ service.register("setConfiguration", async (message) => {
     if (message.payload.telnetDisabled !== undefined) {
       resp.telnetDisabled = await flagSet('webosbrew_telnet_disabled', message.payload.telnetDisabled);
     }
+    if (message.payload.failsafe !== undefined) {
+      resp.failsafe = await flagSet('webosbrew_failsafe', message.payload.failsafe);
+    }
     message.respond({
       returnValue: true,
       ...resp
+    });
+  } catch (err) {
+    message.respond({
+      returnValue: false,
+      errorText: err.toString(),
+    });
+  }
+});
+
+service.register("reboot", async (message) => {
+  try {
+    await execPromise('reboot');
+    message.respond({
+      returnValue: true,
     });
   } catch (err) {
     message.respond({
