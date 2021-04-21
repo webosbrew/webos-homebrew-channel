@@ -108,3 +108,6 @@ dist
 # doas binaries
 services/bin/doas
 tools/doas/doas
+.enyocache
+dist/
+node_modules/
