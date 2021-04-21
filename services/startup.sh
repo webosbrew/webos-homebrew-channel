@@ -49,7 +49,10 @@ else
         /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
     fi
 
-    # TODO: execute user hooks
+    # Run user startup hooks
+    if [[ -d /var/lib/webosbrew/init.d ]]; then
+        run-parts /var/lib/webosbrew/init.d
+    fi
 
     # Reset failsafe flag after a while
     sleep 10
