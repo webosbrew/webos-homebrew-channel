@@ -175,6 +175,7 @@ service.register("getConfiguration", async (message) => {
     returnValue: true,
     root: process.getuid() === 0,
     telnetDisabled: await flagRead('webosbrew_telnet_disabled'),
+    sshdEnabled: await flagRead('webosbrew_sshd_enabled'),
     failsafe: await flagRead('webosbrew_failsafe'),
   });
 });
@@ -187,6 +188,9 @@ service.register("setConfiguration", async (message) => {
     }
     if (message.payload.failsafe !== undefined) {
       resp.failsafe = await flagSet('webosbrew_failsafe', message.payload.failsafe);
+    }
+    if (message.payload.sshdEnabled !== undefined) {
+      resp.sshdEnabled = await flagSet('webosbrew_sshd_enabled', message.payload.sshdEnabled);
     }
     message.respond({
       returnValue: true,

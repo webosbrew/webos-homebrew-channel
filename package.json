@@ -18,6 +18,7 @@
         "services/services.json",
         "services/package.json",
         "services/run-js-service",
+        "services/startup.sh",
         "services/elevate-service"
     ],
     "repository": {

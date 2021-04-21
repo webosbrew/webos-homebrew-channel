@@ -27,7 +27,15 @@ else
     rm -f /var/luna/preferences/dc*
 
     # Start root telnet server
-    [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]] && telnetd -l /bin/sh
+    if [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]]; then
+        telnetd -l /bin/sh
+    fi
+
+    # Start sshd
+    if [[ -e /var/luna/preferences/webosbrew_sshd_enabled ]]; then
+        mkdir -p /var/lib/webosbrew/sshd
+        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R
+    fi
 
     # Do our best to neuter telemetry
     mkdir -p /home/root/unwritable
@@ -37,7 +45,9 @@ else
     mount --bind /home/root/unwritable/ /var/spool/uploadd/uploaded/
 
     # Automatically elevate Homebrew Channel service
-    [[ -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]] && /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
+    if [[ -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]]; then
+        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
+    fi
 
     # TODO: execute user hooks
 
