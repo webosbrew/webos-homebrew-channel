@@ -28,5 +28,6 @@ jobs:
     - name: Install system dependencies
       run: npm install -g @webosose/ares-cli
     - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+    - run: npm run build -- --production
+    - run: npm run build-service -- --env production
+    - run: npm run package
