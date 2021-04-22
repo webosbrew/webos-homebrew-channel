@@ -21,12 +21,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
+
     - name: Install system dependencies
       run: npm install -g @webosose/ares-cli
+      
     - run: npm ci
     - run: npm run build -- --production
     - run: npm run build-service -- --env production
