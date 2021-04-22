@@ -9,7 +9,8 @@
         "build-service": "webpack",
         "package": "ares-package dist/ -e enyo-ilib",
         "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
-        "launch": "ares-launch org.webosbrew.hbchannel"
+        "launch": "ares-launch org.webosbrew.hbchannel",
+        "clean": "rm -rf dist/"
     },
     "assets": [
         "appinfo.json",
