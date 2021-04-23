@@ -3,18 +3,12 @@
 set -e
 SERVICE_NAME="${1:-org.webosbrew.hbchannel.service}"
 
-echo "[ ] Elevating '$SERVICE_NAME'..."
+echo "[ ] Unjailing '$SERVICE_NAME'..."
 sed -i 's;/usr/bin;/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service;' /var/luna-service2-dev/services.d/$SERVICE_NAME.service
+
+echo "[ ] Extending ls2 permissions for '$SERVICE_NAME'..."
+# Note: double .service is intentional
+sed -i 's;public;all;g' /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json
 
 echo "[ ] Refreshing services..."
 ls-control scan-services
-
-#if [[ "$2" != "--no-restart" ]]; then
-#    echo "[ ] Restarting service..."
-#    pkill -x -f $SERVICE_NAME || echo "    Not running."
-#
-#    echo "[ ] Checking..."
-#    ls-monitor -i $SERVICE_NAME
-#    echo
-#    ps u -C $SERVICE_NAME
-#fi
