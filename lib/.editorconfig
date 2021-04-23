@@ -1,0 +1,2 @@
+; Leave empty. This prevents applying code style to third-party code.
+root = true

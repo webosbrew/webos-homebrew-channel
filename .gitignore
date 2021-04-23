@@ -107,7 +107,7 @@ dist
 
 # doas binaries
 services/bin/doas
+services/bin/dropbear
 tools/doas/doas
 .enyocache
 dist/
-node_modules/
