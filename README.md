@@ -1,6 +1,25 @@
 webos-homebrew-channel
 ======================
 
+Features
+--------
+
+* Independent webOS package repository
+    * Homebrew discovery, installation & updates
+
+* (root) Root execution service that can be easily used by webOS homebrew
+  developers without a need of separate privilege escalation handling (`luna://org.webosbrew.hbchannel.service/exec`)
+* (root) Disable some telemetry
+* (root) Startup user hooks (executable scripts present in `/var/lib/webosbrew/init.d` are run on bootup)
+* (root) Remote access
+    * SSH - public key authenticated (with default `alpine` password until
+      authorized keys are provisioned)
+    * Telnet - unauthenticated, use sparingly
+* (root) Failsafe mode
+    * In case a device crashes on boot only an emergency shell will be exposed
+      via telnet. In order to disable it fix the original crash cause and remove
+      `/var/luna/preferences/webosbrew_failsafe` flag file.
+
 Development
 -----------
 
