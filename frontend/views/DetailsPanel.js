@@ -95,7 +95,12 @@ module.exports = kind({
         {
           components: [
             {kind: Divider, content: 'Description'},
-            {kind: BodyText, content: 'Some long-ish project description......'},
+            {
+              name: 'appDescription',
+              kind: BodyText,
+              content: 'No description provided for this package',
+              allowHtml: false
+            },
             {
               kind: LabeledTextItem,
               label: 'Project page',
@@ -144,6 +149,15 @@ module.exports = kind({
     // This is data loaded from the web service
     {from: 'packageInfo.title', to: 'title'},
     {from: 'packageInfo.id', to: 'titleBelow'},
+    {
+      from: 'packageInfo.appDescription', to: '$.appDescription.content', transform: function (description) {
+        var appDescription = 'No description provided for this package'
+        if ((typeof description === 'string' || description instanceof String) && description.trim().length) {
+          appDescription = description;
+        }
+        return appDescription;
+      }
+    },
     {from: 'packageInfo.version', to: '$.version.text'},
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
     {
