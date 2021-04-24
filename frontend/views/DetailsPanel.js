@@ -151,7 +151,7 @@ module.exports = kind({
     {
       from: 'packageInfo.appDescription', to: '$.appDescription.content', transform: function (description) {
         var appDescription = 'No description provided for this package'
-        if (description instanceof String && description.trim().length) {
+        if ((typeof description === 'string' || description instanceof String) && description.trim().length) {
           appDescription = description;
         }
         return appDescription;
