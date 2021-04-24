@@ -48,7 +48,7 @@ we may migrate to some webpack-based solution around that.
 
 Service is packaged using webpack & babel, thus, with enough shims and patches,
 we can write and use some modern ES features (like Promises, arrow functions,
-async functions, const, etc.) while targetting NodeJS 0.10 (used on earliest
+async functions, const, etc.) while targeting NodeJS 0.10 (used on earliest
 webOS versions)
 
 
