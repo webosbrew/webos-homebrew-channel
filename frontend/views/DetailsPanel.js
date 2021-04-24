@@ -98,7 +98,8 @@ module.exports = kind({
             {
               name: 'appDescription',
               kind: BodyText,
-              content: 'No description provided for this package'
+              content: 'No description provided for this package',
+              allowHtml: false
             },
             {
               kind: LabeledTextItem,
