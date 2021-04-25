@@ -3,11 +3,10 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
-const { format } = require('util');
 
 let outfile = process.argv[2];
 let appinfo = JSON.parse(fs.readFileSync('appinfo.json'));
-let ipkfile = format('%s_%s_all.ipk',appinfo.id, appinfo.version);
+let ipkfile = `${appinfo.id}_${appinfo.version}_all.ipk`;
 let ipkhash = crypto.createHash('sha256').update(fs.readFileSync(ipkfile)).digest('hex');
 
 fs.writeFileSync(outfile, JSON.stringify({
