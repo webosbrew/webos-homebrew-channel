@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-# This should build a working dropbear sshd to be bundled in homebrew channel
-# package
+# Builds a dropbear sshd binary to be bundled in homebrew channel package.
 #
-# Usage:
+# Usage, from repository root directory:
 #
-#   docker run --rm -v /tmp/opt:/opt -v $(pwd):/app ubuntu:18.04 /app/tools/build-dropbear.sh
+#   docker run --rm -v /tmp/opt:/opt -v $PWD:/app ubuntu:18.04 /app/tools/build-dropbear.sh
 #
 
 set -ex
@@ -18,7 +17,7 @@ apt-get update && apt-get install -y --no-install-recommends xz-utils python git
 # Prepare NDK
 if [[ ! -f $NDK_PATH/environment-setup-armv7a-neon-webos-linux-gnueabi ]]; then
     wget https://github.com/webosbrew/meta-lg-webos-ndk/releases/download/1.0.g-rev.4/webos-sdk-x86_64-armv7a-neon-toolchain-1.0.g.sh -O /tmp/webos-ndk-installer
-    sha256sum -c <(echo 'a7f740239de589ef8019effdc68ffb0168e02c9fc1d428f563305a555eb30976 /tmp/webos-ndk-installer')
+    sha256sum -c <<< 'a7f740239de589ef8019effdc68ffb0168e02c9fc1d428f563305a555eb30976 /tmp/webos-ndk-installer'
     chmod +x /tmp/webos-ndk-installer
     /tmp/webos-ndk-installer -y -d $NDK_PATH
     rm /tmp/webos-ndk-installer
@@ -28,7 +27,7 @@ fi
 rm -rf /opt/dropbear-src
 mkdir -p /opt/dropbear-src
 wget https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2020.81.tar.gz -O /tmp/dropbear.tar.gz
-sha256sum -c <(echo 'c7cfc687088daca392b780f4af87d92ec1803f062c4c984f02062adc41b8147f /tmp/dropbear.tar.gz')
+sha256sum -c <<< 'c7cfc687088daca392b780f4af87d92ec1803f062c4c984f02062adc41b8147f /tmp/dropbear.tar.gz'
 tar xvf /tmp/dropbear.tar.gz -C /opt/dropbear-src --strip-components=1
 
 # Build
@@ -44,6 +43,6 @@ EOF
 autoconf
 autoheader
 ./configure --host arm-webos-linux-gnueabi
-make PROGRAMS="dropbear"
+make PROGRAMS="dropbear" -j$(nproc --all)
 arm-webos-linux-gnueabi-strip dropbear
 cp dropbear $TARGET_DIR
