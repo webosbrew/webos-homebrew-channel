@@ -44,7 +44,7 @@ jobs:
         prerelease: true
 
     - name: Upload IPK asset
-      id: upload-release-asset 
+      id: upload-ipk-asset 
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +55,7 @@ jobs:
         asset_content_type: application/vnd.debian.binary-package
 
     - name: Upload Manifest asset
-      id: upload-release-asset 
+      id: upload-manifest-asset 
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
