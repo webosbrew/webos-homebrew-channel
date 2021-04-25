@@ -8,6 +8,7 @@
         "build": "enyo pack",
         "build-service": "webpack",
         "package": "ares-package dist/ -e enyo-ilib",
+        "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
         "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
         "clean": "rm -rf dist/"
