@@ -104,7 +104,7 @@ dist
 .tern-port
 
 *.ipk
-/*-webosbrew.manifest
+*.manifest.json
 
 # doas binaries
 services/bin/doas
