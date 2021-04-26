@@ -17,9 +17,9 @@ var
   Collection = require('enyo/Collection'),
   SettingsPanel = require('./SettingsPanel.js');
 
-
-// FIXME: change this before release
-var repositoryBaseURL = 'https://webosbrew-test-repo.inf.re';
+// TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
+// Page starts with 1
+var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
 
 var AppListItem = kind({
   name: 'AppListItem',
