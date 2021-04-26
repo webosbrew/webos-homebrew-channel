@@ -74,7 +74,7 @@ module.exports = kind({
                 {kind: ToggleItem, content: 'Default repository - https://repo.webosbrew.org', checked: true, disabled: true},
                 {
                   kind: Item, mixins: [ItemOverlaySupport], components: [
-                    {kind: MarqueeText, content: 'https://repo.webosbrew.org/demo'}
+                    {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/'}
                   ], endingComponents: [
                     {kind: Icon, icon: 'trash', small: true}
                   ], disabled: true,
