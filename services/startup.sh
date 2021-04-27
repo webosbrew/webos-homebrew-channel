@@ -21,10 +21,21 @@ else
     # tripped...
     touch /var/luna/preferences/webosbrew_failsafe
     sync
-    sleep 3
+    sleep 2
 
     # Reset devmode reboot counter
     rm -f /var/luna/preferences/dc*
+
+    # Block software update servers
+    if [[ -e /var/luna/preferences/webosbrew_block_updates ]]; then
+        cp /etc/hosts /tmp/hosts
+        mount --bind /tmp/hosts /etc/hosts
+
+        echo '' >> /etc/hosts
+        echo '# This file is dynamically regenerated on boot by webosbrew startup script' >> /etc/hosts
+        echo '127.0.0.1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com' >> /etc/hosts
+        echo '::1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com' >> /etc/hosts
+    fi
 
     # Start root telnet server
     if [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]]; then

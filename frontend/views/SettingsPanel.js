@@ -35,6 +35,7 @@ module.exports = kind({
                 {kind: Divider, content: 'Root configuration'},
                 {kind: ToggleItem, name: 'telnet', disabled: true, content: 'Telnet', onchange: 'updateConfiguration'},
                 {kind: ToggleItem, name: 'sshd', disabled: true, content: 'SSH Server', onchange: 'updateConfiguration'},
+                {kind: ToggleItem, name: 'blockUpdates', disabled: true, content: 'Block system updates', onchange: 'updateConfiguration'},
                 {
                   kind: TooltipDecorator, components: [
                     {kind: ToggleItem, name: 'failsafe', disabled: true, content: 'Failsafe mode', onchange: 'updateConfiguration'},
@@ -96,6 +97,7 @@ module.exports = kind({
   rootStatus: 'pending...',
   telnetEnabled: false,
   sshdEnabled: false,
+  blockUpdates: false,
   failsafe: false,
   rebootRequired: false,
 
@@ -104,10 +106,12 @@ module.exports = kind({
     // FIXME: shall this be a true/false/null value tranformed around?
     {from: "rootStatus", to: '$.telnet.disabled', transform: function (v) {return v !== 'ok';}},
     {from: "rootStatus", to: '$.sshd.disabled', transform: function (v) {return v !== 'ok';}},
+    {from: "rootStatus", to: '$.blockUpdates.disabled', transform: function (v) {return v !== 'ok';}},
     {from: "rootStatus", to: '$.failsafe.disabled', transform: function (v) {return v !== 'ok';}},
     {from: "rootStatus", to: '$.reboot.disabled', transform: function (v) {return v !== 'ok';}},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
+    {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
     {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
   ],
   create: function () {
@@ -122,6 +126,7 @@ module.exports = kind({
       this.set('rootStatus', response.root ? 'ok' : 'unelevated');
       this.set('telnetEnabled', !response.telnetDisabled);
       this.set('sshdEnabled', response.sshdEnabled);
+      this.set('blockUpdates', response.blockUpdates);
       this.set('failsafe', response.failsafe);
     }
   },
@@ -136,6 +141,7 @@ module.exports = kind({
     this.$.setConfiguration.send({
       telnetDisabled: !this.telnetEnabled,
       sshdEnabled: this.sshdEnabled,
+      blockUpdates: this.blockUpdates,
       failsafe: this.failsafe,
     })
   },
