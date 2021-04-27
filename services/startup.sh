@@ -48,6 +48,20 @@ else
         /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R
     fi
 
+    # Set placeholder root password (alpine) unless someone has already
+    # provisioned their ssh authorized keys
+    if [ ! -f /home/root/.ssh/authorized_keys ]; then
+        sed s/root:.:/root:xGVw8H4GqkKg6:/ /etc/shadow > /tmp/shadow
+        chmod 400 /tmp/shadow
+        mount --bind /tmp/shadow /etc/shadow
+
+        echo '' >> /tmp/motd
+        echo ' /!\ Your system is using a default password.' >> /tmp/motd
+        echo ' /!\ Insert SSH public key into /home/root/.ssh/authorized_keys and perform a reboot to remove this warning.' >> /tmp/motd
+        echo '' >> /tmp/motd
+        mount --bind /tmp/motd /etc/motd
+    fi
+
     # Do our best to neuter telemetry
     mkdir -p /home/root/unwritable
     chattr +i /home/root/unwritable
