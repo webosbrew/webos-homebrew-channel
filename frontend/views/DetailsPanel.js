@@ -250,8 +250,9 @@ module.exports = kind({
   },
   installApp: function () {
     console.info('installApp...');
+    var ipkUrl = new URL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl'));
     this.installRequest = this.$.installCall.send({
-      ipkUrl: this.packageInfo.get('ipkUrl'),
+      ipkUrl: ipkUrl.href,
       ipkHash: this.packageInfo.get('ipkHash').sha256,
       subscribe: true,
     });
