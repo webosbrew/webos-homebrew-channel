@@ -49,8 +49,9 @@ module.exports = kind({
                 {kind: Divider, content: 'System information'},
                 {
                   kind: LabeledTextItem,
+                  name: 'version',
                   label: 'webosbrew version',
-                  text: '0.1.2.3',
+                  text: 'unknown',
                   ontap: 'versionTap',
                 },
                 {
@@ -117,6 +118,9 @@ module.exports = kind({
   create: function () {
     this.inherited(arguments);
     this.$.getConfiguration.send({});
+    global.webOS.fetchAppInfo((function (info) {
+      this.$.version.set('text', info.version);
+    }).bind(this));
   },
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);
