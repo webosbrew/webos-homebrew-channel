@@ -1,7 +1,5 @@
 import "regenerator-runtime/runtime";
 import "es6-shim";
-// ??
-// require('@babel/runtime/core-js/promise').default = require('bluebird');
 
 import pkgInfo from './package.json';
 import Service from 'webos-service';
@@ -83,9 +81,9 @@ async function installPackage(filePath) {
 }
 
 service.register("install", async (message) => {
-  try {
-    const targetPath = '/tmp/incoming.ipk';
+  const targetPath = `/tmp/.hbchannel-incoming-${Date.now()}.ipk`;
 
+  try {
     message.respond({
       statusText: 'downloading',
     });
@@ -145,7 +143,10 @@ service.register("install", async (message) => {
       returnValue: false,
       errorText: err.toString(),
     });
+  } finally {
+    fs.unlink(targetPath, (err) => console.warn('Unable to remove file!', err));
   }
+
   message.cancel();
 }, () => {
   console.info('canceled!');
