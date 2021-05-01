@@ -1,7 +1,7 @@
 import "regenerator-runtime/runtime";
 import "es6-shim";
 
-import pkgInfo from './package.json';
+import serviceInfo from './services.json';
 import Service from 'webos-service';
 import child_process from 'child_process';
 import path from 'path';
@@ -19,8 +19,7 @@ const execPromise = Promise.promisify(child_process.exec);
 const unlinkPromise = Promise.promisify(fs.unlink);
 const writeFilePromise = Promise.promisify(fs.writeFile);
 
-// Register com.yourdomain.@DIR@.service, on both buses
-var service = new Service(pkgInfo.name);
+var service = new Service(serviceInfo.id);
 
 function promiseCall(svc, uri, args) {
   return new Promise((resolve, reject) => {
