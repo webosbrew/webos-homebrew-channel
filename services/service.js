@@ -1,5 +1,6 @@
 import "regenerator-runtime/runtime";
 import "es6-shim";
+import './buffer-shim';
 
 import serviceInfo from './services.json';
 import Service from 'webos-service';
@@ -13,6 +14,8 @@ import fetch from 'node-fetch';
 import progress from 'progress-stream';
 import {createHash} from 'crypto';
 
+import { Service as ServiceRemote } from './webos-service-remote';
+
 fetch.Promise = Promise;
 const pipelinePromise = Promise.promisify(pipeline);
 const execPromise = Promise.promisify(child_process.exec);
@@ -20,6 +23,15 @@ const unlinkPromise = Promise.promisify(fs.unlink);
 const writeFilePromise = Promise.promisify(fs.writeFile);
 
 var service = new Service(serviceInfo.id);
+var serviceRemote = new ServiceRemote();
+
+function installerService() {
+  if (process.getuid() === 0) {
+    return service;
+  } else {
+    return serviceRemote;
+  }
+}
 
 function promiseCall(svc, uri, args) {
   return new Promise((resolve, reject) => {
@@ -55,7 +67,8 @@ async function hashFile(filePath, type) {
  */
 async function installPackage(filePath) {
   return new Promise((resolve, reject) => {
-    const req = service.subscribe('luna://com.webos.appInstallService/dev/install', {
+    const svc = installerService();
+    const req = svc.subscribe('luna://com.webos.appInstallService/dev/install', {
       id: "testing",
       ipkUrl: filePath,
       subscribe: true,
@@ -238,7 +251,8 @@ service.register("getAppInfo", async (message) => {
       throw new Error('Fail to parse json');
     }
 
-    const appList = await promiseCall(service, 'luna://com.webos.applicationManager/dev/listApps', {});
+    const svc = installerService();
+    const appList = await promiseCall(svc, 'luna://com.webos.applicationManager/dev/listApps', {});
     const appInfo = appList.apps.find(a => a.id === appId);
     if (appInfo) {
       message.respond({
