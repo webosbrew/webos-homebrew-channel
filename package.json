@@ -5,15 +5,18 @@
     "main": "frontend/index.js",
     "moduleDir": "frontend",
     "scripts": {
-        "build": "npm-run-all --serial build:**",
-        "build:frontend": "enyo pack",
-        "build:service": "webpack",
-        "build:package": "ares-package dist/ -e enyo-ilib",
+        "build": "enyo pack",
+        "build-service": "webpack",
+        "package": "ares-package dist/ -e enyo-ilib",
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
         "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
         "clean": "rm -rf dist/",
-        "build-and-launch": "npm-run-all --serial build deploy launch"
+        "build-local": "npm-run-all --serial build-local:**",
+        "build-local:frontend": "enyo pack",
+        "build-local:service": "webpack",
+        "build-local:package": "ares-package dist/ -e enyo-ilib",
+        "build-and-launch": "npm-run-all --serial build-local deploy launch"
     },
     "assets": [
         "appinfo.json",
