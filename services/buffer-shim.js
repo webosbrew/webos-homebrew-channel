@@ -1,5 +1,3 @@
-'use strict';
-
 function newBuffer(data, encoding, len) {
     return new Buffer(data, encoding, len);
 }
