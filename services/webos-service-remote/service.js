@@ -13,6 +13,9 @@ export default class Service {
         return new Subscription(this.sendingHandle, uri, args);
     }
     call(uri, args, callback) {
+        if (typeof args !== "object" || args === null) {
+            throw ("args must be an object");
+        }
         const handle = this.sendingHandle;
         handle.call(uri, args).then(body => {
             callback(new Message(body, handle));

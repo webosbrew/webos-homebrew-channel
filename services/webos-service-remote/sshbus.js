@@ -4,11 +4,13 @@ import Message from './message';
 import { SSH } from './ssh-promise';
 
 class Request extends EventEmitter {
-    constructor() {
+    constructor(ssh) {
         super();
+        this.ssh = ssh;
     }
 
     cancel() {
+        this.ssh.close();
     }
 }
 
@@ -17,19 +19,25 @@ export default class Handle {
         this.service = service;
     }
     subscribe(uri, payload) {
-        var request = new Request();
         const ssh = new SSH();
+        var request = new Request(ssh);
         this._getSshConfig().then(config => ssh.connect(config))
-            .then(() => ssh.spawn('luna-send-pub', ['-i', uri, JSON.stringify(payload)]))
+            .then(() => ssh.spawn('luna-send-pub', ['-i', uri, payload]))
             .then(stream => {
+                var stdout = '';
                 stream.on('close', (code, signal) => {
-                    ssh.destroy();
+
                 });
                 stream.on('data', data => {
-                    for (var line of data.toString().split('\n')) {
-                        line = line.trim();
-                        if (!line.length) continue;
+                    stdout += data.toString();
+                    var searchPos = 0, breakPos = 0;
+                    while ((breakPos = stdout.indexOf('\n', searchPos)) > 0) {
+                        const line = stdout.substring(searchPos, breakPos).trim();
                         request.emit('response', Message.constructBody(line, true));
+                        searchPos = breakPos + 1;
+                    }
+                    if (searchPos) {
+                        stdout = stdout.substring(searchPos);
                     }
                 });
             })
@@ -40,7 +48,7 @@ export default class Handle {
             }), false)))
             .catch(reason => {
                 if (reason.stack) {
-                    console.err(reason.stack);
+                    console.error(reason.stack);
                 }
                 request.emit('cancel', Message.constructBody(JSON.stringify({
                     returnValue: false,
@@ -58,6 +66,19 @@ export default class Handle {
     }
 
     _getSshConfig() {
+        if (!this.service.call) {
+            const conf = this.service;
+            // Assume this is static fonguration for testing
+            return new Promise((resolve, reject) => {
+                resolve({
+                    host: conf.host,
+                    port: conf.port,
+                    username: conf.username,
+                    privateKey: readFileSync(conf.privateKeyPath),
+                    passphrase: conf.passphrase,
+                })
+            });
+        }
         return new Promise((resolve, reject) => {
             this.service.call('luna://com.webos.service.sm/deviceid/getIDs', { idType: ['NDUID'] }, (message) => {
                 if (!message.payload.returnValue) {
