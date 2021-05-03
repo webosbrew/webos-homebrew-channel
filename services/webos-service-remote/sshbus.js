@@ -18,6 +18,12 @@ export default class Handle {
     constructor(service) {
         this.service = service;
     }
+    /**
+     * Send a message via luna-send-pub and start interactive session
+     * @param {string} uri 
+     * @param {string} payload 
+     * @returns EventEmitter of this session
+     */
     subscribe(uri, payload) {
         const ssh = new SSH();
         var request = new Request(ssh);
@@ -58,6 +64,12 @@ export default class Handle {
             });
         return request;
     }
+    /**
+     * Send a message via luna-send-pub and get response
+     * @param {string} uri 
+     * @param {string} payload 
+     * @returns Promise to response message
+     */
     async call(uri, payload) {
         const ssh = new SSH();
         return this._getSshConfig().then(config => ssh.connect(config)
