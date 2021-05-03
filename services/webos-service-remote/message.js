@@ -1,22 +1,22 @@
 //message.js - a wrapper for the palmbus message type
 
-export class Message {
+export default class Message {
     /* Message constructor
      * takes two arguments, a palmbus message object, and the handle it was received on
      * third argument is the activityManager instance to use
      */
-    constructor(message, handle) {
-        this.category = message.category();
-        this.method = message.method();
-        this.isSubscription = message.isSubscription();
-        this.uniqueToken = message.uniqueToken();
-        this.token = message.token();
+    constructor(body, handle) {
+        this.category = body.category();
+        this.method = body.method();
+        this.isSubscription = body.isSubscription();
+        this.uniqueToken = body.uniqueToken();
+        this.token = body.token();
         try {
-            this.payload = JSON.parse(message.payload());
+            this.payload = JSON.parse(body.payload());
         } catch (e) {
-            // console.error("Message: badly-formatted message payload");
-            // console.error("payload: " + message.payload());
-            this.payload = { badPayload: message.payload() };
+            console.error("Message: badly-formatted message payload");
+            console.trace();
+            this.payload = { badPayload: body.payload() };
         }
         this.sender = 'unknown';
         this.handle = handle;
@@ -39,5 +39,17 @@ export class Message {
             r.subscribed = false;
             this.respond(r);
         }
+    }
+    static constructBody(payload, isSubscription) {
+        if (!payload) throw new Error('payload is empty');
+        return {
+            applicationID: () => '',
+            category: () => '',
+            method: () => '',
+            isSubscription: () => isSubscription,
+            uniqueToken: () => '',
+            token: () => '',
+            payload: () => payload,
+        };
     }
 }

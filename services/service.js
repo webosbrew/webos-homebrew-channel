@@ -12,9 +12,9 @@ import fs from 'fs';
 import pipeline from 'stream.pipeline-shim';
 import fetch from 'node-fetch';
 import progress from 'progress-stream';
-import {createHash} from 'crypto';
+import { createHash } from 'crypto';
 
-import { Service as ServiceRemote } from './webos-service-remote';
+import ServiceRemote from './webos-service-remote';
 
 fetch.Promise = Promise;
 const pipelinePromise = Promise.promisify(pipeline);
@@ -23,7 +23,7 @@ const unlinkPromise = Promise.promisify(fs.unlink);
 const writeFilePromise = Promise.promisify(fs.writeFile);
 
 var service = new Service(serviceInfo.id);
-var serviceRemote = new ServiceRemote();
+var serviceRemote = new ServiceRemote(service);
 
 function installerService() {
   if (process.getuid() === 0) {
@@ -35,7 +35,8 @@ function installerService() {
 
 function promiseCall(svc, uri, args) {
   return new Promise((resolve, reject) => {
-    svc.call(uri, args, ({payload}) => {
+    svc.call(uri, args, ({ payload }) => {
+      console.log(payload);
       if (payload.returnValue) {
         resolve(payload);
       } else {
@@ -46,7 +47,7 @@ function promiseCall(svc, uri, args) {
 }
 
 function createToast(message) {
-  return promiseCall(service, 'luna://com.webos.notification/createToast', {sourceId: pkgInfo.name, message});
+  return promiseCall(service, 'luna://com.webos.notification/createToast', { sourceId: pkgInfo.name, message });
 }
 
 /**
@@ -110,7 +111,7 @@ service.register("install", async (message) => {
       time: 300 /* ms */
     });
     progressReporter.on('progress', (progress) => {
-      message.respond({statusText: 'downloading', progress: progress.percentage});
+      message.respond({ statusText: 'downloading', progress: progress.percentage });
     });
     const targetFile = fs.createWriteStream(targetPath);
     await pipelinePromise(res.body, progressReporter, targetFile);
@@ -274,7 +275,7 @@ service.register("getAppInfo", async (message) => {
 });
 
 service.register("exec", function (message) {
-  child_process.exec(message.payload.command, {encoding: "buffer"}, function (error, stdout, stderr) {
+  child_process.exec(message.payload.command, { encoding: "buffer" }, function (error, stdout, stderr) {
     message.respond({
       returnValue: !error,
       error: error,

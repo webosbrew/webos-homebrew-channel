@@ -1,8 +1,8 @@
 import EventEmitter from 'events';
-import { Message } from './message';
+import Message from './message';
 
 //* Subscription is an EventEmitter wrapper for subscribed LS2 calls
-export class Subscription extends EventEmitter {
+export default class Subscription extends EventEmitter {
     constructor(handle, uri, args) {
         super();
         this.uri = uri;
