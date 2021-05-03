@@ -23,7 +23,7 @@ export class Message {
     }
     //* respond to a message, with a JSON-compatible object
     respond(response) {
-        throw 'Not implemented';
+        throw new Error('Not implemented');
     }
     //* inform this client that no more responses are coming
     cancel(response) {
