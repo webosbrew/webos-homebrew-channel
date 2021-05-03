@@ -22,6 +22,12 @@ export class SSH {
         this.client.end();
     }
 
+    /**
+     * 
+     * @param {string} cmd Executable path/command
+     * @param {string[]} args Program arguments
+     * @returns Promise to shell stream
+     */
     spawn(cmd, args) {
         return new Promise((resolve, reject) => {
             this.client.exec(`${cmd} ${args ? shellEscape(args) : ''}`, (err, stream) => {
@@ -33,6 +39,12 @@ export class SSH {
         });
     }
 
+    /**
+     * 
+     * @param {string} cmd Executable path/command
+     * @param {string[]} args Program arguments
+     * @returns Promise to command output
+     */
     exec(cmd, args) {
         const client = this.client;
         return new Promise((resolve, reject) => {
