@@ -72,15 +72,16 @@ export default class Handle {
      */
     async call(uri, payload) {
         const ssh = new SSH();
-        return this._getSshConfig().then(config => ssh.connect(config)
-            .then(() => ssh.exec('luna-send-pub', ['-n', '1', uri, JSON.stringify(payload)]))
-            .then(({ stdout }) => Message.constructBody(stdout.trim(), false)));
+        const config = await this._getSshConfig();
+        await ssh.connect(config);
+        const { stdout } = await ssh.exec('luna-send-pub', ['-n', '1', uri, JSON.stringify(payload)]);
+        return Message.constructBody(stdout.trim(), false);
     }
 
     _getSshConfig() {
         if (!this.service.call) {
             const conf = this.service;
-            // Assume this is static fonguration for testing
+            // Assume this is static configuration for testing
             return new Promise((resolve, reject) => {
                 resolve({
                     host: conf.host,
