@@ -51,17 +51,7 @@ export default class Handle {
                 returnValue: false,
                 errorCode: -1,
                 errorText: `Unable to exec luna-send-pub: ${err}`,
-            }), false)))
-            .catch(reason => {
-                if (reason.stack) {
-                    console.error(reason.stack);
-                }
-                request.emit('cancel', Message.constructBody(JSON.stringify({
-                    returnValue: false,
-                    errorCode: -1,
-                    errorText: `Failed to start ssh session: ${reason}`
-                }), false));
-            });
+            }), false)));
         return request;
     }
     /**
