@@ -20,7 +20,7 @@ export default class Service {
      */
     call(uri, args, callback) {
         if (typeof args !== "object" || args === null) {
-            throw ("args must be an object");
+            throw new Error("args must be an object");
         }
         const handle = this.sendingHandle;
         handle.call(uri, args).then(body => {
@@ -41,7 +41,7 @@ export default class Service {
      */
     subscribe(uri, args) {
         if (typeof args !== "object" || args === null) {
-            throw ("args must be an object");
+            throw new Error("args must be an object");
         }
         return new Subscription(this.sendingHandle, uri, args);
     }

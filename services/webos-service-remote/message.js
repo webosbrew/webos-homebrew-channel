@@ -34,7 +34,7 @@ export default class Message {
                     r[k] = response[k];
                 }
             } else if (response !== undefined) {
-                throw ("response must be an object");
+                throw new Error("response must be an object");
             }
             r.subscribed = false;
             this.respond(r);
