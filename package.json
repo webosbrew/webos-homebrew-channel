@@ -11,7 +11,12 @@
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
         "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
-        "clean": "rm -rf dist/"
+        "clean": "rm -rf dist/",
+        "build-local": "npm-run-all --serial build-local:**",
+        "build-local:frontend": "enyo pack",
+        "build-local:service": "webpack",
+        "build-local:package": "ares-package dist/ -e enyo-ilib",
+        "build-and-launch": "npm-run-all --serial build-local deploy launch"
     },
     "assets": [
         "appinfo.json",
@@ -39,6 +44,9 @@
         "@webosose/ares-cli": "^2.1.0",
         "babel-loader": "^8.2.2",
         "enyo-dev": "^1.0.0",
+        "esm": "^3.2.25",
+        "npm-run-all": "^4.1.5",
+        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git",
         "webpack": "^5.33.2",
         "webpack-cli": "^4.6.0"
     },
@@ -47,6 +55,8 @@
         "es6-shim": "^0.35.6",
         "node-fetch": "^2.6.1",
         "progress-stream": "^2.0.0",
+        "shell-escape": "^0.2.0",
+        "ssh2": "^0.8.9",
         "stream.pipeline-shim": "^1.1.0"
     },
     "homepage": "https://github.com/webosbrew/webos-homebrew-channel#readme"

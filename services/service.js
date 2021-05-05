@@ -1,5 +1,6 @@
 import "regenerator-runtime/runtime";
 import "es6-shim";
+import './buffer-shim';
 
 import serviceInfo from './services.json';
 import Service from 'webos-service';
@@ -11,7 +12,9 @@ import fs from 'fs';
 import pipeline from 'stream.pipeline-shim';
 import fetch from 'node-fetch';
 import progress from 'progress-stream';
-import {createHash} from 'crypto';
+import { createHash } from 'crypto';
+
+import ServiceRemote from './webos-service-remote';
 
 fetch.Promise = Promise;
 const pipelinePromise = Promise.promisify(pipeline);
@@ -20,10 +23,20 @@ const unlinkPromise = Promise.promisify(fs.unlink);
 const writeFilePromise = Promise.promisify(fs.writeFile);
 
 var service = new Service(serviceInfo.id);
+var serviceRemote = new ServiceRemote(service);
+
+function installerService() {
+  if (process.getuid() === 0) {
+    return service;
+  } else {
+    return serviceRemote;
+  }
+}
 
 function promiseCall(svc, uri, args) {
   return new Promise((resolve, reject) => {
-    svc.call(uri, args, ({payload}) => {
+    svc.call(uri, args, ({ payload }) => {
+      console.log(payload);
       if (payload.returnValue) {
         resolve(payload);
       } else {
@@ -34,7 +47,7 @@ function promiseCall(svc, uri, args) {
 }
 
 function createToast(message) {
-  return promiseCall(service, 'luna://com.webos.notification/createToast', {sourceId: pkgInfo.name, message});
+  return promiseCall(service, 'luna://com.webos.notification/createToast', { sourceId: pkgInfo.name, message });
 }
 
 /**
@@ -55,7 +68,8 @@ async function hashFile(filePath, type) {
  */
 async function installPackage(filePath) {
   return new Promise((resolve, reject) => {
-    const req = service.subscribe('luna://com.webos.appInstallService/dev/install', {
+    const svc = installerService();
+    const req = svc.subscribe('luna://com.webos.appInstallService/dev/install', {
       id: "testing",
       ipkUrl: filePath,
       subscribe: true,
@@ -97,7 +111,7 @@ service.register("install", async (message) => {
       time: 300 /* ms */
     });
     progressReporter.on('progress', (progress) => {
-      message.respond({statusText: 'downloading', progress: progress.percentage});
+      message.respond({ statusText: 'downloading', progress: progress.percentage });
     });
     const targetFile = fs.createWriteStream(targetPath);
     await pipelinePromise(res.body, progressReporter, targetFile);
@@ -238,7 +252,8 @@ service.register("getAppInfo", async (message) => {
       throw new Error('Fail to parse json');
     }
 
-    const appList = await promiseCall(service, 'luna://com.webos.applicationManager/dev/listApps', {});
+    const svc = installerService();
+    const appList = await promiseCall(svc, 'luna://com.webos.applicationManager/dev/listApps', {});
     const appInfo = appList.apps.find(a => a.id === appId);
     if (appInfo) {
       message.respond({
@@ -260,7 +275,7 @@ service.register("getAppInfo", async (message) => {
 });
 
 service.register("exec", function (message) {
-  child_process.exec(message.payload.command, {encoding: "buffer"}, function (error, stdout, stderr) {
+  child_process.exec(message.payload.command, { encoding: "buffer" }, function (error, stdout, stderr) {
     message.respond({
       returnValue: !error,
       error: error,
