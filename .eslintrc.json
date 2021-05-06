@@ -1,0 +1,22 @@
+{
+    "extends": [
+        "airbnb-base",
+        "prettier"
+    ],
+    "plugins": [
+        "prettier"
+    ],
+    "rules": {
+        "prettier/prettier": [
+            "error"
+        ],
+        "no-console": "off",
+        "no-restricted-syntax": "off"
+    },
+    "ignorePatterns": [
+        "frontend/**",
+        "lib/**",
+        "node_modules/**",
+        "dist/**"
+    ]
+}
