@@ -1,6 +1,6 @@
 {
     "name": "webos-homebrew-channel",
-    "version": "1.0.0",
+    "version": "0.1.1",
     "description": "Manual installation:",
     "main": "frontend/index.js",
     "moduleDir": "frontend",
@@ -9,7 +9,7 @@
         "build-service": "webpack",
         "package": "ares-package dist/ -e enyo-ilib",
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
-        "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
+        "deploy": "ares-install org.webosbrew.hbchannel_${npm_package_version}_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
         "clean": "rm -rf dist/",
         "lint": "eslint .",
@@ -17,7 +17,8 @@
         "build-local:frontend": "enyo pack",
         "build-local:service": "webpack",
         "build-local:package": "ares-package dist/ -e enyo-ilib",
-        "build-and-launch": "npm-run-all --serial build-local deploy launch"
+        "build-and-launch": "npm-run-all --serial build-local deploy launch",
+        "version": "node tools/sync-version.js && git add appinfo.json"
     },
     "assets": [
         "appinfo.json",
