@@ -1,0 +1,4 @@
+{
+    "name": "org.webosbrew.hbchannel.service",
+    "main": "service.js"
+}
