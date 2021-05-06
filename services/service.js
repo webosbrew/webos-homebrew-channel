@@ -90,7 +90,9 @@ async function installPackage(filePath) {
       }
     });
     req.on('cancel', (msg) => {
-      reject(msg);
+      if (msg.payload && msg.payload.errorText) {
+        reject(new Error(msg.payload.errorText));
+      }
     });
   });
 }
