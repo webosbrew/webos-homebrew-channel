@@ -1,6 +1,6 @@
 {
     "id": "org.webosbrew.hbchannel",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "vendor": "webosbrew.org",
     "title": "Homebrew Channel",
     "icon": "assets/icon160.png",
