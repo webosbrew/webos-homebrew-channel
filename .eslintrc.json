@@ -11,7 +11,8 @@
             "error"
         ],
         "no-console": "off",
-        "no-restricted-syntax": "off"
+        "no-restricted-syntax": "off",
+        "import/no-extraneous-dependencies": ["error", {"devDependencies": true, "packageDir": "./"}]
     },
     "ignorePatterns": [
         "frontend/**",
