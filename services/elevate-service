@@ -1,14 +1,31 @@
 #! /bin/sh
 
 set -e
+export PATH="/usr/sbin:$PATH"
+
 SERVICE_NAME="${1:-org.webosbrew.hbchannel.service}"
+RESCAN_NEEDED=0
 
 echo "[ ] Unjailing '$SERVICE_NAME'..."
-sed -i 's;/usr/bin;/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service;' /var/luna-service2-dev/services.d/$SERVICE_NAME.service
+sed 's;/usr/bin;/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service;' /var/luna-service2-dev/services.d/$SERVICE_NAME.service > /tmp/_elevate_$SERVICE_NAME.service
+if ! diff /var/luna-service2-dev/services.d/$SERVICE_NAME.service /tmp/_elevate_$SERVICE_NAME.service ; then
+    cp /tmp/_elevate_$SERVICE_NAME.service /var/luna-service2-dev/services.d/$SERVICE_NAME.service
+    echo "[+] File changed"
+    RESCAN_NEEDED=1
+fi
 
 echo "[ ] Extending ls2 permissions for '$SERVICE_NAME'..."
 # Note: double .service is intentional
-sed -i 's;public;all;g' /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json
+sed 's;public;all;g' /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json > /tmp/_elevate_$SERVICE_NAME.service.json
+if ! diff /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json /tmp/_elevate_$SERVICE_NAME.service.json ; then
+    cp /tmp/_elevate_$SERVICE_NAME.service.json /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json
+    echo "[+] File changed"
+    RESCAN_NEEDED=1
+fi
 
-echo "[ ] Refreshing services..."
-ls-control scan-services
+if [[ "$RESCAN_NEEDED" == "1" ]]; then
+    echo "[+] Refreshing services..."
+    ls-control scan-services
+else
+    echo "[-] No changes, no rescan needed"
+fi
