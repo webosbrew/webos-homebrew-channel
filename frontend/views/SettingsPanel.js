@@ -18,6 +18,8 @@ var
   LabeledTextItem = require('moonstone/LabeledTextItem'),
   LunaService = require('enyo-webos/LunaService');
 
+var not = function (x) { return !x };
+
 var magic = {t: 0, n: 0};
 
 module.exports = kind({
@@ -95,7 +97,8 @@ module.exports = kind({
     {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
   ],
 
-  rootStatus: 'pending...',
+  rootTextStatus: 'pending...',
+  rootIsActive: false,
   telnetEnabled: false,
   sshdEnabled: false,
   blockUpdates: false,
@@ -103,13 +106,12 @@ module.exports = kind({
   rebootRequired: false,
 
   bindings: [
-    {from: "rootStatus", to: '$.rootStatus.text'},
-    // FIXME: shall this be a true/false/null value tranformed around?
-    {from: "rootStatus", to: '$.telnet.disabled', transform: function (v) {return v !== 'ok';}},
-    {from: "rootStatus", to: '$.sshd.disabled', transform: function (v) {return v !== 'ok';}},
-    {from: "rootStatus", to: '$.blockUpdates.disabled', transform: function (v) {return v !== 'ok';}},
-    {from: "rootStatus", to: '$.failsafe.disabled', transform: function (v) {return v !== 'ok';}},
-    {from: "rootStatus", to: '$.reboot.disabled', transform: function (v) {return v !== 'ok';}},
+    {from: "rootTextStatus", to: '$.rootStatus.text'},
+    {from: "rootIsActive", to: '$.telnet.disabled', transform: not},
+    {from: "rootIsActive", to: '$.sshd.disabled', transform: not},
+    {from: "rootIsActive", to: '$.blockUpdates.disabled', transform: not},
+    {from: "rootIsActive", to: '$.failsafe.disabled', transform: not},
+    {from: "rootIsActive", to: '$.reboot.disabled', transform: not},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
     {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
@@ -125,9 +127,10 @@ module.exports = kind({
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);
     if (response.errorText) {
-      this.set('rootStatus', response.errorText);
+      this.set('rootTextStatus', response.errorText);
     } else {
-      this.set('rootStatus', response.root ? 'ok' : 'unelevated');
+      this.set('rootIsActive', response.root);
+      this.set('rootTextStatus', response.root ? 'ok' : 'unelevated');
       this.set('telnetEnabled', !response.telnetDisabled);
       this.set('sshdEnabled', response.sshdEnabled);
       this.set('blockUpdates', response.blockUpdates);
@@ -136,7 +139,7 @@ module.exports = kind({
   },
   onSetConfiguration: function (sender, response) {
     if (response.errorText) {
-      this.$.errorPopup.set('content', 'An error occured during configuration change: ' + response.errorText);
+      this.$.errorPopup.set('content', 'An error occurred during configuration change: ' + response.errorText);
       this.$.errorPopup.show();
     }
   },
