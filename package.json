@@ -12,6 +12,7 @@
         "deploy": "ares-install org.webosbrew.hbchannel_0.0.1_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
         "clean": "rm -rf dist/",
+        "lint": "eslint .",
         "build-local": "npm-run-all --serial build-local:**",
         "build-local:frontend": "enyo pack",
         "build-local:service": "webpack",
