@@ -3,9 +3,11 @@
     "version": "0.1.1",
     "vendor": "webosbrew.org",
     "title": "Homebrew Channel",
-    "icon": "assets/icon160.png",
+    "icon": "assets/icon80.png",
+    "largeIcon": "assets/icon130.png",
+    "splashBackground": "assets/splash.png",
     "main": "index.html",
-    "iconColor": "#ffffff",
+    "iconColor": "#cf0652",
     "type": "web",
     "appDescription": "webOS Homebrew installer"
 }
