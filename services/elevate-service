@@ -25,7 +25,7 @@ fi
 
 if [[ "$RESCAN_NEEDED" == "1" ]]; then
     echo "[+] Refreshing services..."
-    ls-control scan-services
+    ls-control scan-volatile-dirs
 else
     echo "[-] No changes, no rescan needed"
 fi
