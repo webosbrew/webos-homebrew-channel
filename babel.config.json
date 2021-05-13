@@ -1,0 +1,19 @@
+{
+    "plugins": [
+        "@babel/plugin-transform-object-assign"
+    ],
+    "sourceType": "unambiguous",
+    "presets": [
+        [
+            "@babel/env",
+            {
+                "targets": {
+                    "node": "0.10"
+                },
+                "useBuiltIns": "entry",
+                "corejs": "3.0"
+            }
+        ],
+        "@babel/preset-typescript"
+    ]
+}
