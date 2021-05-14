@@ -11,7 +11,7 @@ module.exports = (env) => [
     // node inspector anyway.
     devtool: false,
 
-    entry: './services/service.js',
+    entry: './services/service.ts',
     output: {
       path: path.resolve(__dirname, './dist/services/'),
       filename: 'service.js',
@@ -19,27 +19,19 @@ module.exports = (env) => [
     externals: {
       'webos-service': 'commonjs2 webos-service',
     },
+    resolve: {
+      extensions: ['.ts', '.js'],
+    },
     module: {
       rules: [
         {
-          test: /(\.js|\.mjs)$/,
-          // exclude: /node_modules/,
-          use: {
-            loader: 'babel-loader',
-            options: {
-              plugins: ['@babel/plugin-transform-object-assign'],
-              presets: [
-                [
-                  '@babel/preset-env',
-                  {
-                    targets: {
-                      node: '0.10',
-                    },
-                  },
-                ],
-              ],
-            },
-          },
+          test: /\.m?js$/,
+          use: 'babel-loader',
+        },
+        {
+          test: /\.tsx?$/,
+          exclude: /node_modules/,
+          use: 'babel-loader',
         },
       ],
     },

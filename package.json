@@ -40,33 +40,42 @@
         "url": "https://github.com/webosbrew/webos-homebrew-channel/issues"
     },
     "devDependencies": {
-        "@babel/core": "^7.13.15",
+        "@babel/core": "^7.14.0",
         "@babel/plugin-transform-object-assign": "^7.12.13",
         "@babel/preset-env": "^7.13.15",
+        "@babel/preset-typescript": "^7.13.0",
+        "@types/bluebird": "^3.5.34",
+        "@types/node-fetch": "^2.5.10",
+        "@types/progress-stream": "^2.0.1",
+        "@types/webos-service": "^0.4.0",
+        "@typescript-eslint/eslint-plugin": "^4.4.1",
+        "@typescript-eslint/parser": "^4.22.1",
         "@webosose/ares-cli": "^2.1.0",
         "babel-loader": "^8.2.2",
         "enyo-dev": "^1.0.0",
         "eslint": "^7.25.0",
-        "eslint-config-airbnb-base": "^14.2.1",
+        "eslint-config-airbnb-typescript": "^12.3.1",
         "eslint-config-prettier": "^8.3.0",
         "eslint-plugin-import": "^2.22.1",
         "eslint-plugin-prettier": "^3.4.0",
         "esm": "^3.2.25",
         "npm-run-all": "^4.1.5",
         "prettier": "^2.2.1",
+        "typescript": "^4.2.4",
         "webpack": "^5.33.2",
         "webpack-cli": "^4.6.0"
     },
     "dependencies": {
         "bluebird": "^3.7.2",
+        "core-js": "^3.12.1",
         "es6-shim": "^0.35.6",
         "node-fetch": "^2.6.1",
         "progress-stream": "^2.0.0",
         "regenerator-runtime": "^0.13.7",
-        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git",
         "shell-escape": "^0.2.0",
         "ssh2": "^0.8.9",
-        "stream.pipeline-shim": "^1.1.0"
+        "stream.pipeline-shim": "^1.1.0",
+        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git"
     },
     "homepage": "https://github.com/webosbrew/webos-homebrew-channel#readme"
 }

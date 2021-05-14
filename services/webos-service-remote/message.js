@@ -25,7 +25,7 @@ export default class Message {
 
   //* respond to a message, with a JSON-compatible object
   // eslint-disable-next-line no-unused-vars
-  respond(response) {
+  respond() {
     throw new Error('Not implemented');
   }
 
