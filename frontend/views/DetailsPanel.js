@@ -8,6 +8,7 @@ var
   Divider = require('moonstone/Divider'),
   Item = require('moonstone/Item'),
   Model = require('enyo/Model'),
+  States = require('enyo/States'),
   Button = require('moonstone/Button'),
   ProgressButton = require('moonstone/ProgressButton'),
   Marquee = require('moonstone/Marquee'),
@@ -36,8 +37,6 @@ module.exports = kind({
   title: '',
   titleBelow: '',
   headerType: 'medium',
-  loading: true,
-  error: false,
   components: [
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true},
@@ -118,7 +117,7 @@ module.exports = kind({
     {
       kind: LunaService,
       name: 'appInfoCall',
-      service: 'luna://org.webosbrew.hbchannel.service', // com.webos.applicationManager',
+      service: 'luna://org.webosbrew.hbchannel.service',
       method: 'getAppInfo',
       onResponse: 'onAppInfoResponse',
       onError: 'onAppInfoError',
@@ -173,13 +172,11 @@ module.exports = kind({
 
     {
       from: 'packageInfo.status', to: '$.spinner.showing', transform: function (value) {
-        console.info(this.packageInfo.isReady(), this.packageInfo.isError(), this.packageInfo.status);
-        return !this.packageInfo.isReady() && !this.packageInfo.isError();
+        return this.packageInfo.isBusy();
       }
     },
     {
       from: 'packageInfo.status', to: '$.errorPopup.showing', transform: function (value) {
-        console.info('error:', this.packageInfo.isError());
         return this.packageInfo.isError();
       }
     },
@@ -226,15 +223,21 @@ module.exports = kind({
 
   refresh: function () {
     console.info('refresh');
-    this.set('packageInfo', new Model(undefined, {
-      source: new AjaxSource(),
-      url: new URL(this.model.get('manifestUrl'), this.repositoryURL).href,
-    }));
-    this.packageInfo.fetch({
-      // Why is model.status non-observable by default!?
-      success: function (t) {t.set('status', t.status);},
-      error: function (t) {t.set('status', t.status);},
-    });
+    if (this.model.get('manifest')) {
+      this.set('packageInfo', new Model(this.model.get('manifest')));
+      this.packageInfo.set('status', States.READY);
+    } else {
+      this.set('packageInfo', new Model(undefined, {
+        source: new AjaxSource(),
+        url: new URL(this.model.get('manifestUrl'), this.repositoryURL).href,
+      }));
+      this.packageInfo.fetch({
+        // Why is model.status non-observable by default!?
+        success: function (t) {t.set('status', t.status);},
+        error: function (t) {t.set('status', t.status);},
+      });
+    }
+
     this.$.appInfoCall.send({id: this.model.get("id")});
     console.info('appinfo sent:', this.appInfoRequest);
   },
