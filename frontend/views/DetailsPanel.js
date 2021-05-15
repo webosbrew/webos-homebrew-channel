@@ -208,11 +208,12 @@ module.exports = kind({
 
   appInfo: undefined,
 
-  transitionFinished: function () {
+  transitionFinished: function (evt) {
     // We are launching a web request in post transition to fix a race condition
     // when showing the error popup, whoops.
-    console.info('transitionFinished');
-    this.refresh();
+    if (!evt.isOffscreen) {
+      this.refresh();
+    }
   },
 
   installDisabled: function () {
