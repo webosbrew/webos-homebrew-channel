@@ -15,7 +15,18 @@ var
   MarqueeText = Marquee.Text,
   BodyText = require('moonstone/BodyText'),
   LunaService = require('enyo-webos/LunaService'),
-  LabeledTextItem = require('moonstone/LabeledTextItem');
+  Scroller = require('moonstone/Scroller'),
+  LabeledTextItem = require('moonstone/LabeledTextItem'),
+  DOMPurify = require('DOMPurify/dist/purify.cjs.js');
+
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+  if ('href' in node) {
+    console.info(node);
+
+    node.setAttribute('data-href', node.href);
+    node.removeAttribute('href');
+  }
+});
 
 function versionHigher(oldVer, newVer) {
   if (typeof oldVer !== 'string' || typeof newVer !== 'string') return false
@@ -41,75 +52,80 @@ module.exports = kind({
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true},
     {
-      classes: 'moon-hspacing top', components: [
+      kind: Scroller, fit: true,
+      components: [
         {
-          components: [
-            {kind: Divider, content: 'App information'},
+          classes: 'moon-hspacing top', components: [
             {
-              kind: LabeledTextItem,
-              label: 'Version',
-              name: 'version',
-              text: 'unknown',
-              disabled: true,
-            },
-            {
-              kind: LabeledTextItem,
-              label: 'Root required',
-              name: 'rootRequired',
-              text: 'unknown',
-              disabled: true,
+              components: [
+                {kind: Divider, content: 'App information'},
+                {
+                  kind: LabeledTextItem,
+                  label: 'Version',
+                  name: 'version',
+                  text: 'unknown',
+                  disabled: true,
+                },
+                {
+                  kind: LabeledTextItem,
+                  label: 'Root required',
+                  name: 'rootRequired',
+                  text: 'unknown',
+                  disabled: true,
+                },
+                {
+                  components: [
+                    {
+                      name: 'installButton', kind: ProgressButton, content: 'Install', progress: 0,
+                      style: 'width:100%;min-width:100%;', ontap: 'installApp',
+                      disabled: true,
+                    },
+                  ],
+                },
+                {
+                  components: [
+                    {
+                      name: 'launchButton', kind: ProgressButton, content: 'Launch', progress: 0,
+                      style: 'width:100%;min-width:100%;', ontap: 'launchApp',
+                      disabled: true,
+                    },
+                  ],
+                },
+                {
+                  // WIP
+                  showing: false,
+                  components: [
+                    {
+                      name: 'uninstallButton', kind: Button, content: 'Uninstall', style: 'width:100%;min-width:100%', small: true,
+                      disabled: true,
+                      ontap: 'uninstallApp',
+                    },
+                  ],
+                },
+              ],
+              classes: 'moon-6h',
             },
             {
               components: [
+                {kind: Divider, content: 'Description'},
                 {
-                  name: 'installButton', kind: ProgressButton, content: 'Install', progress: 0,
-                  style: 'width:100%;min-width:100%;', ontap: 'installApp',
+                  name: 'appDescription',
+                  kind: BodyText,
+                  content: 'No description provided for this package',
+                  allowHtml: true
+                },
+                {
+                  kind: LabeledTextItem,
+                  label: 'Project page',
+                  name: 'projectPage',
+                  text: 'unknown',
                   disabled: true,
+                  ontap: 'openProjectPage',
                 },
               ],
-            },
-            {
-              components: [
-                {
-                  name: 'launchButton', kind: ProgressButton, content: 'Launch', progress: 0,
-                  style: 'width:100%;min-width:100%;', ontap: 'launchApp',
-                  disabled: true,
-                },
-              ],
-            },
-            {
-              // WIP
-              showing: false,
-              components: [
-                {
-                  name: 'uninstallButton', kind: Button, content: 'Uninstall', style: 'width:100%;min-width:100%', small: true,
-                  disabled: true,
-                  ontap: 'uninstallApp',
-                },
-              ],
+              classes: 'moon-16h',
             },
           ],
-          classes: 'moon-6h',
-        },
-        {
-          components: [
-            {kind: Divider, content: 'Description'},
-            {
-              name: 'appDescription',
-              kind: BodyText,
-              content: 'No description provided for this package',
-              allowHtml: false
-            },
-            {
-              kind: LabeledTextItem,
-              label: 'Project page',
-              name: 'projectPage',
-              text: 'unknown',
-              disabled: true,
-              ontap: 'openProjectPage',
-            },
-          ],
-          classes: 'moon-16h',
         },
       ],
     },
@@ -148,6 +164,7 @@ module.exports = kind({
     // This is data loaded from the web service
     {from: 'packageInfo.title', to: 'title'},
     {from: 'packageInfo.id', to: 'titleBelow'},
+    /*
     {
       from: 'packageInfo.appDescription', to: '$.appDescription.content', transform: function (description) {
         var appDescription = 'No description provided for this package'
@@ -157,6 +174,11 @@ module.exports = kind({
         return appDescription;
       }
     },
+    */
+    {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
+      var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
+      return sanitized;
+    }},
     {from: 'packageInfo.version', to: '$.version.text'},
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
     {
@@ -237,6 +259,25 @@ module.exports = kind({
         success: function (t) {t.set('status', t.status);},
         error: function (t) {t.set('status', t.status);},
       });
+    }
+
+    if (this.model.get('fullDescriptionUrl')) {
+      this.set('descriptionModel', new Model(undefined, {
+        source: new AjaxSource(),
+        options: {parse: true},
+        url: new URL(this.model.get('fullDescriptionUrl'), this.repositoryURL).href,
+        parse: function (data) {
+          return {content: data};
+        },
+      }));
+      this.descriptionModel.fetch({
+        handleAs: 'text',
+        success: function (t) {t.set('status', t.status);},
+        error: function(t) {t.set('status', t.status);},
+      });
+    } else {
+      this.set('descriptionModel', new Model({content: this.model.get('shortDescription')}));
+      this.descriptionModel.set('status', States.READY);
     }
 
     this.$.appInfoCall.send({id: this.model.get("id")});
