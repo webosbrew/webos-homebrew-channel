@@ -1,0 +1,4 @@
+/* Fix checkbox mark illegible in bright popups */
+.moon-neutral .moon-icon.moon-icon-check {
+    color: white;
+}

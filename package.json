@@ -30,6 +30,9 @@
         "services/startup.sh",
         "services/elevate-service"
     ],
+    "styles": [
+        "frontend/views/SettingsPanel.css"
+    ],
     "repository": {
         "type": "git",
         "url": "git+https://github.com/webosbrew/webos-homebrew-channel.git"

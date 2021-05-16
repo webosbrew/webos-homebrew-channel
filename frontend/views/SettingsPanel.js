@@ -2,6 +2,10 @@ var
   kind = require('enyo/kind'),
   Panel = require('moonstone/Panel'),
   Scroller = require('moonstone/Scroller'),
+  BodyText = require('moonstone/BodyText'),
+  FormCheckbox = require('moonstone/FormCheckbox'),
+  Button = require('moonstone/Button'),
+  FittableColumns = require('layout/FittableColumns'),
   Divider = require('moonstone/Divider'),
   ToggleItem = require('moonstone/ToggleItem'),
   Tooltip = require('moonstone/Tooltip'),
@@ -92,9 +96,22 @@ module.exports = kind({
       ]
     },
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
+    {kind: Popup, name: 'startupPopup', showCloseButton: true, classes: 'moon-12v', components: [
+      {kind: Divider, content: 'Startup script update pending. Would you like to apply the changes?'},
+      {kind: Scroller, horizontal: 'hidden', spotlightPagingControls: true, style: 'height:280px;margin-bottom:20px;', components: [
+        {kind: BodyText, name: 'startupDiff', allowHtml: true, content: ''}
+      ]},
+      {kind: FittableColumns, components: [
+        {fit: true, components: [
+          {kind: FormCheckbox, content: 'Reboot', style: 'color:white; display:inline-block;', checked: true}
+        ]},
+        {kind: Button, content: 'Apply changes', ontap: 'panelNext'}
+      ]},
+    ]},
     {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
     {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
     {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
+    {kind: LunaService, name: 'startupCheck', service: 'luna://org.webosbrew.hbchannel.service', method: 'exec', onResponse: 'startupResponse', onError: 'startupResponse'},
   ],
 
   rootTextStatus: 'pending...',
@@ -120,9 +137,33 @@ module.exports = kind({
   create: function () {
     this.inherited(arguments);
     this.$.getConfiguration.send({});
+    this.$.startupCheck.send({
+      command: 'diff /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh',
+    });
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
     }).bind(this));
+  },
+  startupResponse: function (sender, response) {
+    if (response.stdoutString) {
+      this.$.startupDiff.set('content', this.prepareDiff(response.stdoutString));
+      this.$.startupPopup.show();
+    }
+  },
+  prepareDiff: function (string) {
+    var result = '';
+    string.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").split('\n').slice(2).forEach(function (line) {
+      if (line.indexOf('+') === 0) {
+        result += '<div style="color: green">' + line + '</div>';
+      } else if (line.indexOf('-') === 0) {
+        result += '<div style="color: red">' + line + '</div>';
+      } else if (line.indexOf('@') === 0) {
+        result += '<div style="color: orange">' + line + '</div>';
+      } else {
+        result += '<div>' + line + '</div>';
+      }
+    });
+    return result;
   },
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);
