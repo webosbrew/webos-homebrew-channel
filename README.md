@@ -20,6 +20,35 @@ Features
       via telnet. In order to disable it fix the original crash cause and remove
       `/var/luna/preferences/webosbrew_failsafe` flag file.
 
+Installation
+------------
+
+## Automated
+Execute the following snippet on target TV using SSH or Telnet:
+```sh
+curl -L https://raw.githubusercontent.com/webosbrew/webos-homebrew-channel/main/tools/install.sh | sh -
+
+# Update startup script
+cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+```
+
+## Manual
+* Download [latest release
+  `.ipk`](https://github.com/webosbrew/webos-homebrew-channel/releases/)
+* Install it using `ares-install` SDK command or using the following command
+  directly on a TV:
+  ```sh
+  luna-send-pub -i 'luna://com.webos.appInstallService/dev/install' '{"id":"com.ares.defaultName","ipkUrl":"/tmp/path/to/hbchannel.ipk","subscribe":true}'`
+  ```
+* (root) Elevate privileges by running:
+  ```sh
+  /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
+  ```
+* (root) Update startup script:
+  ```sh
+  cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+  ```
+
 Development
 -----------
 
