@@ -66,6 +66,7 @@ async function hashFile(filePath: string, algorithm: string): Promise<string> {
   const download = fs.createReadStream(filePath);
   const hash = createHash(algorithm, { encoding: 'hex' });
   await asyncPipeline(download, hash);
+  hash.end();
   return hash.read();
 }
 
@@ -204,7 +205,7 @@ service.register(
     message.respond({ statusText: 'Verifying…' });
     const checksum = await hashFile(targetPath, 'sha256');
     if (checksum !== payload.ipkHash) {
-      throw new Error('Invalid file checksum');
+      throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum}`);
     }
 
     // Install

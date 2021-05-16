@@ -12,8 +12,8 @@ import './buffer-shim';
 // @ts-ignore
 fetch.Promise = Bluebird.Promise;
 
-export const asyncPipeline = Bluebird.Promise.promisifyAll(pipeline);
-export const asyncExecFile = Bluebird.Promise.promisifyAll(child_process.execFile);
+export const asyncPipeline = Bluebird.Promise.promisify(pipeline);
+export const asyncExecFile = Bluebird.Promise.promisify(child_process.execFile);
 export const asyncAccess = Bluebird.Promise.promisify(fs.access);
 export const asyncUnlink = Bluebird.Promise.promisify(fs.unlink);
 export const asyncWriteFile = Bluebird.Promise.promisify(fs.writeFile);
