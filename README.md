@@ -103,3 +103,9 @@ ssh root@10.0.0.2 -p 9922 /usr/bin/run-js-service -k -n /media/developer/apps/us
 ```sh
 cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
 ```
+
+### Release engineering
+```sh
+npm version minor
+git push origin main --tags
+```
