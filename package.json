@@ -47,7 +47,7 @@
         "@types/bluebird": "^3.5.34",
         "@types/node-fetch": "^2.5.10",
         "@types/progress-stream": "^2.0.1",
-        "@types/webos-service": "^0.4.0",
+        "@types/webos-service": "^0.4.1",
         "@typescript-eslint/eslint-plugin": "^4.4.1",
         "@typescript-eslint/parser": "^4.22.1",
         "@webosose/ares-cli": "^2.1.0",
