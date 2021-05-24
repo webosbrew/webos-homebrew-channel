@@ -1,7 +1,7 @@
 import fs from 'fs';
 import fetch from 'node-fetch';
 import pipeline from 'stream.pipeline-shim';
-import child_process from 'child_process';
+import { execFile, ExecFileOptions } from 'child_process';
 import * as Bluebird from 'bluebird';
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
@@ -12,8 +12,16 @@ import './buffer-shim';
 // @ts-ignore
 fetch.Promise = Bluebird.Promise;
 
-export const asyncPipeline = Bluebird.Promise.promisify(pipeline);
-export const asyncExecFile = Bluebird.Promise.promisify(child_process.execFile);
-export const asyncAccess = Bluebird.Promise.promisify(fs.access);
-export const asyncUnlink = Bluebird.Promise.promisify(fs.unlink);
-export const asyncWriteFile = Bluebird.Promise.promisify(fs.writeFile);
+// Sadly these need to be manually typed according to
+// https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node
+// since types infered from Bluebird.Promise.promisify are wrong.
+export const asyncPipeline: (
+  ...args: ReadonlyArray<NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.ReadWriteStream>
+) => Promise<void> = Bluebird.Promise.promisify(pipeline);
+export const asyncExecFile: (file: string, args?: ReadonlyArray<string>, options?: ExecFileOptions) => Promise<string> =
+  Bluebird.Promise.promisify(execFile);
+export const asyncAccess: (path: string, mode?: number) => Promise<void> = Bluebird.Promise.promisify(fs.access);
+export const asyncUnlink: (path: string) => Promise<void> = Bluebird.Promise.promisify(fs.unlink);
+export const asyncWriteFile: (path: string, contents: string, options?: fs.WriteFileOptions) => Promise<void> = Bluebird.Promise.promisify(
+  fs.writeFile,
+);
