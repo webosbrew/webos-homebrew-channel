@@ -17,16 +17,32 @@ var
   LunaService = require('enyo-webos/LunaService'),
   Scroller = require('moonstone/Scroller'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
-  DOMPurify = require('DOMPurify/dist/purify.cjs.js');
+  FittableRows = require('layout/FittableRows'),
+  FittableColumns = require('layout/FittableColumns'),
+  DOMPurify = require('dompurify/dist/purify.cjs.js');
 
 DOMPurify.addHook('afterSanitizeAttributes', function (node) {
   if ('href' in node) {
     console.info(node);
 
     node.setAttribute('data-href', node.href);
-    node.removeAttribute('href');
+    node.setAttribute('href', 'javascript:openLinkInBrowser(' + JSON.stringify(node.href)+ ')');
   }
 });
+
+
+global.openLinkInBrowser = function (url) {
+  try {
+    webOS.service.request('luna://com.webos.applicationManager', {
+      method: 'launch',
+      parameters: {id: 'com.webos.app.browser', params: {target: url}},
+      onSuccess: function(res) { console.info(res); },
+      onFailure: function(res) { console.warn(res); },
+    });
+  } catch (err) {
+    console.warn(err);
+  }
+}
 
 function versionHigher(oldVer, newVer) {
   if (typeof oldVer !== 'string' || typeof newVer !== 'string') return false
@@ -52,82 +68,76 @@ module.exports = kind({
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true},
     {
-      kind: Scroller, fit: true,
+      kind: FittableColumns,
+      classes: 'enyo-fill',
       components: [
-        {
-          classes: 'moon-hspacing top', components: [
-            {
-              components: [
-                {kind: Divider, content: 'App information'},
-                {
-                  kind: LabeledTextItem,
-                  label: 'Version',
-                  name: 'version',
-                  text: 'unknown',
-                  disabled: true,
-                },
-                {
-                  kind: LabeledTextItem,
-                  label: 'Root required',
-                  name: 'rootRequired',
-                  text: 'unknown',
-                  disabled: true,
-                },
-                {
-                  components: [
-                    {
-                      name: 'installButton', kind: ProgressButton, content: 'Install', progress: 0,
-                      style: 'width:100%;min-width:100%;', ontap: 'installApp',
-                      disabled: true,
-                    },
-                  ],
-                },
-                {
-                  components: [
-                    {
-                      name: 'launchButton', kind: ProgressButton, content: 'Launch', progress: 0,
-                      style: 'width:100%;min-width:100%;', ontap: 'launchApp',
-                      disabled: true,
-                    },
-                  ],
-                },
-                {
-                  // WIP
-                  showing: false,
-                  components: [
-                    {
-                      name: 'uninstallButton', kind: Button, content: 'Uninstall', style: 'width:100%;min-width:100%', small: true,
-                      disabled: true,
-                      ontap: 'uninstallApp',
-                    },
-                  ],
-                },
-              ],
-              classes: 'moon-6h',
-            },
-            {
-              components: [
-                {kind: Divider, content: 'Description'},
-                {
-                  name: 'appDescription',
-                  kind: BodyText,
-                  content: 'No description provided for this package',
-                  allowHtml: true
-                },
-                {
-                  kind: LabeledTextItem,
-                  label: 'Project page',
-                  name: 'projectPage',
-                  text: 'unknown',
-                  disabled: true,
-                  ontap: 'openProjectPage',
-                },
-              ],
-              classes: 'moon-16h',
-            },
-          ],
-        },
-      ],
+        {classes: 'moon-6h', components: [
+          {kind: Divider, content: 'App information'},
+          {
+            kind: LabeledTextItem,
+            label: 'Version',
+            name: 'version',
+            text: 'unknown',
+            disabled: true,
+          },
+          {
+            kind: LabeledTextItem,
+            label: 'Root required',
+            name: 'rootRequired',
+            text: 'unknown',
+            disabled: true,
+          },
+          {
+            components: [
+              {
+                name: 'installButton', kind: ProgressButton, content: 'Install', progress: 0,
+                classes: 'full-button',
+                minWidth: false,
+                ontap: 'installApp',
+                disabled: true,
+              },
+            ],
+          },
+          {
+            components: [
+              {
+                name: 'launchButton', kind: ProgressButton, content: 'Launch', progress: 0,
+                classes: 'full-button',
+                minWidth: false,
+                ontap: 'launchApp',
+                disabled: true,
+              },
+            ],
+          },
+        ]},
+
+        {kind: FittableRows, fit: true, components: [
+          {kind: Divider, content: 'Description'},
+          {fit: true,
+            kind: Scroller,
+            horizontal: 'hidden',
+            spotlightPagingControls: true,
+            components: [
+              {
+                name: 'appDescription',
+                kind: BodyText,
+                classes: 'app-description',
+                content: 'No description provided for this package',
+                allowHtml: true,
+                spotlight: true,
+              },
+              {
+                kind: LabeledTextItem,
+                label: 'Project page',
+                name: 'projectPage',
+                text: 'unknown',
+                disabled: true,
+                ontap: 'openProjectPage',
+              },
+            ],
+          },
+        ]}
+      ]
     },
 
     {
@@ -164,17 +174,6 @@ module.exports = kind({
     // This is data loaded from the web service
     {from: 'packageInfo.title', to: 'title'},
     {from: 'packageInfo.id', to: 'titleBelow'},
-    /*
-    {
-      from: 'packageInfo.appDescription', to: '$.appDescription.content', transform: function (description) {
-        var appDescription = 'No description provided for this package'
-        if ((typeof description === 'string' || description instanceof String) && description.trim().length) {
-          appDescription = description;
-        }
-        return appDescription;
-      }
-    },
-    */
     {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
       var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
       return sanitized;
@@ -218,12 +217,7 @@ module.exports = kind({
 
     {
       from: 'appInfo', to: '$.launchButton.disabled', transform: function (value) {
-        return !value; // === null;
-      },
-    },
-    {
-      from: 'appInfo', to: '$.uninstallButton.disabled', transform: function (value) {
-        return !value; // === null;
+        return !value;
       },
     },
   ],
@@ -284,11 +278,6 @@ module.exports = kind({
     console.info('appinfo sent:', this.appInfoRequest);
   },
   openProjectPage: function () {
-    // TODO luna://com.webos.applicationManager/launch
-    // {
-    //   id: "com.webos.app.browser",
-    //   params: {target: "..."},
-    // }
     if (this.packageInfo.get('sourceUrl')) {
       this.$.launchCall.send({id: 'com.webos.app.browser', params: {target: this.packageInfo.get('sourceUrl')}});
     }
