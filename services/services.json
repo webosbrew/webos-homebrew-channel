@@ -3,7 +3,52 @@
     "description": "Homebrew Channel Service",
     "services": [
         {
-            "name": "org.webosbrew.hbchannel.service"
+            "name": "org.webosbrew.hbchannel.service",
+            "description": "Homebrew Channel Service",
+            "commands": [
+                {
+                    "name": "checkRoot",
+                    "description": "Returns true if Homebrew Channel is capable of root execution",
+                    "public": true
+                },
+                {
+                    "name": "exec",
+                    "description": "Execute code as Homebrew Channel user (likely root)",
+                    "public": true
+                },
+                {
+                    "name": "spawn",
+                    "description": "Spawn a long-running command",
+                    "public": false
+                },
+
+                {
+                    "name": "install",
+                    "description": "Install application package",
+                    "public": true
+                },
+                {
+                    "name": "getAppInfo",
+                    "description": "Root-less luna://com.webos.applicationManager/getAppInfo equivalent",
+                    "public": true
+                },
+
+                {
+                    "name": "getConfiguration",
+                    "description": "Get current Homebrew Channel configuration",
+                    "public": true
+                },
+                {
+                    "name": "setConfiguration",
+                    "description": "Change Homebrew Channel configuration",
+                    "public": false
+                },
+                {
+                    "name": "reboot",
+                    "description": "Perform system reboot",
+                    "public": true
+                }
+            ]
         }
     ]
 }
