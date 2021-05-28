@@ -1,0 +1,15 @@
+.full-button {
+    width: 100%;
+    min-width: 95%;
+}
+
+.app-description {
+    margin-top: -1em;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: normal;
+}
+
+.app-description img {
+    max-width: 100%;
+}
