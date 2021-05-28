@@ -9,6 +9,7 @@ var
   EnyoImage = require('enyo/Image'),
   Marquee = require('moonstone/Marquee'),
   Panel = require('moonstone/Panel'),
+  Source = require('enyo/Source'),
   Popup = require('moonstone/Popup'),
   Spinner = require('moonstone/Spinner'),
   DataGridList = require('moonstone/DataGridList'),
@@ -20,6 +21,25 @@ var
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
 var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
+
+var NestedSource = kind({
+  kind: Source,
+  name: 'NestedSource',
+  collection: null,
+  fetch: function (model, opts) {
+    console.info('NestedSource.fetch()', model, opts, this.collection);
+    this.collection.fetch({
+      success: function(col, _, result) {
+        console.info('nested success:', result, col);
+        opts.success(result); // result);
+      },
+      error: function(col, err, _) {
+        console.info('nested error:', arguments);
+        opts.error([], err);
+      },
+    });
+  },
+});
 
 var AppListItem = kind({
   name: 'AppListItem',
@@ -62,7 +82,7 @@ module.exports = kind({
   ],
   components: [
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
-    {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', modal: false, autoDismiss: true, allowBackKey: true},
+    {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading some repositories.', modal: false, autoDismiss: true, allowBackKey: true},
     {
       name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
         {kind: AppListItem}
@@ -88,13 +108,22 @@ module.exports = kind({
   },
   refresh: function () {
     console.info('refresh');
+    var repos = [repositoryBaseURL, 'https://webosbrew-test-repo.inf.re/', 'https://repo.webosbrew.org/api/apps.jsonnnnn'];
+
     this.set('repository', new Collection({
-      source: new AjaxSource(),
-      url: repositoryBaseURL,
-      options: {parse: true},
-      parse: function (data) {
-        return data.packages;
-      },
+      source: repos.map(function (url) {
+        return new NestedSource({
+          collection: new Collection({
+            url: url,
+            source: new AjaxSource(),
+            options: {parse: true},
+            parse: function (data) {
+              data.packages.forEach(function (element) { element.repository = url; });
+              return data.packages;
+            },
+          }),
+        });
+      }),
     }));
     this.repository.fetch();
   },
@@ -103,7 +132,7 @@ module.exports = kind({
   },
   itemSelected: function (sender, ev) {
     if (ev.model) {
-      this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: repositoryBaseURL}});
+      this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
     }
   },
   openSettings: function (sender, ev) {
