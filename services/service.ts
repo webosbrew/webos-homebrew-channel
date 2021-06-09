@@ -1,6 +1,8 @@
+import 'core-js/stable';
+import 'regenerator-runtime/runtime';
+
 import fs from 'fs';
 import { createHash } from 'crypto';
-import fetch from 'node-fetch';
 import path from 'path';
 import child_process from 'child_process';
 
@@ -8,10 +10,11 @@ import child_process from 'child_process';
 import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
+import fetch from 'node-fetch';
+import { asyncAccess, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile } from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
-import { asyncAccess, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile } from './adapter';
 import { makeError, makeSuccess } from './protocol';
 import ServiceRemote from './webos-service-remote';
 
