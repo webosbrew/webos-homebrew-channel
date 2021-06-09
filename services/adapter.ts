@@ -1,12 +1,12 @@
+// import 'core-js/stable';
+// import 'regenerator-runtime/runtime';
+import './buffer-shim';
+
 import fs from 'fs';
 import fetch from 'node-fetch';
 import pipeline from 'stream.pipeline-shim';
 import { execFile, ExecFileOptions } from 'child_process';
 import * as Bluebird from 'bluebird';
-import 'core-js/stable';
-import 'regenerator-runtime/runtime';
-
-import './buffer-shim';
 
 // Monkey-patch fetch Promise with Bluebird's.
 // @ts-ignore
