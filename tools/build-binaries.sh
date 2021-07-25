@@ -44,6 +44,8 @@ function build_dropbear() {
 #define ECDSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ecdsa_host_key"
 #define ED25519_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ed25519_host_key"
 #define DEFAULT_PATH "/home/root/.local/bin:/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin:/usr/bin:/bin"
+#define DROPBEAR_SFTPSERVER 1
+#define SFTPSERVER_PATH "/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/sftp-server"
 EOF
     autoconf
     autoheader
@@ -65,11 +67,22 @@ function build_rsync() {
     cp rsync "${TARGET_DIR}"
 }
 
+function build_sftp() {
+	. "${NDK_PATH}/environment-setup-armv7a-neon-webos-linux-gnueabi"
+	cd /opt/openssh-src
+	./configure --host=arm-webos-linux-gnueabi --without-openssl
+	make sftp-server -j$(nproc --all)
+	arm-webos-linux-gnueabi-strip sftp-server
+	cp sftp-server "${TARGET_DIR}"
+}
+
 install_ndk &
 download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2020.81.tar.gz' 'c7cfc687088daca392b780f4af87d92ec1803f062c4c984f02062adc41b8147f' &
 download 'rsync'    'https://github.com/WayneD/rsync/archive/refs/tags/v3.2.3.tar.gz'           '3127c93d7081db075d1057a44b0bd68ff37f297ba9fe2554043c3e4481ae5056' &
+download 'openssh'  'https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-8.6p1.tar.gz' 'c3e6e4da1621762c850d03b47eed1e48dff4cc9608ddeb547202a234df8ed7ae' &
 wait
 
 build_dropbear &
 build_rsync &
+build_sftp &
 wait
