@@ -11,7 +11,7 @@ import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import { asyncAccess, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile } from './adapter';
+import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile } from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -97,7 +97,7 @@ function flagPath(flag: FlagName): string {
  */
 async function flagRead(flag: FlagName): Promise<boolean> {
   try {
-    await asyncAccess(flagPath(flag));
+    await asyncStat(flagPath(flag));
     return true;
   } catch (err) {
     return false;

@@ -20,7 +20,7 @@ export const asyncPipeline: (
 ) => Promise<void> = Bluebird.Promise.promisify(pipeline);
 export const asyncExecFile: (file: string, args?: ReadonlyArray<string>, options?: ExecFileOptions) => Promise<string> =
   Bluebird.Promise.promisify(execFile);
-export const asyncAccess: (path: string, mode?: number) => Promise<void> = Bluebird.Promise.promisify(fs.access);
+export const asyncStat: (path: string) => Promise<fs.Stats> = Bluebird.Promise.promisify(fs.stat);
 export const asyncUnlink: (path: string) => Promise<void> = Bluebird.Promise.promisify(fs.unlink);
 export const asyncWriteFile: (path: string, contents: string, options?: fs.WriteFileOptions) => Promise<void> = Bluebird.Promise.promisify(
   fs.writeFile,
