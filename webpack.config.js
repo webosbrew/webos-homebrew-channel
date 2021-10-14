@@ -27,6 +27,7 @@ module.exports = (env) => [
       rules: [
         {
           test: /\.m?js$/,
+          exclude: /core-js/,
           use: 'babel-loader',
         },
         {

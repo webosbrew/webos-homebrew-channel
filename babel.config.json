@@ -11,7 +11,7 @@
                     "node": "0.10"
                 },
                 "useBuiltIns": "entry",
-                "corejs": "3.0"
+                "corejs": "3"
             }
         ],
         "@babel/preset-typescript"
