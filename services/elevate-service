@@ -23,7 +23,7 @@ if ! diff /var/luna-service2-dev/client-permissions.d/$SERVICE_NAME.service.json
     RESCAN_NEEDED=1
 fi
 
-if [[ "$RESCAN_NEEDED" == "1" ]]; then
+if [ $RESCAN_NEEDED -eq 1 ]; then
     echo "[+] Refreshing services..."
     ls-control scan-volatile-dirs
 else
