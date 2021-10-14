@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import Message from './message';
 
 //* Subscription is an EventEmitter wrapper for subscribed LS2 calls
