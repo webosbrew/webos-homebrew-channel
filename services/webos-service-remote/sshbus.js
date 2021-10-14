@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file, no-underscore-dangle */
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
 import Message from './message';
 import SSH from './ssh-promise';
