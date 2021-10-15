@@ -8,6 +8,15 @@ import pipeline from 'stream.pipeline-shim';
 import { execFile, ExecFileOptions } from 'child_process';
 import * as Bluebird from 'bluebird';
 
+// String.normalize is very large polyfill not included by default in core-js
+// and most likely we're not gonna need it
+if (!String.prototype.normalize) {
+  // eslint-disable-next-line no-extend-native
+  String.prototype.normalize = function normalize() {
+    return String(this);
+  };
+}
+
 // Monkey-patch fetch Promise with Bluebird's.
 // @ts-ignore
 fetch.Promise = Bluebird.Promise;
