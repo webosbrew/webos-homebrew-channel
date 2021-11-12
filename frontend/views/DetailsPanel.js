@@ -19,7 +19,8 @@ var
   LabeledTextItem = require('moonstone/LabeledTextItem'),
   FittableRows = require('layout/FittableRows'),
   FittableColumns = require('layout/FittableColumns'),
-  DOMPurify = require('dompurify/dist/purify.cjs.js');
+  DOMPurify = require('dompurify/dist/purify.cjs.js'),
+  resolveURL = require('../baseurl').resolveURL;
 
 DOMPurify.addHook('afterSanitizeAttributes', function (node) {
   if ('href' in node) {
@@ -246,7 +247,7 @@ module.exports = kind({
     } else {
       this.set('packageInfo', new Model(undefined, {
         source: new AjaxSource(),
-        url: new URL(this.model.get('manifestUrl'), this.repositoryURL).href,
+        url: resolveURL(this.model.get('manifestUrl'), this.repositoryURL),
       }));
       this.packageInfo.fetch({
         // Why is model.status non-observable by default!?
@@ -259,7 +260,7 @@ module.exports = kind({
       this.set('descriptionModel', new Model(undefined, {
         source: new AjaxSource(),
         options: {parse: true},
-        url: new URL(this.model.get('fullDescriptionUrl'), this.repositoryURL).href,
+        url: resolveURL(this.model.get('fullDescriptionUrl'), this.repositoryURL),
         parse: function (data) {
           return {content: data};
         },
@@ -285,7 +286,7 @@ module.exports = kind({
   installApp: function () {
     console.info('installApp...');
     this.installRequest = this.$.installCall.send({
-      ipkUrl: this.packageInfo.get('ipkUrl'),
+      ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl')),
       ipkHash: this.packageInfo.get('ipkHash').sha256,
       subscribe: true,
     });
