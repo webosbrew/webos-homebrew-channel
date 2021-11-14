@@ -22,13 +22,16 @@ Features
 
 Installation
 ------------
+## Automated (recommended)
+Latest Homebrew Channel version is automatically installed when rooting a TV
+with https://rootmy.tv exploit.
 
 ## Automated
 Execute the following snippet on target TV using SSH or Telnet:
 ```sh
 curl -L https://raw.githubusercontent.com/webosbrew/webos-homebrew-channel/main/tools/install.sh | sh -
 
-# Update startup script
+# Update startup script (assuming running as root)
 cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
 ```
 
