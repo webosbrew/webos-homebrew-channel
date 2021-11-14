@@ -83,6 +83,29 @@ we can write and use some modern ES features (like Promises, arrow functions,
 async functions, const, etc.) while targeting NodeJS 0.10 (used on earliest
 webOS versions)
 
+### Development TV setup
+
+#### Configuring @webosose/ares-cli with Developer Mode App
+This is partially based on: https://webostv.developer.lge.com/develop/app-test/using-devmode-app/
+* Install Developer Mode app from Content Store
+* Enable developer mode, enable keyserver
+* Download TV's private key: `http://TV_IP:9991/webos_rsa`
+* Configure the device using `ares-setup-device` (`-a` may need to be replaced with `-m` if device named `webos` is already configured)
+  * `PASSPHRASE` is the 6-character passphrase printed on screen in developer mode app
+```sh
+ares-setup-device -a webos -i "username=prisoner" -i "privatekey=/path/to/downloaded/webos_rsa" -i "passphrase=PASSPHRASE" -i "host=TV_IP" -i "port=9922"
+```
+
+#### Configuring @webosose/ares-cli with rooted TV
+* Enable sshd in Homebrew Channel app
+* Generate ssh key on developer machine (`ssh-keygen`)
+* Copy the public key (`id_rsa.pub`) to `/home/root/.ssh/authorized_keys` on TV
+* Configure the device using `ares-setup-device` (`-a` may need to be replaced with `-m` if device named `webos` is already configured)
+```sh
+ares-setup-device -a webos -i "username=root" -i "privatekey=/path/to/id_rsa" -i "passphrase=SSH_KEY_PASSPHRASE" -i "host=TV_IP" -i "port=22"
+```
+
+**Note:** @webosose/ares-cli doesn't need to be installed globally - you can use a package installed locally after `npm install` in this repo by just prefixing above commands with local path, like so: `node_modules/.bin/ares-setup-device ...`
 
 ### Production build
 ```sh
