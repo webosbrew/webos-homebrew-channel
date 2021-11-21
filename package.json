@@ -1,6 +1,6 @@
 {
     "name": "webos-homebrew-channel",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Manual installation:",
     "main": "frontend/index.js",
     "moduleDir": "frontend",
