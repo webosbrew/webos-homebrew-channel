@@ -6,6 +6,12 @@ export PATH="/usr/sbin:$PATH"
 SERVICE_NAME="${1:-org.webosbrew.hbchannel.service}"
 RESCAN_NEEDED=0
 
+if [[ "$SERVICE_NAME" == "org.webosbrew.hbchannel" ]]; then
+    # Workaround for a bug in Homebrew Channel app <0.3.1 where application ID
+    # was passed in instead of a service name...
+    SERVICE_NAME="org.webosbrew.hbchannel.service"
+fi
+
 # Executes a sed command in arg1 on a file, copies it over into the path in
 # arg2 if changed.
 safesed() {

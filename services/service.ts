@@ -219,7 +219,7 @@ service.register(
 
     // Special-case the privileged Homebrew Channel core app.
     if (installedPackageId === kHomebrewChannelPackageId) {
-      await elevateService(installedPackageId);
+      await elevateService(`${installedPackageId}.service`);
       service.activityManager.idleTimeout = 1;
       await createToast('Homebrew Channel update finished');
     }
