@@ -20,20 +20,6 @@ import ServiceRemote from './webos-service-remote';
 
 const kHomebrewChannelPackageId = rootAppInfo.id;
 
-const service = new Service(serviceInfo.id);
-const serviceRemote = new ServiceRemote(service);
-
-function runningAsRoot() {
-  return process.getuid() === 0;
-}
-
-function getInstallerService(): Service {
-  if (runningAsRoot()) {
-    return service;
-  }
-  return serviceRemote as Service;
-}
-
 // Maps internal setting field name with filesystem flag name.
 type FlagName = string;
 const availableFlags = {
@@ -42,6 +28,10 @@ const availableFlags = {
   sshdEnabled: 'webosbrew_sshd_enabled',
   blockUpdates: 'webosbrew_block_updates',
 } as Record<string, FlagName>;
+
+function runningAsRoot() {
+  return process.getuid() === 0;
+}
 
 function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, args: Record<string, any>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -55,7 +45,8 @@ function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, arg
   });
 }
 
-function createToast(message: string): Promise<Record<string, any>> {
+function createToast(message: string, service: Service): Promise<Record<string, any>> {
+  console.info(`[toast] ${message}`);
   return asyncCall(service, 'luna://com.webos.notification/createToast', {
     sourceId: serviceInfo.id,
     message,
@@ -123,11 +114,30 @@ async function flagSet(flag: FlagName, enabled: boolean) {
 }
 
 /**
+ * Package info
+ */
+async function packageInfo(filePath: string): Promise<Record<string, string> | null> {
+  try {
+    const control = await asyncExecFile('sh', ['-c', `ar -p ${filePath} control.tar.gz | tar zx --to-stdout`], { encoding: 'utf8' });
+
+    return Object.fromEntries(
+      control
+        .split('\n')
+        .filter((m) => m.length)
+        .map((p) => [p.slice(0, p.indexOf(': ')), p.slice(p.indexOf(': ') + 2)]),
+    );
+  } catch (err) {
+    console.warn('Error occured when fetching package info:', err);
+    return null;
+  }
+}
+
+/**
  * Performs appInstallService/dev/install request.
  */
-async function installPackage(filePath: string): Promise<string> {
+async function installPackage(filePath: string, service: Service): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = getInstallerService().subscribe('luna://com.webos.appInstallService/dev/install', {
+    const req = service.subscribe('luna://com.webos.appInstallService/dev/install', {
       id: 'testing',
       ipkUrl: filePath,
       subscribe: true,
@@ -171,195 +181,234 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
       const reply: T = await runner(message);
       message.respond(makeSuccess(reply));
     } catch (err) {
-      message.respond(makeError(err.toString()));
+      message.respond(makeError(err.message));
     } finally {
       message.cancel({});
     }
   };
 }
 
-/**
- * Installs the requested ipk from a URL.
- */
-type InstallPayload = { ipkUrl: string; ipkHash: string };
-service.register(
-  'install',
-  tryRespond(async (message: Message) => {
-    const payload = message.payload as InstallPayload;
-    const targetPath = `/tmp/.hbchannel-incoming-${Date.now()}.ipk`;
+function runService() {
+  const service = new Service(serviceInfo.id);
+  const serviceRemote = new ServiceRemote(service);
 
-    // Download
-    message.respond({ statusText: 'Downloading…' });
-    const res = await fetch(payload.ipkUrl);
-    if (!res.ok) {
-      throw new Error(res.statusText);
+  function getInstallerService(): Service {
+    if (runningAsRoot()) {
+      return service;
     }
-    const progressReporter = progress({
-      length: parseInt(res.headers.get('content-length'), 10),
-      time: 300 /* ms */,
+    return serviceRemote as Service;
+  }
+
+  /**
+   * Installs the requested ipk from a URL.
+   */
+  type InstallPayload = { ipkUrl: string; ipkHash: string };
+  service.register(
+    'install',
+    tryRespond(async (message: Message) => {
+      const payload = message.payload as InstallPayload;
+      const targetPath = `/tmp/.hbchannel-incoming-${Date.now()}.ipk`;
+
+      // Download
+      message.respond({ statusText: 'Downloading…' });
+      const res = await fetch(payload.ipkUrl);
+      if (!res.ok) {
+        throw new Error(res.statusText);
+      }
+      const progressReporter = progress({
+        length: parseInt(res.headers.get('content-length'), 10),
+        time: 300 /* ms */,
+      });
+      progressReporter.on('progress', (p) => {
+        message.respond({ statusText: 'Downloading…', progress: p.percentage });
+      });
+      const targetFile = fs.createWriteStream(targetPath);
+      await asyncPipeline(res.body, progressReporter, targetFile);
+
+      // Checksum
+      message.respond({ statusText: 'Verifying…' });
+      const checksum = await hashFile(targetPath, 'sha256');
+      if (checksum !== payload.ipkHash) {
+        throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum}`);
+      }
+
+      const pkginfo = await packageInfo(targetPath);
+
+      if (pkginfo && pkginfo.Package === kHomebrewChannelPackageId && runningAsRoot()) {
+        message.respond({ statusText: 'Self-update…' });
+        await createToast('Performing self-update...', service);
+
+        child_process.fork(__filename, ['self-update', targetPath]);
+        service.activityManager.idleTimeout = 1;
+        return { statusText: 'Self-update' };
+      }
+      // Install
+      message.respond({ statusText: 'Installing…' });
+      const installedPackageId = await installPackage(targetPath, getInstallerService());
+
+      await createToast(`Application installed: ${installedPackageId}`, service);
+
+      return { statusText: 'Finished.', finished: true };
+    }),
+    () => {
+      // TODO: support cancellation.
+    },
+  );
+
+  /**
+   * Returns the current value of all available flags, plus whether we're running as root.
+   */
+  service.register(
+    'getConfiguration',
+    tryRespond(async () => {
+      const futureFlags = Object.entries(availableFlags).map(
+        async ([field, flagName]) => [field, await flagRead(flagName)] as [string, boolean],
+      );
+      const flags = Object.fromEntries(await Promise.all(futureFlags));
+      return {
+        root: process.getuid() === 0,
+        ...flags,
+      };
+    }),
+  );
+
+  /**
+   * Sets any of the available flags.
+   */
+  type SetConfigurationPayload = Record<string, boolean>;
+  service.register(
+    'setConfiguration',
+    tryRespond(async (message) => {
+      const payload = message.payload as SetConfigurationPayload;
+      const futureFlagSets = Object.entries(payload)
+        .map(([field, value]) => [field, availableFlags[field], value] as [string, FlagName | undefined, boolean])
+        .filter(([, flagName]) => flagName !== undefined)
+        .map(async ([field, flagName, value]) => [field, await flagSet(flagName, value)]);
+      return Object.fromEntries(await Promise.all(futureFlagSets));
+    }),
+  );
+
+  /**
+   * Invokes a platform reboot.
+   */
+  service.register(
+    'reboot',
+    tryRespond(async () => {
+      await asyncExecFile('reboot');
+    }),
+  );
+
+  /**
+   * Returns whether the service is running as root.
+   */
+  service.register(
+    'checkRoot',
+    tryRespond(async () => runningAsRoot()),
+  );
+
+  /**
+   * Roughly replicates com.webos.applicationManager/getAppInfo request in an
+   * environment-independent way (non-root vs root).
+   */
+  type GetAppInfoPayload = { id: string };
+  service.register(
+    'getAppInfo',
+    tryRespond(async (message) => {
+      const payload = message.payload as GetAppInfoPayload;
+      const appId: string = payload.id;
+      if (!appId) throw new Error('missing `id` string field');
+      const appList = await asyncCall<{ apps: { id: string }[] }>(
+        getInstallerService(),
+        'luna://com.webos.applicationManager/dev/listApps',
+        {},
+      );
+      const appInfo = appList.apps.find((app) => app.id === appId);
+      if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
+      return { appId, appInfo };
+    }),
+  );
+
+  /**
+   * Executes a shell command and responds with exit code, stdout and stderr.
+   */
+  type ExecPayload = { command: string };
+  service.register('exec', (message) => {
+    const payload = message.payload as ExecPayload;
+    child_process.exec(payload.command, { encoding: 'buffer' }, (error, stdout, stderr) => {
+      const response = {
+        error,
+        stdoutString: stdout.toString(),
+        stdoutBytes: stdout.toString('base64'),
+        stderrString: stderr.toString(),
+        stderrBytes: stderr.toString('base64'),
+      };
+      if (error) {
+        message.respond(makeError(error.message, response));
+      } else {
+        message.respond(makeSuccess(response));
+      }
     });
-    progressReporter.on('progress', (p) => {
-      message.respond({ statusText: 'Downloading…', progress: p.percentage });
-    });
-    const targetFile = fs.createWriteStream(targetPath);
-    await asyncPipeline(res.body, progressReporter, targetFile);
-
-    // Checksum
-    message.respond({ statusText: 'Verifying…' });
-    const checksum = await hashFile(targetPath, 'sha256');
-    if (checksum !== payload.ipkHash) {
-      throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum}`);
-    }
-
-    // Install
-    message.respond({ statusText: 'Installing…' });
-    const installedPackageId = await installPackage(targetPath);
-
-    await createToast(`Application installed: ${installedPackageId}`);
-
-    // Special-case the privileged Homebrew Channel core app.
-    if (installedPackageId === kHomebrewChannelPackageId) {
-      await elevateService(`${installedPackageId}.service`);
-      service.activityManager.idleTimeout = 1;
-      await createToast('Homebrew Channel update finished');
-    }
-
-    return { statusText: 'Finished.', finished: true };
-  }),
-  () => {
-    // TODO: support cancellation.
-  },
-);
-
-/**
- * Returns the current value of all available flags, plus whether we're running as root.
- */
-service.register(
-  'getConfiguration',
-  tryRespond(async () => {
-    const futureFlags = Object.entries(availableFlags).map(
-      async ([field, flagName]) => [field, await flagRead(flagName)] as [string, boolean],
-    );
-    const flags = Object.fromEntries(await Promise.all(futureFlags));
-    return {
-      root: process.getuid() === 0,
-      ...flags,
-    };
-  }),
-);
-
-/**
- * Sets any of the available flags.
- */
-type SetConfigurationPayload = Record<string, boolean>;
-service.register(
-  'setConfiguration',
-  tryRespond(async (message) => {
-    const payload = message.payload as SetConfigurationPayload;
-    const futureFlagSets = Object.entries(payload)
-      .map(([field, value]) => [field, availableFlags[field], value] as [string, FlagName | undefined, boolean])
-      .filter(([, flagName]) => flagName !== undefined)
-      .map(async ([field, flagName, value]) => [field, await flagSet(flagName, value)]);
-    return Object.fromEntries(await Promise.all(futureFlagSets));
-  }),
-);
-
-/**
- * Invokes a platform reboot.
- */
-service.register(
-  'reboot',
-  tryRespond(async () => {
-    await asyncExecFile('reboot');
-  }),
-);
-
-/**
- * Returns whether the service is running as root.
- */
-service.register(
-  'checkRoot',
-  tryRespond(async () => runningAsRoot()),
-);
-
-/**
- * Roughly replicates com.webos.applicationManager/getAppInfo request in an
- * environment-independent way (non-root vs root).
- */
-type GetAppInfoPayload = { id: string };
-service.register(
-  'getAppInfo',
-  tryRespond(async (message) => {
-    const payload = message.payload as GetAppInfoPayload;
-    const appId: string = payload.id;
-    if (!appId) throw new Error('missing `id` string field');
-    const appList = await asyncCall<{ apps: { id: string }[] }>(
-      getInstallerService(),
-      'luna://com.webos.applicationManager/dev/listApps',
-      {},
-    );
-    const appInfo = appList.apps.find((app) => app.id === appId);
-    if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
-    return { appId, appInfo };
-  }),
-);
-
-/**
- * Executes a shell command and responds with exit code, stdout and stderr.
- */
-type ExecPayload = { command: string };
-service.register('exec', (message) => {
-  const payload = message.payload as ExecPayload;
-  child_process.exec(payload.command, { encoding: 'buffer' }, (error, stdout, stderr) => {
-    const response = {
-      error,
-      stdoutString: stdout.toString(),
-      stdoutBytes: stdout.toString('base64'),
-      stderrString: stderr.toString(),
-      stderrBytes: stderr.toString('base64'),
-    };
-    if (error) {
-      message.respond(makeError(error.message, response));
-    } else {
-      message.respond(makeSuccess(response));
-    }
   });
-});
 
-/**
- * Spawns a shell command and streams stdout & stderr bytes.
- */
-service.register('spawn', (message) => {
-  const payload = message.payload as ExecPayload;
-  const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
-  const proc = child_process.spawn('/bin/sh', ['-c', payload.command]);
-  proc.stdout.on('data', (data) =>
-    respond('stdoutData', {
-      stdoutString: data.toString(),
-      stdoutBytes: data.toString('base64'),
-    }),
-  );
-  proc.stderr.on('data', (data) =>
-    respond('stderrData', {
-      stderrString: data.toString(),
-      stderrBytes: data.toString('base64'),
-    }),
-  );
-  proc.on('close', (closeCode) => respond('close', { closeCode }));
-  proc.on('exit', (exitCode) => respond('exit', { exitCode }));
-});
+  /**
+   * Spawns a shell command and streams stdout & stderr bytes.
+   */
+  service.register('spawn', (message) => {
+    const payload = message.payload as ExecPayload;
+    const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
+    const proc = child_process.spawn('/bin/sh', ['-c', payload.command]);
+    proc.stdout.on('data', (data) =>
+      respond('stdoutData', {
+        stdoutString: data.toString(),
+        stdoutBytes: data.toString('base64'),
+      }),
+    );
+    proc.stderr.on('data', (data) =>
+      respond('stderrData', {
+        stderrString: data.toString(),
+        stderrBytes: data.toString('base64'),
+      }),
+    );
+    proc.on('close', (closeCode) => respond('close', { closeCode }));
+    proc.on('exit', (exitCode) => respond('exit', { exitCode }));
+  });
 
-/**
- * Stub service that emulates luna://com.webos.service.sm/license/apps/getDrmStatus
- */
-type GetDrmStatusPayload = { appId: string };
-service.register(
-  'getDrmStatus',
-  tryRespond(async (message) => ({
-    appId: (message.payload as GetDrmStatusPayload).appId,
-    drmType: 'NCG DRM',
-    installBasePath: '/media/cryptofs',
-    returnValue: true,
-    isTimeLimited: false,
-  })),
-);
+  /**
+   * Stub service that emulates luna://com.webos.service.sm/license/apps/getDrmStatus
+   */
+  type GetDrmStatusPayload = { appId: string };
+  service.register(
+    'getDrmStatus',
+    tryRespond(async (message) => ({
+      appId: (message.payload as GetDrmStatusPayload).appId,
+      drmType: 'NCG DRM',
+      installBasePath: '/media/cryptofs',
+      returnValue: true,
+      isTimeLimited: false,
+    })),
+  );
+}
+
+if (process.argv[2] === 'self-update') {
+  process.on('SIGTERM', () => {
+    console.info('sigterm!');
+  });
+
+  (async () => {
+    const service = new ServiceRemote(null) as Service;
+    try {
+      await createToast('Performing self-update (inner)', service);
+      const installedPackageId = await installPackage(process.argv[3], service);
+      await createToast('Elevating...', service);
+      await elevateService(`${installedPackageId}.service`);
+      await createToast('Self-update finished!', service);
+      process.exit(0);
+    } catch (err) {
+      console.info(err);
+      await createToast(`Self-update failed: ${err.message}`, service);
+      process.exit(1);
+    }
+  })();
+} else {
+  runService();
+}
