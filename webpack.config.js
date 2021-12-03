@@ -1,5 +1,6 @@
 const path = require('path');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const ShebangPlugin = require('webpack-shebang-plugin');
 
 module.exports = (env) => [
   {
@@ -13,11 +14,12 @@ module.exports = (env) => [
     devtool: false,
 
     entry: {
-      service: './services/service.ts',
+      'elevate-service': './services/elevate-service.ts',
+      'service.js': './services/service.ts',
     },
     output: {
       path: path.resolve(__dirname, './dist/services/'),
-      filename: '[name].js',
+      filename: '[name]',
     },
     externals: {
       'webos-service': 'commonjs2 webos-service',
@@ -48,6 +50,9 @@ module.exports = (env) => [
           },
           mode: 'write-references',
         },
+      }),
+      new ShebangPlugin({
+        chmod: 0o755,
       }),
     ],
   },
