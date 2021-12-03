@@ -12,10 +12,12 @@ module.exports = (env) => [
     // node inspector anyway.
     devtool: false,
 
-    entry: './services/service.ts',
+    entry: {
+      service: './services/service.ts',
+    },
     output: {
       path: path.resolve(__dirname, './dist/services/'),
-      filename: 'service.js',
+      filename: '[name].js',
     },
     externals: {
       'webos-service': 'commonjs2 webos-service',

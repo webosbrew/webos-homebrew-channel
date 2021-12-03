@@ -1,5 +1,6 @@
 import Message from './message';
-import Handle from './sshbus';
+import SSHHandle from './sshbus';
+import ExecHandle from './execbus';
 import Subscription from './subscription';
 
 /**
@@ -8,10 +9,14 @@ import Subscription from './subscription';
 export default class Service {
   /**
    *
-   * @param {Service} service from webos-service module. Used for retreving SSH pubkey passphrase
+   * @param {Service|null} service from webos-service module. Used for retreving SSH pubkey passphrase. If null is provided, alternative backend using root execution is used
    */
   constructor(service) {
-    this.sendingHandle = new Handle(service);
+    if (service === null) {
+      this.sendingHandle = new ExecHandle();
+    } else {
+      this.sendingHandle = new SSHHandle(service);
+    }
   }
 
   /* Call a service on the bus
