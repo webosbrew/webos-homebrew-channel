@@ -67,7 +67,7 @@ module.exports = kind({
   headerType: 'medium',
   components: [
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
-    {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true},
+    {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true, allowHtml: true},
     {
       kind: FittableColumns,
       classes: 'enyo-fill',
@@ -310,7 +310,11 @@ module.exports = kind({
   },
   onInstallError: function (sender, msg) {
     console.info('install error:', msg);
-    this.$.errorPopup.setContent('An error occured during installation: ' + msg.errorText);
+    var errorMessage = 'An error occured during installation: ' + msg.errorText;
+    if (msg.errorText.indexOf('luna-send-pub') != -1 && msg.errorText.indexOf('ECONNREFUSED') != -1) {
+      errorMessage += '<br /><br />If you just updated Homebrew Channel app you may need to perform a reboot.';
+    }
+    this.$.errorPopup.setContent(DOMPurify.sanitize(errorMessage));
     this.$.errorPopup.show();
     this.$.installButton.set('progress', 0);
     this.$.installButton.set('disabled', false);
