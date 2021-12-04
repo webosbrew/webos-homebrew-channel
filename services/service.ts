@@ -234,6 +234,19 @@ function runService() {
 
       const pkginfo = await packageInfo(targetPath);
 
+      // If we are running as root we likely want to retain root
+      // execution/private bus permissions. During package install running app
+      // and its services (since webOS 4.x) are killed using SIGKILL (9) signal.
+      // In order to retain some part of our service still running as root
+      // during upgrade we fork off our process and do self-update installation
+      // in there. After a successful install we relevate the service and exit.
+      // Exiting cleanly is an important part, since forked process retains open
+      // luna bus socket, and thus a new service will not be able to launch
+      // until we do that.
+      //
+      // If reelevation fails for some reason the service should still be
+      // reelevated on reboot (since we launch elevate-service in startup.sh
+      // script)
       if (pkginfo && pkginfo.Package === kHomebrewChannelPackageId && runningAsRoot()) {
         message.respond({ statusText: 'Self-update…' });
         await createToast('Performing self-update...', service);
@@ -242,6 +255,7 @@ function runService() {
         service.activityManager.idleTimeout = 1;
         return { statusText: 'Self-update' };
       }
+
       // Install
       message.respond({ statusText: 'Installing…' });
       const installedPackageId = await installPackage(targetPath, getInstallerService());
