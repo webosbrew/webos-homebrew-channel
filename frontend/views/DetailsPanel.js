@@ -65,6 +65,9 @@ module.exports = kind({
   title: '',
   titleBelow: '',
   headerType: 'medium',
+  handlers: {
+    onSpotlightKeyUp: 'onKeyUp',
+  },
   components: [
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true, allowHtml: true},
@@ -337,7 +340,16 @@ module.exports = kind({
   onLaunchResponse: function (sender, msg) {
     console.info('launch response:', msg);
   },
+
   onLaunchError: function (sender, msg) {
     console.warn('launch error:', msg);
   },
+
+  onKeyUp: function (sender, evt) {
+    // Remote button "5"
+    if (evt.keyCode == 53) {
+      this.$.installButton.set('disabled', false);
+      this.$.installButton.set('content', 'Reinstall');
+    }
+  }
 });
