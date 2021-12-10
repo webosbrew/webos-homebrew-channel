@@ -41,6 +41,7 @@ function main(argv: string[]) {
   const clientPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.root.json`;
   const apiPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.api.public.json`;
   const manifestFile = `/var/luna-service2-dev/manifests.d/${appName}.json`;
+  const roleFile = `/var/luna-service2-dev/roles.d/${serviceName}.service.json`
 
   if (isFile(serviceFile)) {
     console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
@@ -93,6 +94,47 @@ function main(argv: string[]) {
         configChanged = true;
       }
     }
+
+    if (isFile(roleFile)) {
+      console.info(`[~] Found webOS 4.x+ role file: ${roleFile}`);
+      const roleFileOriginal = readFileSync(roleFile).toString();
+      const roleFileParsed = JSON.parse(roleFileOriginal);
+      if (roleFileParsed.allowedNames.some(function (finding : String){ 
+          if (finding === "*") {
+            return true;
+          }else{
+            return false;
+          }
+        })) {
+        console.info('[ ] role - already containing wildcard for allowed names.');
+      }else{
+        console.info('[ ] role - pushing wildcard for allowed names to file...');
+        roleFileParsed.allowedNames.push("*");
+      }
+
+      if (roleFileParsed.permissions.some(function (finding : String){ 
+        if (finding === "*") {
+          return true;
+        }else{
+          return false;
+        }
+      })) {
+        console.info('[ ] role - already containing wildcard for service permissions.');
+      }else{
+        console.info('[ ] role - pushing wildcard for service permissions to file...');
+        roleFileParsed.permissions.push({"service":"*","outbound":["*"],"inbound":["*"]});
+      }
+
+      const roleFileNew = JSON.stringify(roleFileParsed);
+      if (roleFileNew !== roleFileOriginal) {
+        console.info(`[~] Updating role file: ${roleFile}`);
+        console.info('-', roleFileOriginal);
+        console.info('+', roleFileNew);
+        writeFileSync(roleFile, roleFileNew);
+        configChanged = true;
+      }
+    }
+
   }
 
   const legacyPubServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
