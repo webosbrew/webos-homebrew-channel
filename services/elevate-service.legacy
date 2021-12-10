@@ -16,6 +16,23 @@ fi
 # arg2 if changed.
 safesed() {
     target=/tmp/_safesed.$$
+    if [[ "$1" == "role1" ]]; then
+        sed 's;, "";, "*", "";g' $2 > $target
+        if ! diff $2 $target ; then
+            cp $target $2
+            echo "[+] File changed"
+            RESCAN_NEEDED=1
+        fi
+    fi
+    if [[ "$1" == "role2" ]]; then
+        sed 's;"permissions": \[;"permissions": [{"service":"*","outbound":["*"],"inbound":["*"]},;g' $2 > $target
+        if ! diff $2 $target ; then
+            cp $target $2
+            echo "[+] File changed"
+            RESCAN_NEEDED=1
+        fi
+    fi
+
     if [[ ! -f $2 ]]; then
         echo "[!] $2 does not exist..."
     else
@@ -46,6 +63,10 @@ else
 
     echo "[ ] Exposing public API for '$SERVICE_NAME'..."
     safesed "s;$SERVICE_NAME.group;public;g" /var/luna-service2-dev/api-permissions.d/$SERVICE_NAME.api.json
+
+    echo "[ ] Extending role file permissions for '$SERVICE_NAME'..."
+    safesed role1 /var/luna-service2-dev/roles.d/$SERVICE_NAME.service.json
+    safesed role2 /var/luna-service2-dev/roles.d/$SERVICE_NAME.service.json
 fi
 
 if [ $RESCAN_NEEDED -eq 1 ]; then
