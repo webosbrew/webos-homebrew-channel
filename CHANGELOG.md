@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2021-12-10
+### Added
+- Added app reinstall option - install button is reenabled after pressing "5" on
+  app details page
+
+### Fixed
+- Fixed reelevation on webOS 4.x+
+- Fixed ls-hubd crash on upgrade on webOS 4.x
+
+### Changed
+- User-friendly error is now shown if homebrew channel is not elevated and not
+  running via developer mode
+- `elevate-service` has been rewritten in TypeScript, existing CLI interface is
+  kept intact
+
 ## [0.3.1] - 2021-11-21
 ### Fixed
 - Fixed root persistence (reelevation) after self-update
