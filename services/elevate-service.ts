@@ -13,9 +13,20 @@ function isFile(path: string): boolean {
   }
 }
 
-function patchServiceFile(serviceFile: string): boolean {
+function patchServiceFile(serviceFile: string, appName?: string, serviceName?: string): boolean {
   const serviceFileOriginal = readFileSync(serviceFile).toString();
-  const serviceFileNew = serviceFileOriginal.replace('/usr/bin', '/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service');
+  let serviceFileNew;
+  if (!serviceFileOriginal.includes('jailer')){
+    console.info("[ ] Updating a NodeJS-Service.");
+    serviceFileNew = serviceFileOriginal.replace('/usr/bin', '/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service');
+  }else{
+    console.info("[ ] Updating a Native-Service.");
+    if ( appName && serviceName){
+      serviceFileNew = serviceFileOriginal.replace('/usr/bin/jailer -t native_devmode -i ' + appName + ' -p /media/developer/apps/usr/palm/services/' + serviceName + ' ', '');
+    }else{
+      console.info("[!] Updating Native-Service failed! Didn't got Application or Service name.");
+    }
+  }
 
   if (serviceFileNew !== serviceFileOriginal) {
     console.info(`[ ] Updating service definition: ${serviceFile}`);
@@ -45,7 +56,7 @@ function main(argv: string[]) {
 
   if (isFile(serviceFile)) {
     console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
-    if (patchServiceFile(serviceFile)) {
+    if (patchServiceFile(serviceFile, appName, serviceName)) {
       configChanged = true;
     }
 
