@@ -15,7 +15,21 @@ function isFile(path: string): boolean {
 
 function patchServiceFile(serviceFile: string): boolean {
   const serviceFileOriginal = readFileSync(serviceFile).toString();
-  const serviceFileNew = serviceFileOriginal.replace('/usr/bin', '/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service');
+  let serviceFileNew = serviceFileOriginal;
+
+  if (serviceFileNew.indexOf('/run-js-service') !== -1) {
+    console.info(`[ ] ${serviceFile} is a JS service`);
+    serviceFileNew = serviceFileNew.replace(
+      /^Exec=\/usr\/bin\/run-js-service/gm,
+      'Exec=/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/run-js-service',
+    );
+  } else if (serviceFileNew.indexOf('/jailer') !== -1) {
+    console.info(`[ ] ${serviceFile} is a native service`);
+    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (match, binaryPath) => `Exec=${binaryPath}`);
+  } else if (serviceFileNew.indexOf('Exec=/media') === -1) {
+    // Ignore elevated native services...
+    console.info(`[~] ${serviceFile}: unknown service type, this may cause some troubles`);
+  }
 
   if (serviceFileNew !== serviceFileOriginal) {
     console.info(`[ ] Updating service definition: ${serviceFile}`);
@@ -24,6 +38,34 @@ function patchServiceFile(serviceFile: string): boolean {
     writeFileSync(serviceFile, serviceFileNew);
     return true;
   }
+  return false;
+}
+
+function patchRolesFile(path: string) {
+  const rolesOriginal = readFileSync(path).toString();
+  const rolesNew = JSON.parse(rolesOriginal);
+
+  if (rolesNew?.role?.allowedNames && rolesNew?.role?.allowedNames.indexOf('*') === -1) {
+    rolesNew.role.allowedNames.push('*');
+  }
+
+  if (rolesNew.permissions) {
+    rolesNew.permissions.forEach((perm: { outbound?: string[] }) => {
+      if (perm.outbound && perm.outbound.indexOf('*') === -1) {
+        perm.outbound.push('*');
+      }
+    });
+  }
+
+  const rolesNewContents = JSON.stringify(rolesNew);
+  if (rolesNewContents !== JSON.stringify(JSON.parse(rolesOriginal))) {
+    console.info(`[ ] Updating roles definition: ${path}`);
+    console.info('-', rolesOriginal);
+    console.info('+', rolesNewContents);
+    writeFileSync(path, rolesNewContents);
+    return true;
+  }
+
   return false;
 }
 
@@ -41,6 +83,7 @@ function main(argv: string[]) {
   const clientPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.root.json`;
   const apiPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.api.public.json`;
   const manifestFile = `/var/luna-service2-dev/manifests.d/${appName}.json`;
+  const roleFile = `/var/luna-service2-dev/roles.d/${serviceName}.service.json`;
 
   if (isFile(serviceFile)) {
     console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
@@ -70,6 +113,12 @@ function main(argv: string[]) {
       configChanged = true;
     }
 
+    if (isFile(roleFile)) {
+      if (patchRolesFile(roleFile)) {
+        configChanged = true;
+      }
+    }
+
     if (isFile(manifestFile)) {
       console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
       const manifestFileOriginal = readFileSync(manifestFile).toString();
@@ -96,7 +145,7 @@ function main(argv: string[]) {
   }
 
   const legacyPubServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
-  const legacyPrvServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
+  const legacyPrvServiceFile = `/var/palm/ls2-dev/services/prv/${serviceName}.service`;
   const legacyPrvRolesFile = `/var/palm/ls2-dev/roles/prv/${serviceName}.json`;
 
   if (isFile(legacyPubServiceFile)) {
@@ -108,23 +157,17 @@ function main(argv: string[]) {
     if (patchServiceFile(legacyPrvServiceFile)) {
       configChanged = true;
     }
+  }
 
-    if (isFile(legacyPrvRolesFile)) {
-      const prvRolesOriginal = readFileSync(legacyPrvRolesFile).toString();
-      const prvRolesNew = prvRolesOriginal.replace('"outbound":[]', '"outbound":["*"]');
-      if (prvRolesNew !== prvRolesOriginal) {
-        console.info(`[ ] Updating service definition: ${legacyPrvRolesFile}`);
-        console.info('-', prvRolesOriginal);
-        console.info('+', prvRolesNew);
-        writeFileSync(legacyPrvRolesFile, prvRolesNew);
-        configChanged = true;
-      }
+  if (isFile(legacyPrvRolesFile)) {
+    if (patchRolesFile(legacyPrvRolesFile)) {
+      configChanged = true;
     }
   }
 
   if (configChanged) {
     console.info('[+] Refreshing services...');
-    execFile('ls-control', ['scan-services'], (err, stderr, stdout) => {
+    execFile('ls-control', ['scan-services'], { timeout: 10000 }, (err, stderr, stdout) => {
       if (err) {
         console.error(err);
         process.exit(1);
