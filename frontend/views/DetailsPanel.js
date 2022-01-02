@@ -303,7 +303,7 @@ module.exports = kind({
   installApp: function () {
     console.info('installApp...');
     this.installRequest = this.$.installCall.send({
-      ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl')),
+      ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl') || this.repositoryURL),
       ipkHash: this.packageInfo.get('ipkHash').sha256,
       subscribe: true,
     });
