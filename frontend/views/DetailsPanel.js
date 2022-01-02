@@ -7,6 +7,7 @@ var
   Icon = require('moonstone/Icon'),
   Divider = require('moonstone/Divider'),
   Item = require('moonstone/Item'),
+  MoonImage = require('moonstone/Image'),
   Model = require('enyo/Model'),
   States = require('enyo/States'),
   Button = require('moonstone/Button'),
@@ -65,6 +66,14 @@ module.exports = kind({
   title: '',
   titleBelow: '',
   headerType: 'medium',
+  headerComponents: [
+    {
+      kind: MoonImage,
+      name: 'headerImage',
+      style: 'width: 100px; height: 100px; float: left; padding-right: 20px; padding-top: 5px',
+      sizing: 'contain',
+    },
+  ],
   handlers: {
     onSpotlightKeyUp: 'onKeyUp',
   },
@@ -172,6 +181,7 @@ module.exports = kind({
   ],
   bindings: [
     // This is model passed when launching the view
+    {from: 'model.iconUri', to: '$.headerImage.src'},
     {from: 'model.title', to: 'title'},
     {from: 'model.id', to: 'titleBelow', transform: 'subtitleID'},
 
