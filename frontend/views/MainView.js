@@ -28,17 +28,9 @@ module.exports = kind({
   transitionFinish: function (evt, sender) {
     document.title = this.$.panels.getActive().title;
   },
-  /*
-  observers: [
-    // the path can be a single string or an array of strings
-    {method: 'panelChanged', path: ['$.panels.index']}
-  ],
-  panelChanged: function (oldIndex, newIndex) {
-    console.info('PANEL CHANGED', oldIndex, newIndex);
-    // document.title = this.$.panels.getActive().title;
-  },
-  */
   requestPushPanel: function (sender, ev) {
     this.$.panels.pushPanel(ev.panel);
   },
 });
+
+document.title = 'Homebrew Channel';

@@ -180,7 +180,7 @@ module.exports = kind({
     {from: 'packageInfo.id', to: 'titleBelow', transform: 'subtitleID'},
     {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
       var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
-      return sanitized;
+      return '<div class="rich-description">' + sanitized + '</div>';
     }},
     {from: 'packageInfo.version', to: '$.version.text'},
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
@@ -269,7 +269,7 @@ module.exports = kind({
         options: {parse: true},
         url: resolveURL(this.model.get('fullDescriptionUrl'), this.repositoryURL),
         parse: function (data) {
-          return {content: data || 'No description'};
+          return {content: data || '<p>No description provided for this package</p>'};
         },
       }));
       this.descriptionModel.fetch({
@@ -278,7 +278,7 @@ module.exports = kind({
         error: function(t) {t.set('status', t.status);},
       });
     } else {
-      this.set('descriptionModel', new Model({content: '<br/><br/>' + this.model.get('shortDescription') || 'No description'}));
+      this.set('descriptionModel', new Model({content: this.model.get('shortDescription') || '<p>No description provided for this package</p>'}));
       this.descriptionModel.set('status', States.READY);
     }
 
