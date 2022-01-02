@@ -107,6 +107,16 @@ ares-setup-device -a webos -i "username=root" -i "privatekey=/path/to/id_rsa" -i
 
 **Note:** @webosose/ares-cli doesn't need to be installed globally - you can use a package installed locally after `npm install` in this repo by just prefixing above commands with local path, like so: `node_modules/.bin/ares-setup-device ...`
 
+### Frontend development
+EnyoJS is able to watch for frontend changes, but does not expose a HTTP server.
+
+```sh
+npm run build -- --watch
+
+# ...in a separate terminal:
+python -m http.server -d dist/
+```
+
 ### Production build
 ```sh
 rm -rf dist && npm run build -- --production && npm run build-service -- --env production && npm run package

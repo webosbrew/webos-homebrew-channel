@@ -42,9 +42,10 @@ var NestedSource = kind({
         console.info('nested success:', result, col);
         opts.success(result); // result);
       },
-      error: function(col, err, _) {
-        console.info('nested error:', arguments);
-        opts.error([], err);
+      error: function(col, state, next, errorCode) {
+        console.info('nested error:', arguments, this);
+        col.errorCode = errorCode;
+        opts.error([], errorCode);
       },
     });
   },
@@ -110,6 +111,12 @@ module.exports = kind({
         return this.repository.isError();
       }
     },
+    {
+      from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
+        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' - ' + s.collection.errorCode; }).filter(Boolean).join(', ') : '';
+        return 'An error occured while downloading some repositories:\n'+statusList;
+      }
+    },
   ],
   create: function () {
     this.inherited(arguments);
@@ -118,41 +125,58 @@ module.exports = kind({
 
   refresh: function () {
     console.info('refresh');
-    var repos = new Ajax({url: "repositories.json"});
-    repos.go();
-    repos.response(this, function(sender, response) {
-      console.info('Loading fetched repositories', response);
-      this.loadRepositories(response);
-    });
-    repos.error(this, function(sender, resp) {
-      console.info('Loading default repositories!', resp);
+
+    var repositoriesConfig = {repositories: [], disableDefault: false};
+
+    try {
+      var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
+      if (parsed.disableDefault !== undefined)
+        repositoriesConfig.disableDefault = parsed.disableDefault;
+      if (parsed.repositories !== undefined)
+        repositoriesConfig.repositories = parsed.repositories;
+    } catch (err) {
+      console.warn('Config load failed:', err);
+    }
+
+    console.info(repositoriesConfig);
+    try {
+      var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
+      if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
+      this.loadRepositories(repos);
+    } catch (err) {
+      console.warn('Load failed: ', err);
       this.loadRepositories([repositoryBaseURL]);
-    });
+    }
   },
 
   loadRepositories: function (repos) {
-    this.set('repository', new Collection({
-      model: RepoPackageModel,
-      source: repos.map(function (url) {
-        return new NestedSource({
-          collection: new Collection({
-            model: RepoPackageModel,
-            url: url,
-            source: new AjaxSource(),
-            options: {parse: true},
-            parse: function (data) {
-              data.packages.forEach(function (element) {
-                element.uid = element.id + '|' + url;
-                element.repository = url;
-                element.official = url === repositoryBaseURL;
-              });
-              return data.packages;
-            },
-          }),
-        });
-      }),
-    }));
-    this.repository.fetch();
+    console.info('Loading from:', repos);
+    if (repos.length === 0) {
+      this.set('repository', new Collection([]));
+    } else {
+      this.set('repository', new Collection({
+        model: RepoPackageModel,
+        source: repos.map(function (url) {
+          return new NestedSource({
+            collection: new Collection({
+              model: RepoPackageModel,
+              url: url,
+              source: new AjaxSource(),
+              options: {parse: true},
+              parse: function (data) {
+                data.packages.forEach(function (element) {
+                  element.uid = element.id + '|' + url;
+                  element.repository = url;
+                  element.official = url === repositoryBaseURL;
+                });
+                return data.packages;
+              },
+            }),
+          });
+        }),
+      }));
+      this.repository.fetch();
+    }
   },
 
   events: {
