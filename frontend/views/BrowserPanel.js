@@ -1,5 +1,6 @@
 var
   kind = require('enyo/kind'),
+  Model = require('enyo/Model'),
   DetailsPanel = require('./DetailsPanel'),
   Overlay = require('moonstone/Overlay'),
   Item = require('moonstone/Item'),
@@ -15,12 +16,20 @@ var
   DataGridList = require('moonstone/DataGridList'),
   GridListImageItem = require('moonstone/GridListImageItem'), // FIXME: we use styles from that :/
   AjaxSource = require('enyo/AjaxSource'),
+  Ajax = require('enyo/Ajax'),
   Collection = require('enyo/Collection'),
   SettingsPanel = require('./SettingsPanel.js');
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
+
 var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
+
+var RepoPackageModel = kind({
+  kind: Model,
+  name: "RepoPackageModel",
+  primaryKey: "uid",
+});
 
 var NestedSource = kind({
   kind: Source,
@@ -106,19 +115,37 @@ module.exports = kind({
     this.inherited(arguments);
     this.refresh();
   },
+
   refresh: function () {
     console.info('refresh');
-    var repos = [repositoryBaseURL, 'https://webosbrew-test-repo.inf.re/', 'https://repo.webosbrew.org/api/apps.jsonnnnn'];
+    var repos = new Ajax({url: "repositories.json"});
+    repos.go();
+    repos.response(this, function(sender, response) {
+      console.info('Loading fetched repositories', response);
+      this.loadRepositories(response);
+    });
+    repos.error(this, function(sender, resp) {
+      console.info('Loading default repositories!', resp);
+      this.loadRepositories([repositoryBaseURL]);
+    });
+  },
 
+  loadRepositories: function (repos) {
     this.set('repository', new Collection({
+      model: RepoPackageModel,
       source: repos.map(function (url) {
         return new NestedSource({
           collection: new Collection({
+            model: RepoPackageModel,
             url: url,
             source: new AjaxSource(),
             options: {parse: true},
             parse: function (data) {
-              data.packages.forEach(function (element) { element.repository = url; });
+              data.packages.forEach(function (element) {
+                element.uid = element.id + '|' + url;
+                element.repository = url;
+                element.official = url === repositoryBaseURL;
+              });
               return data.packages;
             },
           }),
@@ -127,6 +154,7 @@ module.exports = kind({
     }));
     this.repository.fetch();
   },
+
   events: {
     onRequestPushPanel: ''
   },
@@ -143,4 +171,3 @@ module.exports = kind({
     });
   },
 });
-

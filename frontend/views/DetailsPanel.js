@@ -173,11 +173,11 @@ module.exports = kind({
   bindings: [
     // This is model passed when launching the view
     {from: 'model.title', to: 'title'},
-    {from: 'model.id', to: 'titleBelow'},
+    {from: 'model.id', to: 'titleBelow', transform: 'subtitleID'},
 
     // This is data loaded from the web service
     {from: 'packageInfo.title', to: 'title'},
-    {from: 'packageInfo.id', to: 'titleBelow'},
+    {from: 'packageInfo.id', to: 'titleBelow', transform: 'subtitleID'},
     {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
       var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
       return sanitized;
@@ -236,6 +236,10 @@ module.exports = kind({
     }
   },
 
+  subtitleID: function (id) {
+    return id + (!this.model.get('official') ? ' (from ' + this.repositoryURL + ')' : '');
+  },
+
   installDisabled: function () {
     var disabled = this.appInfo === undefined || !this.packageInfo.isReady() || this.packageInfo.isError() || (this.appInfo !== null && this.appInfo.version === this.packageInfo.get('version'))
     console.info('installDisabled:', this.appInfo ? this.appInfo.version : undefined, this.packageInfo ? this.packageInfo.get('version') : undefined, disabled);
@@ -265,7 +269,7 @@ module.exports = kind({
         options: {parse: true},
         url: resolveURL(this.model.get('fullDescriptionUrl'), this.repositoryURL),
         parse: function (data) {
-          return {content: data};
+          return {content: data || 'No description'};
         },
       }));
       this.descriptionModel.fetch({
@@ -274,7 +278,7 @@ module.exports = kind({
         error: function(t) {t.set('status', t.status);},
       });
     } else {
-      this.set('descriptionModel', new Model({content: this.model.get('shortDescription')}));
+      this.set('descriptionModel', new Model({content: '<br/><br/>' + this.model.get('shortDescription') || 'No description'}));
       this.descriptionModel.set('status', States.READY);
     }
 
