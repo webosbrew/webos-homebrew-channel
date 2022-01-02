@@ -133,6 +133,8 @@ module.exports = kind({
     }
   ],
 
+  // This is set when processing addRepository launchMode
+  templateAddRepository: null,
   extraRepositories: null, //  new Collection([{url: 'test1'}, {url: 'test2'}]),
 
   rootTextStatus: 'pending...',
@@ -176,6 +178,15 @@ module.exports = kind({
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
     }).bind(this));
+  },
+  transitionFinished: function (evt) {
+    if (!evt.isOffscreen) {
+      console.info('Transition finish in settings!');
+      if (this.templateAddRepository !== null) {
+        this.$.repoAddDialog.show();
+        this.$.repoAddDialog.$.message.$.repositoryDialogURL.set('value', this.templateAddRepository);
+      }
+    }
   },
   repoClicked: function (sender, evt) {
     console.info(evt, evt.model);

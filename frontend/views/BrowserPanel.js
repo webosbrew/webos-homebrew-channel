@@ -40,7 +40,12 @@ var NestedSource = kind({
     this.collection.fetch({
       success: function(col, _, result) {
         console.info('nested success:', result, col);
-        opts.success(result); // result);
+        if (!result.length) {
+          col.errorCode = '600';
+          opts.error(result, '600');
+        } else {
+          opts.success(result);
+        }
       },
       error: function(col, state, next, errorCode) {
         console.info('nested error:', arguments, this);
@@ -113,7 +118,7 @@ module.exports = kind({
     },
     {
       from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
-        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' - ' + s.collection.errorCode; }).filter(Boolean).join(', ') : '';
+        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' (' + s.collection.errorCode + ')'; }).filter(Boolean).join(', ') : '';
         return 'An error occured while downloading some repositories:\n'+statusList;
       }
     },
@@ -164,12 +169,18 @@ module.exports = kind({
               source: new AjaxSource(),
               options: {parse: true},
               parse: function (data) {
-                data.packages.forEach(function (element) {
-                  element.uid = element.id + '|' + url;
-                  element.repository = url;
-                  element.official = url === repositoryBaseURL;
-                });
-                return data.packages;
+                try {
+                  if (data && data.packages) {
+                    data.packages.forEach(function (element) {
+                      element.uid = element.id + '|' + url;
+                      element.repository = url;
+                      element.official = url === repositoryBaseURL;
+                    });
+                    return data.packages;
+                  }
+                } catch (err) { console.warn('parsing failed', arguments, this); }
+
+                return [];
               },
             }),
           });
