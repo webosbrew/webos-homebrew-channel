@@ -45,8 +45,14 @@ function patchRolesFile(path: string) {
   const rolesOriginal = readFileSync(path).toString();
   const rolesNew = JSON.parse(rolesOriginal);
 
+  // webOS <4.x /var/ls2-dev role file
   if (rolesNew?.role?.allowedNames && rolesNew?.role?.allowedNames.indexOf('*') === -1) {
     rolesNew.role.allowedNames.push('*');
+  }
+
+  // webOS 4.x+ /var/luna-service2 role file
+  if (rolesNew?.allowedNames && rolesNew?.allowedNames.indexOf('*') === -1) {
+    rolesNew.allowedNames.push('*');
   }
 
   if (rolesNew.permissions) {
