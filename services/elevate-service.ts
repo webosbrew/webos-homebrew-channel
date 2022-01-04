@@ -56,11 +56,22 @@ function patchRolesFile(path: string) {
   }
 
   if (rolesNew.permissions) {
-    rolesNew.permissions.forEach((perm: { outbound?: string[] }) => {
+    let needsAll = true;
+    rolesNew.permissions.forEach((perm: { outbound?: string[]; service?: string }) => {
+      if (perm.service && perm.service === '*') needsAll = false;
       if (perm.outbound && perm.outbound.indexOf('*') === -1) {
         perm.outbound.push('*');
       }
     });
+
+    if (needsAll) {
+      console.info('[ ] Adding all clients permission');
+      rolesNew.permissions.push({
+        service: '*',
+        inbound: ['*'],
+        outbound: ['*'],
+      });
+    }
   }
 
   const rolesNewContents = JSON.stringify(rolesNew);
