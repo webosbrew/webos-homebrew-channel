@@ -41,33 +41,45 @@ function patchServiceFile(serviceFile: string): boolean {
   return false;
 }
 
-function patchRolesFile(path: string) {
+function patchRolesFile(path: string, requiredNames: string[] = ['*', 'com.webos.service.capture.client*']) {
   const rolesOriginal = readFileSync(path).toString();
   const rolesNew = JSON.parse(rolesOriginal);
 
-  // webOS <4.x /var/ls2-dev role file
-  if (rolesNew?.role?.allowedNames && rolesNew?.role?.allowedNames.indexOf('*') === -1) {
-    rolesNew.role.allowedNames.push('*');
+  for (const name of requiredNames) {
+    // webOS <4.x /var/ls2-dev role file
+    if (rolesNew?.role?.allowedNames && rolesNew?.role?.allowedNames.indexOf(name) === -1) {
+      rolesNew.role.allowedNames.push(name);
+    }
+
+    // webOS 4.x+ /var/luna-service2 role file
+    if (rolesNew?.allowedNames && rolesNew?.allowedNames.indexOf(name) === -1) {
+      rolesNew.allowedNames.push(name);
+    }
   }
 
-  // webOS 4.x+ /var/luna-service2 role file
-  if (rolesNew?.allowedNames && rolesNew?.allowedNames.indexOf('*') === -1) {
-    rolesNew.allowedNames.push('*');
-  }
-
+  // permissions / allowedNames interactions are fairly odd. It seems like
+  // "service" field in permission is one of allowedNames that this executable
+  // can use, outbound are remote client names that our executable/name can use,
+  // and inbound are remote client names that can access our executable.
+  //
+  // Oddly, even though there seems to be some support for wildcards, some
+  // pieces of software verify explicit permission "service" key, thus we
+  // sometimes may need some extra allowedNames/permissions, even though we
+  // default to "*"
   if (rolesNew.permissions) {
-    let needsAll = true;
+    const missingPermissionNames = requiredNames;
     rolesNew.permissions.forEach((perm: { outbound?: string[]; service?: string }) => {
-      if (perm.service && perm.service === '*') needsAll = false;
+      if (perm.service && missingPermissionNames.indexOf(perm.service) !== -1)
+        missingPermissionNames.splice(missingPermissionNames.indexOf(perm.service), 1);
       if (perm.outbound && perm.outbound.indexOf('*') === -1) {
         perm.outbound.push('*');
       }
     });
 
-    if (needsAll) {
-      console.info('[ ] Adding all clients permission');
+    for (const name of missingPermissionNames) {
+      console.info(`[ ] Adding permission for name: ${name}`);
       rolesNew.permissions.push({
-        service: '*',
+        service: name,
         inbound: ['*'],
         outbound: ['*'],
       });
