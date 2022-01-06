@@ -18,7 +18,7 @@ fs.writeFileSync(
     appDescription: appinfo.appDescription,
     iconUri: 'https://raw.githubusercontent.com/webosbrew/webos-homebrew-channel/main/assets/icon160.png',
     sourceUrl: 'https://github.com/webosbrew/webos-homebrew-channel',
-    rootRequired: true,
+    rootRequired: false,
     ipkUrl: ipkfile,
     ipkHash: {
       sha256: ipkhash,

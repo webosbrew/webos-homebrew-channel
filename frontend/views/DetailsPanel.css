@@ -4,10 +4,13 @@
 }
 
 .app-description {
-    margin-top: -1em;
     max-width: 100%;
     overflow: hidden;
     white-space: normal;
+}
+
+.app-description .rich-description {
+    margin-top: -1em;
 }
 
 .app-description img {

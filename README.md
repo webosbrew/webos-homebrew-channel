@@ -6,6 +6,8 @@ Features
 
 * Independent webOS package repository
     * Homebrew discovery, installation & updates
+* Support for multiple repositories (outside of official
+  [repo.webosbrew.org](https://repo.webosbrew.org)
 
 * (root) Root execution service that can be easily used by webOS homebrew
   developers without a need of separate privilege escalation handling (`luna://org.webosbrew.hbchannel.service/exec`)
@@ -51,6 +53,91 @@ cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/start
   ```sh
   cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
   ```
+
+Interfaces
+----------
+
+## Luna service
+
+This application exposes a Luna service that may be used by other homebrew
+applications on Rooted devices:
+
+### `luna://org.webosbrew.hbchannel.service/install`
+Download, verify and install an application.
+
+**Arguments:**
+
+* `ipkUrl` [string] - HTTP(s) URL for `ipk` application to install
+* `ipkHash` [string] - SHA256 checksum of downloaded `ipk` application
+* `subscribe` [boolean] - subscribe for status updates
+
+**Returns:**
+
+* `finished` [boolean] - returns `true` when application has been fully
+  installed
+* `statusText` [string] - current status/progress message
+* `progress` [number] - percentage download progress
+
+### `luna://org.webosbrew.hbchannel.service/exec`
+Root code execution - this *may* not execute as root, if a device is not rooted.
+
+**Arguments:**
+
+* `command` [string] - command to execute
+
+**Returns:**
+
+* `error` [string] - error that may have occured
+* `stdoutString` [string] - stdout as a unicode string representation
+* `stdoutBytes` [string] - stdout as a base64 representation
+* `stderrString` [string] - stderr as a unicode string representation
+* `stderrBytes` [string] - stderr as a base64 representation
+
+### `luna://org.webosbrew.hbchannel.service/spawn`
+Root code execution, spawn a long-running process - this *may* not execute as
+root, if a device is not rooted.
+
+**Arguments:**
+
+* `command` [string] - command to execute
+
+**Returns:**
+
+* `type` [string] - one of `stdoutData`, `stderrData`, `close`, `exit`
+    * `stdoutData` - data incoming on stdout pipe
+        * `stdoutString` [string] - stdout as a unicode string representation
+        * `stdoutBytes` [string] - stdout as a base64 representation
+    * `stderrData` - data incoming on stderr pipe
+        * `stderrString` [string] - stderr as a unicode string representation
+        * `stderrBytes` [string] - stderr as a base64 representation
+    * `close` - child process closed all its stdio streams
+        * `closeCode` [number] - exit code
+    * `exit` - child proess ended
+        * `exitCode` [number] - exit code
+
+### `luna://org.webosbrew.hbchannel.service/getAppInfo`
+`luna://com.webos.applicationManager/getAppInfo` call replicated using
+devmode-only endpoints.
+
+## Repository management
+
+webOS application (or remote device, via SSAP) may request Homebrew Launcher to
+add an external repository, by launching it with the following launch params:
+
+```json
+{
+    "launchMode": "addRepository",
+    "url": "https://url-to-repository.com"
+}
+```
+
+This will automatically jump to Settings view and open up "Add repository"
+prompt with URL filled in.
+
+This can be tested by using `ares-launch` as follows:
+```sh
+ares-launch org.webosbrew.hbchannel -p '{"launchMode":"addRepository","url":"https://google.com"}'
+```
 
 Development
 -----------
@@ -106,6 +193,16 @@ ares-setup-device -a webos -i "username=root" -i "privatekey=/path/to/id_rsa" -i
 ```
 
 **Note:** @webosose/ares-cli doesn't need to be installed globally - you can use a package installed locally after `npm install` in this repo by just prefixing above commands with local path, like so: `node_modules/.bin/ares-setup-device ...`
+
+### Frontend development
+EnyoJS is able to watch for frontend changes, but does not expose a HTTP server.
+
+```sh
+npm run build -- --watch
+
+# ...in a separate terminal:
+python -m http.server -d dist/
+```
 
 ### Production build
 ```sh

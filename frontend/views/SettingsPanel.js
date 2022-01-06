@@ -1,5 +1,11 @@
 var
   kind = require('enyo/kind'),
+  Spinner = require('moonstone/Spinner'),
+  DataRepeater = require('enyo/DataRepeater'),
+  Collection = require('enyo/Collection'),
+  Model = require('enyo/Model'),
+  AjaxSource = require('enyo/AjaxSource'),
+  Dialog = require('moonstone/Dialog'),
   Panel = require('moonstone/Panel'),
   Scroller = require('moonstone/Scroller'),
   Divider = require('moonstone/Divider'),
@@ -7,6 +13,9 @@ var
   Tooltip = require('moonstone/Tooltip'),
   Icon = require('moonstone/Icon'),
   IconButton = require('moonstone/IconButton'),
+  Button = require('moonstone/Button'),
+  Input = require('moonstone/Input'),
+  InputDecorator = require('moonstone/InputDecorator'),
   ObjectActionDecorator = require('moonstone/ObjectActionDecorator'),
   ItemOverlay = require('moonstone/ItemOverlay'),
   ItemOverlaySupport = ItemOverlay.ItemOverlaySupport,
@@ -74,16 +83,29 @@ module.exports = kind({
             },
             {
               components: [
-                {kind: Divider, content: 'Repositories (Coming Soon...)'},
-                {kind: ToggleItem, content: 'Default repository - https://repo.webosbrew.org', checked: true, disabled: true},
+                {kind: Divider, content: 'Repositories'},
+                {kind: ToggleItem, content: 'Default repository - https://repo.webosbrew.org', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
                 {
-                  kind: Item, mixins: [ItemOverlaySupport], components: [
-                    {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/'}
-                  ], endingComponents: [
-                    {kind: Icon, icon: 'trash', small: true}
-                  ], disabled: true,
+                  kind: DataRepeater, name: 'extraRepositories',
+                  components: [
+                    {
+                      components: [
+                        {
+                          kind: Item, mixins: [ItemOverlaySupport], components: [
+                            {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/', name: 'repoURL'}
+                          ], endingComponents: [
+                            {kind: Icon, icon: 'trash', small: true}
+                          ],
+                        },
+                      ],
+                      bindings: [
+                        {from: 'model.url', to: '$.repoURL.content'},
+                      ],
+                      ontap: 'repoClicked',
+                    },
+                  ],
                 },
-                {kind: Item, content: 'Add repository', centered: true, style: 'margin-top: 3rem', disabled: true},
+                {kind: Item, content: 'Add repository', centered: true, style: 'margin-top: 3rem', ontap: 'showRepoAddDialog'},
               ],
               classes: 'moon-16h',
             }
@@ -95,7 +117,25 @@ module.exports = kind({
     {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
     {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
     {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
+    {
+      name: 'repoAddDialog',
+      kind: Dialog,
+      title: 'Add repository',
+      subTitle: 'Enter repository URL:',
+      message: [
+        {kind: InputDecorator, components: [
+          {kind: Input, placeholder: 'https://...', type: 'url', name: 'repositoryDialogURL', style: 'width: 100%'},
+        ], style: 'width: 100%; margin-bottom: 1em'},
+      ],
+      components: [
+        {kind: Button, content: 'Add repository', ontap: 'addRepositorySubmit'},
+      ]
+    }
   ],
+
+  // This is set when processing addRepository launchMode
+  templateAddRepository: null,
+  extraRepositories: null, //  new Collection([{url: 'test1'}, {url: 'test2'}]),
 
   rootTextStatus: 'pending...',
   rootIsActive: false,
@@ -116,13 +156,69 @@ module.exports = kind({
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
     {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
     {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
+    {from: "extraRepositories", to: "$.extraRepositories.collection"},
   ],
+
   create: function () {
     this.inherited(arguments);
     this.$.getConfiguration.send({});
+
+    var repositoriesConfig = {repositories: [], disableDefault: false};
+    try {
+      var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
+      if (parsed.disableDefault !== undefined)
+        repositoriesConfig.disableDefault = parsed.disableDefault;
+      if (parsed.repositories !== undefined)
+        repositoriesConfig.repositories = parsed.repositories;
+    } catch (err) { }
+
+    this.set('extraRepositories', new Collection(repositoriesConfig.repositories));
+    this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
+
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
     }).bind(this));
+  },
+  transitionFinished: function (evt) {
+    if (!evt.isOffscreen) {
+      console.info('Transition finish in settings!');
+      if (this.templateAddRepository !== null) {
+        this.$.repoAddDialog.show();
+        this.$.repoAddDialog.$.message.$.repositoryDialogURL.set('value', this.templateAddRepository);
+      }
+    }
+  },
+  repoClicked: function (sender, evt) {
+    console.info(evt, evt.model);
+    this.extraRepositories.remove(evt.model);
+    this.saveRepositories();
+  },
+  showRepoAddDialog: function (sender, evt) {
+    this.$.repoAddDialog.show();
+  },
+  addRepositorySubmit: function (sender, evt) {
+    console.info(this.$);
+    var input = this.$.repoAddDialog.$.message.$.repositoryDialogURL;
+    var url = input.getValue();
+    console.info('Adding', url);
+    this.extraRepositories.add([{
+      url: url,
+    }]);
+    input.set('value', '');
+    this.$.repoAddDialog.hide();
+    this.saveRepositories();
+  },
+  saveRepositories: function (sender, evt) {
+    var repos = [];
+    for (var i = 0; i < this.extraRepositories.models.length; i++) {
+      repos.push(this.extraRepositories.models[i]);
+    }
+
+    window.localStorage['repositoriesConfig'] = JSON.stringify({
+      repositories: repos,
+      disableDefault: !this.$.enableDefault.get('checked'),
+    });
+    console.info(window.localStorage['repositoriesConfig']);
   },
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);
