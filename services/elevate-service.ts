@@ -2,12 +2,21 @@
 
 import { statSync, readFileSync, writeFileSync } from 'fs';
 import { execFile } from 'child_process';
+import { dirname } from 'path';
 
 process.env.PATH = `/usr/sbin:${process.env.PATH}`;
 
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
+  } catch (err) {
+    return false;
+  }
+}
+
+function parentExists(path: string): boolean {
+  try {
+    return statSync(dirname(path)).isDirectory();
   } catch (err) {
     return false;
   }
@@ -110,7 +119,7 @@ function main(argv: string[]) {
 
   const serviceFile = `/var/luna-service2-dev/services.d/${serviceName}.service`;
   const clientPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.root.json`;
-  const apiPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.api.public.json`;
+  const apiPermFile = `/var/luna-service2-dev/api-permissions.d/${serviceName}.api.public.json`;
   const manifestFile = `/var/luna-service2-dev/manifests.d/${appName}.json`;
   const roleFile = `/var/luna-service2-dev/roles.d/${serviceName}.service.json`;
 
@@ -119,62 +128,63 @@ function main(argv: string[]) {
     if (patchServiceFile(serviceFile)) {
       configChanged = true;
     }
+  }
 
-    if (!isFile(clientPermFile)) {
-      console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
-      writeFileSync(
-        clientPermFile,
-        JSON.stringify({
-          [`${serviceName}*`]: ['all'],
-        }),
-      );
+  if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
+    console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
+    writeFileSync(
+      clientPermFile,
+      JSON.stringify({
+        [`${serviceName}*`]: ['all'],
+      }),
+    );
+    configChanged = true;
+  }
+
+  if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
+    console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
+    writeFileSync(
+      apiPermFile,
+      JSON.stringify({
+        public: [`${serviceName}/*`],
+      }),
+    );
+    configChanged = true;
+  }
+
+  if (isFile(roleFile)) {
+    if (patchRolesFile(roleFile)) {
       configChanged = true;
     }
+  }
 
-    if (!isFile(apiPermFile)) {
-      console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
-      writeFileSync(
-        apiPermFile,
-        JSON.stringify({
-          public: [`${serviceName}/*`],
-        }),
-      );
+  if (isFile(manifestFile)) {
+    console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
+    const manifestFileOriginal = readFileSync(manifestFile).toString();
+    const manifestFileParsed = JSON.parse(manifestFileOriginal);
+    if (manifestFileParsed.clientPermissionFiles && manifestFileParsed.clientPermissionFiles.indexOf(clientPermFile) === -1) {
+      console.info('[ ] manifest - adding client permissions file...');
+      manifestFileParsed.clientPermissionFiles.push(clientPermFile);
+    }
+
+    if (manifestFileParsed.apiPermissionFiles && manifestFileParsed.apiPermissionFiles.indexOf(apiPermFile) === -1) {
+      console.info('[ ] manifest - adding API permissions file...');
+      manifestFileParsed.apiPermissionFiles.push(apiPermFile);
+    }
+
+    const manifestFileNew = JSON.stringify(manifestFileParsed);
+    if (manifestFileNew !== manifestFileOriginal) {
+      console.info(`[~] Updating manifest file: ${manifestFile}`);
+      console.info('-', manifestFileOriginal);
+      console.info('+', manifestFileNew);
+      writeFileSync(manifestFile, manifestFileNew);
       configChanged = true;
-    }
-
-    if (isFile(roleFile)) {
-      if (patchRolesFile(roleFile)) {
-        configChanged = true;
-      }
-    }
-
-    if (isFile(manifestFile)) {
-      console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
-      const manifestFileOriginal = readFileSync(manifestFile).toString();
-      const manifestFileParsed = JSON.parse(manifestFileOriginal);
-      if (manifestFileParsed.clientPermissionFiles && manifestFileParsed.clientPermissionFiles.indexOf(clientPermFile) === -1) {
-        console.info('[ ] manifest - adding client permissions file...');
-        manifestFileParsed.clientPermissionFiles.push(clientPermFile);
-      }
-
-      if (manifestFileParsed.apiPermissionFiles && manifestFileParsed.apiPermissionFiles.indexOf(apiPermFile) === -1) {
-        console.info('[ ] manifest - adding API permissions file...');
-        manifestFileParsed.apiPermissionFiles.push(apiPermFile);
-      }
-
-      const manifestFileNew = JSON.stringify(manifestFileParsed);
-      if (manifestFileNew !== manifestFileOriginal) {
-        console.info(`[~] Updating manifest file: ${manifestFile}`);
-        console.info('-', manifestFileOriginal);
-        console.info('+', manifestFileNew);
-        writeFileSync(manifestFile, manifestFileNew);
-        configChanged = true;
-      }
     }
   }
 
   const legacyPubServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
   const legacyPrvServiceFile = `/var/palm/ls2-dev/services/prv/${serviceName}.service`;
+  const legacyPubRolesFile = `/var/palm/ls2-dev/roles/pub/${serviceName}.json`;
   const legacyPrvRolesFile = `/var/palm/ls2-dev/roles/prv/${serviceName}.json`;
 
   if (isFile(legacyPubServiceFile)) {
@@ -184,6 +194,12 @@ function main(argv: string[]) {
     }
 
     if (patchServiceFile(legacyPrvServiceFile)) {
+      configChanged = true;
+    }
+  }
+
+  if (isFile(legacyPubRolesFile)) {
+    if (patchRolesFile(legacyPubRolesFile)) {
       configChanged = true;
     }
   }
