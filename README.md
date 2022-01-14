@@ -24,6 +24,16 @@ Features
 
 Installation
 ------------
+
+## Updating
+**If you already have Homebrew Channel installed** just launch Homebrew Channel
+and select "Homebrew Channel" on apps browser view. "Update" button should be
+clickable if an update is available for your installation.
+
+If you need to reinstall any app for any reason press "5" button on app details
+screen and "Update" button should change to "Reinstall" (and get enabled if it
+wasn't before)
+
 ## Automated (recommended)
 Latest Homebrew Channel version is automatically installed when rooting a TV
 with https://rootmy.tv exploit.
