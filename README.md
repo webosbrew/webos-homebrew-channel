@@ -1,6 +1,8 @@
 webos-homebrew-channel
 ======================
 
+![image](https://user-images.githubusercontent.com/13520633/149569503-c9e13f40-ec44-43f0-b330-94a8a26081e5.png)
+
 Features
 --------
 
