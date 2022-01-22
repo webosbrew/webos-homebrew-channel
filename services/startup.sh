@@ -51,9 +51,16 @@ else
     # Set placeholder root password (alpine) unless someone has already
     # provisioned their ssh authorized keys
     if [ ! -f /home/root/.ssh/authorized_keys ]; then
-        sed s/root:.:/root:xGVw8H4GqkKg6:/ /etc/shadow > /tmp/shadow
+        sed -r 's/root:.?:/root:xGVw8H4GqkKg6:/' /etc/shadow > /tmp/shadow
         chmod 400 /tmp/shadow
         mount --bind /tmp/shadow /etc/shadow
+
+        # Enable root account (only required on old webOS versions)
+        if grep -q 'root:\*:' /etc/passwd; then
+            sed 's/root:\*:/root:x:/' /etc/passwd > /tmp/passwd
+            chmod 444 /tmp/passwd
+            mount --bind /tmp/passwd /etc/passwd
+        fi
 
         echo '' >> /tmp/motd
         echo ' /!\ Your system is using a default password.' >> /tmp/motd
