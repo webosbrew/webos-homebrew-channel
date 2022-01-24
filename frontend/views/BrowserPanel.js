@@ -40,9 +40,9 @@ var NestedSource = kind({
     this.collection.fetch({
       success: function(col, _, result) {
         console.info('nested success:', result, col);
-        if (!result.length) {
+        if (result.length === 1 && result[0].attributes.repository === null) {
           col.errorCode = '600';
-          opts.error(result, '600');
+          opts.error([], '600');
         } else {
           opts.success(result);
         }
@@ -180,7 +180,11 @@ module.exports = kind({
                   }
                 } catch (err) { console.warn('parsing failed', arguments, this); }
 
-                return [];
+                // This is very dirty. We don't have a way of indicating an
+                // invalid repository to NestedResource. Since uid is generated
+                // by our code, let's just assume `null` uid is an indicator of
+                // a failed parse...
+                return [{repository: null}];
               },
             }),
           });
