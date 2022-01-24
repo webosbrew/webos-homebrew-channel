@@ -45,11 +45,12 @@ function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, arg
   });
 }
 
-function createToast(message: string, service: Service): Promise<Record<string, any>> {
+function createToast(message: string, service: Service, extras: Record<string, any> = {}): Promise<Record<string, any>> {
   console.info(`[toast] ${message}`);
   return asyncCall(service, 'luna://com.webos.notification/createToast', {
-    sourceId: serviceInfo.id,
+    sourceId: kHomebrewChannelPackageId,
     message,
+    ...extras,
   });
 }
 
@@ -199,6 +200,17 @@ function runService() {
     return serviceRemote as Service;
   }
 
+  async function getAppInfo(appId: string): Promise<Record<string, any>> {
+    const appList = await asyncCall<{ apps: { id: string }[] }>(
+      getInstallerService(),
+      'luna://com.webos.applicationManager/dev/listApps',
+      {},
+    );
+    const appInfo = appList.apps.find((app) => app.id === appId);
+    if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
+    return appInfo;
+  }
+
   /**
    * Installs the requested ipk from a URL.
    */
@@ -260,7 +272,13 @@ function runService() {
       message.respond({ statusText: 'Installing…' });
       const installedPackageId = await installPackage(targetPath, getInstallerService());
 
-      await createToast(`Application installed: ${installedPackageId}`, service);
+      try {
+        const appInfo = await getAppInfo(installedPackageId);
+        await createToast(`Application installed: ${appInfo.title}`, service);
+      } catch (err) {
+        console.warn('appinfo fetch failed:', err);
+        await createToast(`Application installed: ${installedPackageId}`, service);
+      }
 
       return { statusText: 'Finished.', finished: true };
     }),
@@ -331,13 +349,7 @@ function runService() {
       const payload = message.payload as GetAppInfoPayload;
       const appId: string = payload.id;
       if (!appId) throw new Error('missing `id` string field');
-      const appList = await asyncCall<{ apps: { id: string }[] }>(
-        getInstallerService(),
-        'luna://com.webos.applicationManager/dev/listApps',
-        {},
-      );
-      const appInfo = appList.apps.find((app) => app.id === appId);
-      if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
+      const appInfo = await getAppInfo(appId);
       return { appId, appInfo };
     }),
   );
