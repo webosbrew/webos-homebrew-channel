@@ -127,6 +127,13 @@ module.exports = kind({
     this.refresh();
   },
 
+  transitionFinished: function (evt) {
+    if (!evt.isOffscreen) {
+      console.info('transitionFinished:', evt);
+      this.refresh();
+    }
+  },
+
   refresh: function () {
     console.info('refresh');
 
