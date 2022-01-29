@@ -4,24 +4,25 @@
 #
 # Usage, from repository root directory:
 #
-#   docker run --rm -ti -v /tmp/opt:/opt -v $PWD:/app ubuntu:18.04 /app/tools/build-binaries.sh
+#   docker run --rm -ti -v /tmp/opt:/opt -v $PWD:/app ubuntu:20.04 /app/tools/build-binaries.sh
 #
 
 set -ex
 
-NDK_PATH="${NDK_PATH:-/opt/webos-sdk-x86_64/1.0.g}"
+NDK_PATH="${NDK_PATH:-/opt/ndk}"
 TARGET_DIR="${TARGET_DIR:-$(dirname $0)/../services/bin}"
 
-apt-get update && apt-get install -y --no-install-recommends xz-utils python git make wget ca-certificates file
+apt-get update && apt-get install -y --no-install-recommends wget ca-certificates file make perl
 
 function install_ndk() {
     # Install NDK
-    [[ -f "${NDK_PATH}/environment-setup-armv7a-neon-webos-linux-gnueabi" ]] && return
-    wget https://github.com/webosbrew/meta-lg-webos-ndk/releases/download/1.0.g-rev.4/webos-sdk-x86_64-armv7a-neon-toolchain-1.0.g.sh -O /tmp/webos-ndk-installer
-    sha256sum -c <<< 'a7f740239de589ef8019effdc68ffb0168e02c9fc1d428f563305a555eb30976 /tmp/webos-ndk-installer'
-    chmod +x /tmp/webos-ndk-installer
-    /tmp/webos-ndk-installer -y -d "${NDK_PATH}"
-    rm /tmp/webos-ndk-installer
+    [[ -f "${NDK_PATH}/environment-setup" ]] && return
+    wget https://github.com/openlgtv/buildroot-nc4/releases/download/webos-0d62420/arm-webos-linux-gnueabi_sdk-buildroot.1.tar.gz -O /tmp/webos-sdk.tgz
+    sha256sum -c <<< '2008d6e5b82ee12907400775b11c974054a756907d4a23404268bfaf95bb261b /tmp/webos-sdk.tgz'
+    mkdir -p "$NDK_PATH"
+    tar xvf /tmp/webos-sdk.tgz -C "${NDK_PATH}" --strip-components=1
+    ${NDK_PATH}/relocate-sdk.sh
+    rm /tmp/webos-sdk.tgz
 }
 
 function download() {
@@ -36,7 +37,7 @@ function download() {
 }
 
 function build_dropbear() {
-   . "${NDK_PATH}/environment-setup-armv7a-neon-webos-linux-gnueabi"
+   . "${NDK_PATH}/environment-setup"
     cd /opt/dropbear-src
     cat <<EOF >localoptions.h
 #define DSS_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_dss_host_key"
@@ -57,7 +58,7 @@ EOF
 }
 
 function build_rsync() {
-    . "${NDK_PATH}/environment-setup-armv7a-neon-webos-linux-gnueabi"
+    . "${NDK_PATH}/environment-setup"
     cd /opt/rsync-src
     ./configure --host arm-webos-linux-gnueabi \
         --disable-simd --disable-debug --with-included-popt=yes --with-included-zlib=yes \
@@ -68,7 +69,7 @@ function build_rsync() {
 }
 
 function build_sftp() {
-	. "${NDK_PATH}/environment-setup-armv7a-neon-webos-linux-gnueabi"
+	. "${NDK_PATH}/environment-setup"
 	cd /opt/openssh-src
 	./configure --host=arm-webos-linux-gnueabi --without-openssl
 	make sftp-server -j$(nproc --all)
