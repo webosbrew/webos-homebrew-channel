@@ -18,8 +18,9 @@ var
   AjaxSource = require('enyo/AjaxSource'),
   Ajax = require('enyo/Ajax'),
   Collection = require('enyo/Collection'),
-  SettingsPanel = require('./SettingsPanel.js'),
-  ConfigUtils = require('../configutils.js');
+  LunaService = require('enyo-webos/LunaService'),
+  ConfigUtils = require('../configutils.js'),
+  SettingsPanel = require('./SettingsPanel.js');
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
@@ -102,6 +103,7 @@ module.exports = kind({
         {kind: AppListItem}
       ], ontap: 'itemSelected',
     },
+    {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
   ],
   bindings: [
     {from: 'repository', to: '$.appList.collection'},
@@ -125,6 +127,8 @@ module.exports = kind({
   create: function () {
     this.inherited(arguments);
     this.refresh();
+
+    this.$.updateStartupScript.send({});
   },
 
   transitionFinished: function (evt) {

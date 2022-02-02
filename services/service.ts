@@ -11,7 +11,7 @@ import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile } from './adapter';
+import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile } from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -52,6 +52,28 @@ function createToast(message: string, service: Service, extras: Record<string, a
     message,
     ...extras,
   });
+}
+
+/**
+ * Check whether a path is a valid file
+ */
+async function isFile(targetPath: string): Promise<boolean> {
+  try {
+    return (await asyncStat(targetPath)).isFile();
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Copies a file
+ */
+async function copyFile(sourcePath: string, targetPath: string) {
+  if (!(await isFile(sourcePath))) {
+    throw new Error(`${sourcePath} is not a file`);
+  }
+
+  await asyncPipeline(fs.createReadStream(sourcePath), fs.createWriteStream(targetPath));
 }
 
 /**
@@ -192,6 +214,8 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
 function runService() {
   const service = new Service(serviceInfo.id);
   const serviceRemote = new ServiceRemote(service);
+
+  service.activityManager.idleTimeout = 30;
 
   function getInstallerService(): Service {
     if (runningAsRoot()) {
@@ -336,6 +360,82 @@ function runService() {
   service.register(
     'checkRoot',
     tryRespond(async () => runningAsRoot()),
+  );
+
+  /**
+   * Check for startup script updates
+   */
+  service.register(
+    'updateStartupScript',
+    tryRespond(async () => {
+      if (!runningAsRoot()) {
+        return { returnValue: true, statusText: 'Not running as root.' };
+      }
+
+      let messages = [];
+
+      try {
+        const bundledStartup = path.join(__dirname, 'startup.sh');
+        const bundledJumpstart = path.join(__dirname, 'jumpstart.sh');
+
+        const webosbrewStartup = '/var/lib/webosbrew/startup.sh';
+        const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
+
+        const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
+        const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
+        const updateableChecksums = ['c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92'];
+
+        // RootMyTV v2
+        if (await isFile(webosbrewStartup)) {
+          const localChecksum = await hashFile(webosbrewStartup, 'sha256');
+          if (localChecksum !== bundledStartupChecksum) {
+            if (updateableChecksums.indexOf(localChecksum) !== -1) {
+              await copyFile(bundledStartup, webosbrewStartup);
+              messages.push(`${webosbrewStartup} updated!`);
+            } else {
+              // Show notification about mismatched startup script
+              messages.push(`${webosbrewStartup} has been manually modified!`);
+            }
+          }
+
+          // Check for checksum of start-devmode.sh based on
+          // https://gist.githubusercontent.com/stek29/761232c6f7e1ffbc36b98da2a3a0f4d9/raw/f56660ab3f293d8a53de664ac66d0503d398baf3/install.sh
+          // and reinstall clean jumpstart.sh...
+          if (
+            (await isFile(startDevmode)) &&
+            (await hashFile(startDevmode, 'sha256')) === '98bf599e3787cc4de949d2e7831308379b8f93a6deacf93887aeed15d5a0317e'
+          ) {
+            await copyFile(bundledJumpstart, startDevmode);
+            messages.push(`${startDevmode} updated!`);
+          }
+        }
+
+        // RootMyTV v1
+        if (await isFile(startDevmode)) {
+          const localChecksum = await hashFile(startDevmode, 'sha256');
+          if (localChecksum !== bundledStartupChecksum && updateableChecksums.indexOf(localChecksum) !== -1) {
+            await copyFile(bundledStartup, startDevmode);
+            messages.push(`${startDevmode} updated!`);
+          } else if (localChecksum !== bundledJumpstartChecksum && (await asyncReadFile(startDevmode)).indexOf('org.webosbrew') !== -1) {
+            // Show notification about mismatched startup script if contains
+            // org.webosbrew string (which is not used on jumpstart.sh nor
+            // official start-devmode.sh)
+            messages.push(`${startDevmode} has been manually modified!`);
+          }
+        }
+      } catch (err) {
+        messages = ['Startup script update failed!', ...messages, `Error: ${err.toString()}`];
+        await createToast(messages.join('<br/>'), service);
+        return { returnValue: false, statusText: 'Startup script update failed.', messages };
+      }
+
+      if (messages.length) {
+        await createToast(messages.join('<br/>'), service);
+        return { returnValue: true, statusText: 'Update succeeded', messages };
+      }
+
+      return { returnValue: true, statusText: 'Nothing changed', messages };
+    }),
   );
 
   /**

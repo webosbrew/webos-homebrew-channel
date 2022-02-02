@@ -28,6 +28,7 @@
         "services/package.json",
         "services/run-js-service",
         "services/startup.sh",
+        "services/jumpstart.sh",
         "services/elevate-service"
     ],
     "styles": [
