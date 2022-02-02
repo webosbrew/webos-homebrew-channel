@@ -4,6 +4,14 @@
 # meant to be copied over to suitable path (eg. start-devmode.sh) to keep it
 # safe from accidental homebrew channel app removal.
 
+# Ensure that startup script runs only once per boot
+once=/tmp/webosbrew_startup
+exec 200>"${once}.lock"
+flock -x -n 200 || exit
+trap "rm -f ${once}.lock" EXIT
+test -f "${once}" && exit
+touch "${once}"
+
 if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
     # In case a reboot occured during last startup - open an emergency telnet
     # server and nag user to actually fix this. (since further reboots could
