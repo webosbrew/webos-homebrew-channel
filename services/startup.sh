@@ -20,10 +20,9 @@ if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
     telnetd -l /bin/sh
     sleep 1
 
-    while true; do
-        luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b> Open telnet and remove<br>/var/luna/preferences/webosbrew_failsafe"}'
-        sleep 15;
-    done
+    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b><br/>A crash has occured during startup. Fix any causes and reboot."}'
+    sleep 15;
+    rm /var/luna/preferences/webosbrew_failsafe
 else
     # Set a failsafe flag and sync filesystem to make sure it actually gets
     # tripped...
