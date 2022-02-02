@@ -75,6 +75,11 @@ else
         echo ' /!\ Insert SSH public key into /home/root/.ssh/authorized_keys and perform a reboot to remove this warning.' >> /tmp/motd
         echo '' >> /tmp/motd
         mount --bind /tmp/motd /etc/motd
+    else
+        # Cleanup in case someone accidentally uploads a file with 777
+        # permissions
+        chmod 600 /home/root/.ssh/authorized_keys
+        chown 0:0 /home/root/.ssh/authorized_keys
     fi
 
     # Do our best to neuter telemetry
