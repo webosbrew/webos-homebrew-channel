@@ -63,11 +63,19 @@ else
     fi
 
     # Do our best to neuter telemetry
-    mkdir -p /home/root/unwritable
-    chattr +i /home/root/unwritable
-    mount --bind /home/root/unwritable/ /var/spool/rdxd/
-    mount --bind /home/root/unwritable/ /var/spool/uploadd/pending/
-    mount --bind /home/root/unwritable/ /var/spool/uploadd/uploaded/
+    mkdir -p /tmp/.unwritable
+    for path in /tmp/rdxd /tmp/uploadd /var/spool/rdxd /var/spool/uploadd/pending /var/spool/uploadd/uploaded; do
+        mkdir -p $path
+        mount -o bind,ro /tmp/.unwritable $path
+
+        # Some older mount (webOS 3.x) does not support direct ro bind mount, so
+        # this needs to be remounted after initial bind...
+        mount -o bind,remount,ro /tmp/.unwritable $path
+    done
+
+    # Deprecate old path
+    chattr -i /home/root/unwritable
+    rm -rf /home/root/unwritable
 
     # Automatically elevate Homebrew Channel service
     if [[ -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]]; then
