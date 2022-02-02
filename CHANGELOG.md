@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added "webosbrew.org Non-free software" repository switch - this may contain
+  software that is distributed under non-free/open source licenses. This is
+  disabled by default and can be enabled in Settings.
+- Added automatic updates of startup scripts. Homebrew Channel will now check
+  checksums of known startup script paths against known list of "official"
+  scripts and automatically update them if they match, or show a notification
+  when a manual intervention is needed. (when a script has been modified)
+
+### Changed
+- Application name is now rendered in "Application installed" toast messages
+- Homebrew Channel icon is now properly displayed in toasts/notifications
+- Startup script will now use /tmp subdirectory for dummy telemetry blocking
+  directory to reduce leftovers after Factory Resets of rooted devices. Updated
+  list of blocked telemetry paths.
+
+### Fixed
+- Startup script shall now be ran only once (courtesy of @stek29)
+- Fix root password authentication on webOS 1.x-2.x (courtesy of @ledoge)
+- Rebuilt ssh-related binaries to support webOS 1.x
+
 ## [0.4.0] - 2022-01-13
 ### Added
 - `elevate-service` script now properly handles Native Services - including
