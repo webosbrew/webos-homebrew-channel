@@ -25,7 +25,8 @@ var
   Popup = require('moonstone/Popup'),
   TooltipDecorator = require('moonstone/TooltipDecorator'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
-  LunaService = require('enyo-webos/LunaService');
+  LunaService = require('enyo-webos/LunaService'),
+  ConfigUtils = require('../configutils.js');
 
 var not = function (x) { return !x };
 
@@ -84,7 +85,8 @@ module.exports = kind({
             {
               components: [
                 {kind: Divider, content: 'Repositories'},
-                {kind: ToggleItem, content: 'Default repository - https://repo.webosbrew.org', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
+                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
+                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
                 {
                   kind: DataRepeater, name: 'extraRepositories',
                   components: [
@@ -163,17 +165,11 @@ module.exports = kind({
     this.inherited(arguments);
     this.$.getConfiguration.send({});
 
-    var repositoriesConfig = {repositories: [], disableDefault: false};
-    try {
-      var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
-      if (parsed.disableDefault !== undefined)
-        repositoriesConfig.disableDefault = parsed.disableDefault;
-      if (parsed.repositories !== undefined)
-        repositoriesConfig.repositories = parsed.repositories;
-    } catch (err) { }
+    var repositoriesConfig = ConfigUtils.getConfig();
 
     this.set('extraRepositories', new Collection(repositoriesConfig.repositories));
     this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
+    this.$.enableNonfree.set('checked', repositoriesConfig.enableNonfree);
 
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
@@ -214,11 +210,11 @@ module.exports = kind({
       repos.push(this.extraRepositories.models[i]);
     }
 
-    window.localStorage['repositoriesConfig'] = JSON.stringify({
+    ConfigUtils.setConfig({
       repositories: repos,
       disableDefault: !this.$.enableDefault.get('checked'),
+      enableNonfree: this.$.enableNonfree.get('checked'),
     });
-    console.info(window.localStorage['repositoriesConfig']);
   },
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);

@@ -18,12 +18,11 @@ var
   AjaxSource = require('enyo/AjaxSource'),
   Ajax = require('enyo/Ajax'),
   Collection = require('enyo/Collection'),
-  SettingsPanel = require('./SettingsPanel.js');
+  SettingsPanel = require('./SettingsPanel.js'),
+  ConfigUtils = require('../configutils.js');
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
-
-var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
 
 var RepoPackageModel = kind({
   kind: Model,
@@ -40,9 +39,9 @@ var NestedSource = kind({
     this.collection.fetch({
       success: function(col, _, result) {
         console.info('nested success:', result, col);
-        if (!result.length) {
+        if (result.length === 1 && result[0].attributes.repository === null) {
           col.errorCode = '600';
-          opts.error(result, '600');
+          opts.error([], '600');
         } else {
           opts.success(result);
         }
@@ -128,30 +127,17 @@ module.exports = kind({
     this.refresh();
   },
 
+  transitionFinished: function (evt) {
+    if (!evt.isOffscreen) {
+      console.info('transitionFinished:', evt);
+      this.refresh();
+    }
+  },
+
   refresh: function () {
     console.info('refresh');
 
-    var repositoriesConfig = {repositories: [], disableDefault: false};
-
-    try {
-      var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
-      if (parsed.disableDefault !== undefined)
-        repositoriesConfig.disableDefault = parsed.disableDefault;
-      if (parsed.repositories !== undefined)
-        repositoriesConfig.repositories = parsed.repositories;
-    } catch (err) {
-      console.warn('Config load failed:', err);
-    }
-
-    console.info(repositoriesConfig);
-    try {
-      var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
-      if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
-      this.loadRepositories(repos);
-    } catch (err) {
-      console.warn('Load failed: ', err);
-      this.loadRepositories([repositoryBaseURL]);
-    }
+    this.loadRepositories(ConfigUtils.getRepositories());
   },
 
   loadRepositories: function (repos) {
@@ -174,13 +160,17 @@ module.exports = kind({
                     data.packages.forEach(function (element) {
                       element.uid = element.id + '|' + url;
                       element.repository = url;
-                      element.official = url === repositoryBaseURL;
+                      element.official = url === ConfigUtils.repositoryBaseURL;
                     });
                     return data.packages;
                   }
-                } catch (err) { console.warn('parsing failed', arguments, this); }
+                } catch (err) { console.warn('parsing failed', err, arguments, this); }
 
-                return [];
+                // This is very dirty. We don't have a way of indicating an
+                // invalid repository to NestedResource. Since uid is generated
+                // by our code, let's just assume `null` uid is an indicator of
+                // a failed parse...
+                return [{repository: null}];
               },
             }),
           });
