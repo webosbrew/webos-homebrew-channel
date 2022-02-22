@@ -38,3 +38,4 @@ export const asyncReadFile: (path: string, options?: any) => Promise<Buffer> = B
 export const asyncWriteFile: (path: string, contents: string, options?: fs.WriteFileOptions) => Promise<void> = Bluebird.Promise.promisify(
   fs.writeFile,
 );
+export const asyncChmod: (path: string, mode: fs.Mode) => Promise<void> = Bluebird.Promise.promisify(fs.chmod);

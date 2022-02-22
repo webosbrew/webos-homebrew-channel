@@ -11,7 +11,7 @@ import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile } from './adapter';
+import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod } from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -68,12 +68,13 @@ async function isFile(targetPath: string): Promise<boolean> {
 /**
  * Copies a file
  */
-async function copyFile(sourcePath: string, targetPath: string) {
+async function copyScript(sourcePath: string, targetPath: string) {
   if (!(await isFile(sourcePath))) {
     throw new Error(`${sourcePath} is not a file`);
   }
 
   await asyncPipeline(fs.createReadStream(sourcePath), fs.createWriteStream(targetPath));
+  await asyncChmod(targetPath, 0o755);
 }
 
 /**
@@ -390,7 +391,7 @@ function runService() {
           const localChecksum = await hashFile(webosbrewStartup, 'sha256');
           if (localChecksum !== bundledStartupChecksum) {
             if (updateableChecksums.indexOf(localChecksum) !== -1) {
-              await copyFile(bundledStartup, webosbrewStartup);
+              await copyScript(bundledStartup, webosbrewStartup);
               messages.push(`${webosbrewStartup} updated!`);
             } else {
               // Show notification about mismatched startup script
@@ -405,7 +406,7 @@ function runService() {
             (await isFile(startDevmode)) &&
             (await hashFile(startDevmode, 'sha256')) === '98bf599e3787cc4de949d2e7831308379b8f93a6deacf93887aeed15d5a0317e'
           ) {
-            await copyFile(bundledJumpstart, startDevmode);
+            await copyScript(bundledJumpstart, startDevmode);
             messages.push(`${startDevmode} updated!`);
           }
         }
@@ -414,7 +415,7 @@ function runService() {
         if (await isFile(startDevmode)) {
           const localChecksum = await hashFile(startDevmode, 'sha256');
           if (localChecksum !== bundledStartupChecksum && updateableChecksums.indexOf(localChecksum) !== -1) {
-            await copyFile(bundledStartup, startDevmode);
+            await copyScript(bundledStartup, startDevmode);
             messages.push(`${startDevmode} updated!`);
           } else if (localChecksum !== bundledJumpstartChecksum && (await asyncReadFile(startDevmode)).indexOf('org.webosbrew') !== -1) {
             // Show notification about mismatched startup script if contains
