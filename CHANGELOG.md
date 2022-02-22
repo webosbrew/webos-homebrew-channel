@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checksums of known startup script paths against known list of "official"
   scripts and automatically update them if they match, or show a notification
   when a manual intervention is needed. (when a script has been modified)
+- Failsafe mode will now be automatically disabled after 15 seconds and an alert
+  to reboot will be shown.
+- `authorized_keys` file permissions are now fixed up automatically on boot.
 
 ### Changed
 - Application name is now rendered in "Application installed" toast messages
