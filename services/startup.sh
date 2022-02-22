@@ -7,9 +7,19 @@
 # Ensure that startup script runs only once per boot
 once=/tmp/webosbrew_startup
 exec 200>"${once}.lock"
-flock -x -n 200 || (echo "[!] Startup script already running" >&2 ; exit 1)
+
+if ! flock -x -n 200; then
+    echo "[!] Startup script already running" >&2
+    exit 1
+fi
+
 trap "rm -f ${once}.lock" EXIT
-test -f "${once}" && (echo "[!] Startup script finished already" >&2; exit 2)
+
+if test -f "${once}"; then
+    echo "[!] Startup script finished already" >&2
+    exit 2
+fi
+
 touch "${once}"
 
 if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
