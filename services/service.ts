@@ -525,6 +525,8 @@ function runService() {
         return { message: 'Startup script already executed.', returnValue: true };
       }
       child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
+        cwd: '/home/root',
+        env: { LD_PRELOAD: '' },
         detached: true,
         stdio: ['ignore', 'ignore', 'ignore'],
       });
