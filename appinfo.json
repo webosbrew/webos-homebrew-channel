@@ -11,7 +11,7 @@
     "type": "web",
     "appDescription": "webOS Homebrew installer",
     "previewMetadata": {
-        "targetEndpoint": "luna://org.webosbrew.hbchannel.service/discovery",
+        "targetEndpoint": "luna://org.webosbrew.hbchannel.service/autostart",
         "sourceEndpoint": "@PREVIEW.ENDPOINT.SOURCE_LOCAL_STOREAPP"
     }
 }

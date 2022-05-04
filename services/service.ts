@@ -516,7 +516,7 @@ function runService() {
   );
 
   service.register(
-    'discovery',
+    'autostart',
     tryRespond(async () => {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
