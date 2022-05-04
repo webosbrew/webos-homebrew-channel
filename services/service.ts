@@ -514,6 +514,23 @@ function runService() {
       isTimeLimited: false,
     })),
   );
+
+  service.register(
+    'discovery',
+    tryRespond(async () => {
+      if (!runningAsRoot()) {
+        return { message: 'Not running as root.', returnValue: true };
+      }
+      if (fs.existsSync('/tmp/webosbrew_startup')) {
+        return { message: 'Startup script already executed.', returnValue: true };
+      }
+      child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
+        detached: true,
+        stdio: ['ignore', 'ignore', 'ignore'],
+      });
+      return { returnValue: true };
+    }),
+  );
 }
 
 if (process.argv[2] === 'self-update') {
