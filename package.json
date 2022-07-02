@@ -4,6 +4,9 @@
     "description": "Manual installation:",
     "main": "frontend/index.js",
     "moduleDir": "frontend",
+    "os": [
+        "!win32"
+    ],
     "scripts": {
         "build": "enyo pack",
         "build-service": "webpack",

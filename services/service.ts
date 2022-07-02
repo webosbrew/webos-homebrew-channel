@@ -514,6 +514,40 @@ function runService() {
       isTimeLimited: false,
     })),
   );
+
+  service.register(
+    'autostart',
+    tryRespond(async () => {
+      if (!runningAsRoot()) {
+        return { message: 'Not running as root.', returnValue: true };
+      }
+      if (fs.existsSync('/tmp/webosbrew_startup')) {
+        return { message: 'Startup script already executed.', returnValue: true };
+      }
+      // Copy startup.sh if doesn't exist
+      if (!fs.existsSync('/var/lib/webosbrew/startup.sh')) {
+        try {
+          fs.mkdirSync('/var/lib/webosbrew/', { mode: 0o755 });
+        } catch (e) {
+          // Ignore
+        }
+        fs.copyFileSync(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
+      }
+      // Make startup.sh executable
+      try {
+        fs.accessSync('/var/lib/webosbrew/startup.sh', fs.constants.X_OK);
+      } catch (e) {
+        fs.chmodSync('/var/lib/webosbrew/startup.sh', 0o755);
+      }
+      child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
+        cwd: '/home/root',
+        env: { LD_PRELOAD: '' },
+        detached: true,
+        stdio: ['ignore', 'ignore', 'ignore'],
+      });
+      return { returnValue: true };
+    }),
+  );
 }
 
 if (process.argv[2] === 'self-update') {
