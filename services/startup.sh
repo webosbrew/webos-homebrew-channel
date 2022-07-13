@@ -66,6 +66,8 @@ else
         /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R
     fi
 
+    printf "\033[1;91mNEVER EVER OVERWRITE SYSTEM PARTITIONS LIKE KERNEL, ROOTFS, TVSERVICE.\nYour TV will be bricked, guaranteed! See https://rootmy.tv/warning for more info.\033[0m\n" > /tmp/motd
+
     # Set placeholder root password (alpine) unless someone has already
     # provisioned their ssh authorized keys
     if [ ! -f /home/root/.ssh/authorized_keys ]; then
