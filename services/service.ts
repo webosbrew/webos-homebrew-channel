@@ -384,7 +384,10 @@ function runService() {
 
         const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
         const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
-        const updateableChecksums = ['c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92'];
+        const updateableChecksums = [
+          'c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92',
+          'bcbe9f8cea451c40190334ee4819427b316c0dba889b502049fb99f7a4807c6b',
+        ];
 
         // RootMyTV v2
         if (await isFile(webosbrewStartup)) {
