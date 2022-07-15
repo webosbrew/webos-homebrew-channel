@@ -67,6 +67,7 @@ else
     fi
 
     printf "\033[1;91mNEVER EVER OVERWRITE SYSTEM PARTITIONS LIKE KERNEL, ROOTFS, TVSERVICE.\nYour TV will be bricked, guaranteed! See https://rootmy.tv/warning for more info.\033[0m\n" > /tmp/motd
+    mount --bind /tmp/motd /etc/motd
 
     # Set placeholder root password (alpine) unless someone has already
     # provisioned their ssh authorized keys
@@ -86,7 +87,6 @@ else
         echo ' /!\ Your system is using a default password.' >> /tmp/motd
         echo ' /!\ Insert SSH public key into /home/root/.ssh/authorized_keys and perform a reboot to remove this warning.' >> /tmp/motd
         echo '' >> /tmp/motd
-        mount --bind /tmp/motd /etc/motd
     else
         # Cleanup in case someone accidentally uploads a file with 777
         # permissions
