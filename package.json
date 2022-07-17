@@ -1,6 +1,6 @@
 {
     "name": "webos-homebrew-channel",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "description": "Manual installation:",
     "main": "frontend/index.js",
     "moduleDir": "frontend",
@@ -84,7 +84,7 @@
         "shell-escape": "^0.2.0",
         "ssh2": "^0.8.9",
         "stream.pipeline-shim": "^1.1.0",
-        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git"
+        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git#59172863e61abb53b2f3f174ab9a23c655819188"
     },
     "homepage": "https://github.com/webosbrew/webos-homebrew-channel#readme"
 }

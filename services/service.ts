@@ -19,6 +19,7 @@ import { makeError, makeSuccess } from './protocol';
 import ServiceRemote from './webos-service-remote';
 
 const kHomebrewChannelPackageId = rootAppInfo.id;
+const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
 
 // Maps internal setting field name with filesystem flag name.
 type FlagName = string;
@@ -380,11 +381,13 @@ function runService() {
         const bundledJumpstart = path.join(__dirname, 'jumpstart.sh');
 
         const webosbrewStartup = '/var/lib/webosbrew/startup.sh';
-        const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
 
         const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
         const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
-        const updateableChecksums = ['c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92'];
+        const updateableChecksums = [
+          'c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92',
+          'bcbe9f8cea451c40190334ee4819427b316c0dba889b502049fb99f7a4807c6b',
+        ];
 
         // RootMyTV v2
         if (await isFile(webosbrewStartup)) {
@@ -517,7 +520,7 @@ function runService() {
 
   service.register(
     'autostart',
-    tryRespond(async () => {
+    tryRespond(() => {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
       }
