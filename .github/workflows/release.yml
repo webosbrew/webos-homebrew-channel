@@ -1,14 +1,8 @@
-# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
 name: Build & Release
 
-on: 
-  push:
-    branches:
-      - '!*'
-    tags:
-      - 'v*.*'
+on:
+  release:
+    types: [created]
 
 jobs:
   build-and-release:
@@ -30,17 +24,12 @@ jobs:
     - run: npm run package
     - run: echo RELEASE_FILENAME_IPK=`ls *.ipk` >> $GITHUB_ENV
     - run: npm run manifest
-    
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.2.3
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: true
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Upload IPK asset
       id: upload-ipk-asset 
@@ -48,7 +37,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
         asset_path: ${{github.workspace}}/${{env.RELEASE_FILENAME_IPK}}
         asset_name: ${{env.RELEASE_FILENAME_IPK}}
         asset_content_type: application/vnd.debian.binary-package
@@ -59,7 +48,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
         asset_path: ${{github.workspace}}/org.webosbrew.hbchannel.manifest.json
         asset_name: org.webosbrew.hbchannel.manifest.json
         asset_content_type: application/json
