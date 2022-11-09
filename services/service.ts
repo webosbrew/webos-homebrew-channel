@@ -534,7 +534,7 @@ function runService() {
         } catch (e) {
           // Ignore
         }
-        fs.copyFileSync(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
+        await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
       }
       // Make startup.sh executable
       try {
