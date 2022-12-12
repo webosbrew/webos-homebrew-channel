@@ -520,7 +520,7 @@ function runService() {
 
   service.register(
     'autostart',
-    tryRespond(() => {
+    tryRespond(async () => {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
       }
