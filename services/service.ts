@@ -537,11 +537,8 @@ function runService() {
         await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
       }
       // Make startup.sh executable
-      try {
-        fs.accessSync('/var/lib/webosbrew/startup.sh', fs.constants.X_OK);
-      } catch (e) {
-        fs.chmodSync('/var/lib/webosbrew/startup.sh', 0o755);
-      }
+      fs.chmodSync('/var/lib/webosbrew/startup.sh', 0o755);
+  
       child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
         cwd: '/home/root',
         env: { LD_PRELOAD: '' },
