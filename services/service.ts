@@ -11,7 +11,17 @@ import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod } from './adapter';
+import {
+  asyncStat,
+  asyncExecFile,
+  asyncPipeline,
+  asyncUnlink,
+  asyncWriteFile,
+  asyncReadFile,
+  asyncChmod,
+  asyncExists,
+  asyncMkdir,
+} from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -524,21 +534,21 @@ function runService() {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
       }
-      if (fs.existsSync('/tmp/webosbrew_startup')) {
+      if (await asyncExists('/tmp/webosbrew_startup')) {
         return { message: 'Startup script already executed.', returnValue: true };
       }
       // Copy startup.sh if doesn't exist
-      if (!fs.existsSync('/var/lib/webosbrew/startup.sh')) {
+      if (!(await asyncExists('/var/lib/webosbrew/startup.sh'))) {
         try {
-          fs.mkdirSync('/var/lib/webosbrew/', 0o755);
+          await asyncMkdir('/var/lib/webosbrew/', 0o755);
         } catch (e) {
           // Ignore
         }
         await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
       }
       // Make startup.sh executable
-      fs.chmodSync('/var/lib/webosbrew/startup.sh', 0o755);
-  
+      await asyncChmod('/var/lib/webosbrew/startup.sh', 0o755);
+
       child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
         cwd: '/home/root',
         env: { LD_PRELOAD: '' },

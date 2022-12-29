@@ -39,3 +39,5 @@ export const asyncWriteFile: (path: string, contents: string, options?: fs.Write
   fs.writeFile,
 );
 export const asyncChmod: (path: string, mode: fs.Mode) => Promise<void> = Bluebird.Promise.promisify(fs.chmod);
+export const asyncExists: (path: string) => Promise<boolean> = Bluebird.Promise.promisify(fs.exists);
+export const asyncMkdir: (path: string, mode?: fs.Mode) => Promise<void> = Bluebird.Promise.promisify(fs.mkdir);
