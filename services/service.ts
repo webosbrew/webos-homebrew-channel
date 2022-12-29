@@ -530,7 +530,7 @@ function runService() {
       // Copy startup.sh if doesn't exist
       if (!fs.existsSync('/var/lib/webosbrew/startup.sh')) {
         try {
-          fs.mkdirSync('/var/lib/webosbrew/', { mode: 0o755 });
+          fs.mkdirSync('/var/lib/webosbrew/', 0o755);
         } catch (e) {
           // Ignore
         }
