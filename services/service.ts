@@ -40,7 +40,7 @@ const availableFlags = {
   blockUpdates: 'webosbrew_block_updates',
 } as Record<string, FlagName>;
 
-function runningAsRoot() {
+function runningAsRoot(): boolean {
   return process.getuid() === 0;
 }
 
@@ -79,7 +79,7 @@ async function isFile(targetPath: string): Promise<boolean> {
 /**
  * Copies a file
  */
-async function copyScript(sourcePath: string, targetPath: string) {
+async function copyScript(sourcePath: string, targetPath: string): Promise<void> {
   if (!(await isFile(sourcePath))) {
     throw new Error(`${sourcePath} is not a file`);
   }
@@ -102,7 +102,7 @@ async function hashFile(filePath: string, algorithm: string): Promise<string> {
 /**
  * Elevates a package by name.
  */
-async function elevateService(pkg: string) {
+async function elevateService(pkg: string): Promise<void> {
   if (runningAsRoot()) {
     console.info('Elevating service...');
     await asyncExecFile(path.join(__dirname, 'elevate-service'), [pkg]);
@@ -128,7 +128,7 @@ async function flagRead(flag: FlagName): Promise<boolean> {
 /**
  * Sets the value of a flag.
  */
-async function flagSet(flag: FlagName, enabled: boolean) {
+async function flagSet(flag: FlagName, enabled: boolean): Promise<boolean> {
   if (enabled) {
     // The file content is ignored, file presence is what matters. Writing '1' acts as a hint.
     await asyncWriteFile(flagPath(flag), '1');
