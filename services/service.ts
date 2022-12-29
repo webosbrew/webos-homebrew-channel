@@ -122,12 +122,7 @@ function flagPath(flag: FlagName): string {
  * Returns whether a flag is set or not.
  */
 async function flagRead(flag: FlagName): Promise<boolean> {
-  try {
-    await asyncStat(flagPath(flag));
-    return true;
-  } catch (err) {
-    return false;
-  }
+  return asyncExists(flagPath(flag));
 }
 
 /**
