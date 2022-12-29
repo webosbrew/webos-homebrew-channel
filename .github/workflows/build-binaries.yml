@@ -1,0 +1,25 @@
+name: Build Binaries
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Run build-binaries.sh
+      run: ${{github.workspace}}/tools/build-binaries.sh
+      shell: bash
+      env:
+        TARGET_DIR: ${{github.workspace}}/_bin
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries-${{github.run_id}}
+        path: _bin/
+        if-no-files-found: error
