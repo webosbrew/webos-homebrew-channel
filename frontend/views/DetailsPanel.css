@@ -1,6 +1,13 @@
-.full-button {
+.full-button, .small.full-button {
     width: 100%;
     min-width: 95%;
+
+    /* sizing adjustment... */
+    margin-bottom: 8px;
+}
+
+.full-button.moon-progress-button {
+    margin-bottom: 0px;
 }
 
 .app-description {

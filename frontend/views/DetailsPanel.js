@@ -114,11 +114,23 @@ module.exports = kind({
           {
             components: [
               {
-                name: 'launchButton', kind: ProgressButton, content: 'Launch', progress: 0,
+                name: 'launchButton', kind: Button, content: 'Launch',
                 classes: 'full-button',
                 minWidth: false,
                 ontap: 'launchApp',
                 disabled: true,
+              },
+            ],
+          },
+          {
+            components: [
+              {
+                name: 'uninstallButton', kind: Button, content: 'Uninstall',
+                classes: 'full-button',
+                minWidth: false,
+                ontap: 'uninstallApp',
+                disabled: true,
+                small: true,
               },
             ],
           },
@@ -169,6 +181,14 @@ module.exports = kind({
       onResponse: 'onInstallResponse',
       onError: 'onInstallError',
       subscribe: true,
+    },
+    {
+      kind: LunaService,
+      name: 'uninstallCall',
+      service: 'luna://org.webosbrew.hbchannel.service',
+      method: 'uninstall',
+      onResponse: 'onUninstallResponse',
+      onError: 'onUninstallError',
     },
     {
       kind: LunaService,
@@ -231,6 +251,11 @@ module.exports = kind({
 
     {
       from: 'appInfo', to: '$.launchButton.disabled', transform: function (value) {
+        return !value;
+      },
+    },
+    {
+      from: 'appInfo', to: '$.uninstallButton.disabled', transform: function (value) {
         return !value;
       },
     },
@@ -312,6 +337,10 @@ module.exports = kind({
   launchApp: function () {
     this.$.launchCall.send({id: this.model.get("id")});
   },
+  uninstallApp: function () {
+    this.$.uninstallCall.send({id: this.model.get("id")});
+    this.$.uninstallButton.set('disabled', false);
+  },
 
   onInstallResponse: function (sender, msg) {
     console.info('installResponse:', msg, msg.finished, msg.statusText);
@@ -325,17 +354,31 @@ module.exports = kind({
       this.appInfoRequest = this.$.appInfoCall.send({id: this.model.get("id")});
     }
   },
-  onInstallError: function (sender, msg) {
+
+  showError: function(msg, operation) {
     console.info('install error:', msg);
-    var errorMessage = 'An error occured during installation: ' + msg.errorText;
+    var errorMessage = 'An error occured during ' + operation + ': ' + msg.errorText;
     if (msg.errorText.indexOf('luna-send-pub') != -1 && msg.errorText.indexOf('ECONNREFUSED') != -1) {
       errorMessage += '<br /><br />If you just updated Homebrew Channel app you may need to perform a reboot.';
     }
     this.$.errorPopup.setContent(DOMPurify.sanitize(errorMessage));
     this.$.errorPopup.show();
+  },
+
+  onInstallError: function (sender, msg) {
+    this.showError(msg, 'installation');
     this.$.installButton.set('progress', 0);
     this.$.installButton.set('disabled', false);
     this.$.installCall.cancel(this.installRequest);
+  },
+
+  onUninstallResponse: function(sender, msg) {
+    this.$.appInfoCall.send({id: this.model.get("id")});
+  },
+
+  onUninstallError: function (sender, msg) {
+    this.showError(msg, 'removal');
+    this.$.appInfoCall.send({id: this.model.get("id")});
   },
 
   onAppInfoResponse: function (sender, msg) {

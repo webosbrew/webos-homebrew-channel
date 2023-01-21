@@ -202,6 +202,50 @@ async function installPackage(filePath: string, service: Service): Promise<strin
   });
 }
 
+async function removePackage(packageId: string, service: Service): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = service.subscribe('luna://com.webos.appInstallService/dev/remove', {
+      id: packageId,
+      subscribe: true,
+    });
+
+    req.on('response', (res) => {
+      console.info('appInstallService remove response:', res);
+
+      if (res.payload.returnValue === false) {
+        reject(new Error(`${res.payload.errorCode}: ${res.payload.errorText}`));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.details && res.payload.details.errorCode !== undefined) {
+        reject(new Error(`${res.payload.details.errorCode}: ${res.payload.details.reason}`));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.statusValue === 25 && res.payload.details.reason !== undefined) {
+        reject(new Error(res.payload.details.reason));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.statusValue === 31) {
+        resolve();
+        req.cancel();
+      }
+    });
+
+    req.on('cancel', (msg) => {
+      if (msg.payload && msg.payload.errorText) {
+        reject(new Error(msg.payload.errorText));
+      } else {
+        reject(new Error('cancelled'));
+      }
+    });
+  });
+}
+
 /**
  * Thin wrapper that responds with a successful message or an error in case of a JS exception.
  */
@@ -316,6 +360,17 @@ function runService() {
     () => {
       // TODO: support cancellation.
     },
+  );
+
+  /**
+   * Removes existing package.
+   */
+  service.register(
+    'uninstall',
+    tryRespond(async (message: Message) => {
+      await removePackage(message.payload.id, getInstallerService());
+      return { statusText: 'Finished.' };
+    }),
   );
 
   /**
