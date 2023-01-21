@@ -212,7 +212,10 @@ module.exports = kind({
       var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
       return '<div class="rich-description">' + sanitized + '</div>';
     }},
-    {from: 'packageInfo.version', to: '$.version.text'},
+
+    {from: 'packageInfo.version', to: '$.version.text', transform: 'version'},
+    {from: 'appInfo', to: '$.version.text', transform: 'version'},
+
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
     {
       from: 'packageInfo.sourceUrl', to: '$.projectPage.disabled', transform: function (v) {
@@ -273,6 +276,12 @@ module.exports = kind({
 
   subtitleID: function (id) {
     return id + (!this.model.get('official') ? ' (from ' + this.repositoryURL + ')' : '');
+  },
+
+  version: function (v) {
+    var pkgver = (this.packageInfo && this.packageInfo.isReady()) ? this.packageInfo.get('version') : 'unknown';
+    var localver = (this.appInfo && this.appInfo.version) ? this.appInfo.version : undefined;
+    return pkgver + ((localver && localver != pkgver) ? ' (installed: ' + localver + ')' : '');
   },
 
   installDisabled: function () {
