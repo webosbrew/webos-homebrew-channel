@@ -41,6 +41,16 @@ else
     sync
     sleep 2
 
+    # Close fds to avoid leaking Luna socket
+    fds="$(ls -1 "/proc/$$/fd")"
+    for fd in $fds; do
+        case $fd in
+        # Don't close stdin, stdout, stderr, or lock
+        0|1|2|200) ;;
+        *) eval "exec $fd>&-" ;;
+        esac
+    done
+
     # Reset devmode reboot counter
     rm -f /var/luna/preferences/dc*
 
