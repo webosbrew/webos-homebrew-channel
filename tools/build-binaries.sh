@@ -1,89 +1,78 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Builds a dropbear sshd/scp binary and rsync to be bundled in homebrew channel package.
-#
-# Usage, from repository root directory:
-#
-#   docker run --rm -ti -v /tmp/opt:/opt -v $PWD:/app ubuntu:20.04 /app/tools/build-binaries.sh
-#
+# Builds dropbear sshd/scp, rsync, and sftp-server binaries to be bundled in Homebrew Channel package.
 
-set -ex
+set -e -x
 
 NDK_PATH="${NDK_PATH:-/opt/ndk}"
-TARGET_DIR="${TARGET_DIR:-$(dirname $0)/../services/bin}"
+SRC_ROOT="${SRC_ROOT:-$(realpath -e -s -- "$(dirname -- "${0}")/..")}"
+PATCH_DIR="${PATCH_DIR:-${SRC_ROOT}/tools/patches}"
+TARGET_DIR="${TARGET_DIR:-${SRC_ROOT}/services/bin}"
+MAKEOPTS="${MAKEOPTS:--j"$(nproc)"}"
 
-apt-get update && apt-get install -y --no-install-recommends wget ca-certificates file make perl
-
-function install_ndk() {
-    # Install NDK
-    [[ -f "${NDK_PATH}/environment-setup" ]] && return
-    wget https://github.com/openlgtv/buildroot-nc4/releases/download/webos-0d62420/arm-webos-linux-gnueabi_sdk-buildroot.1.tar.gz -O /tmp/webos-sdk.tgz
-    sha256sum -c <<< '2008d6e5b82ee12907400775b11c974054a756907d4a23404268bfaf95bb261b /tmp/webos-sdk.tgz'
-    mkdir -p "$NDK_PATH"
-    tar xvf /tmp/webos-sdk.tgz -C "${NDK_PATH}" --strip-components=1
-    ${NDK_PATH}/relocate-sdk.sh
-    rm /tmp/webos-sdk.tgz
+# Install NDK
+install_ndk() {
+    local src='/tmp/webos-sdk.tar.gz'
+    rm -r -f -- "${NDK_PATH}"
+    mkdir -p -- "${NDK_PATH}"
+    wget -O "${src}" -- "${1}"
+    sha256sum -c <<< "${2} ${src}"
+    tar -x -f "${src}" -C "${NDK_PATH}" --strip-components=1
+    rm -- "${src}"
+    "${NDK_PATH}/relocate-sdk.sh"
 }
 
-function download() {
-    # Download and checksum a tarball
-    local src="/tmp/$1.tar.gz"
-    local srcdir="/opt/$1-src"
-    rm -rf "$srcdir"
-    mkdir -p "$srcdir"
-    wget "$2" -O "$src"
-    printf "$3 $src" | sha256sum -c
-    tar xvf "$src" -C "$srcdir" --strip-components=1
+# Download and checksum a src
+download() {
+    local src="/tmp/${1}.tar.gz"
+    local srcdir="/opt/${1}-src"
+    rm -r -f -- "${srcdir}"
+    mkdir -p -- "${srcdir}"
+    wget -O "${src}" -- "${2}"
+    sha256sum -c <<< "${3} ${src}"
+    tar -x -f "${src}" -C "${srcdir}" --strip-components=1
+    rm -- "${src}"
 }
 
-function build_dropbear() {
-   . "${NDK_PATH}/environment-setup"
+build_dropbear() {
     cd /opt/dropbear-src
-    cat <<EOF >localoptions.h
-#define DSS_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_dss_host_key"
-#define RSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_rsa_host_key"
-#define ECDSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ecdsa_host_key"
-#define ED25519_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ed25519_host_key"
-#define DEFAULT_PATH "/home/root/.local/bin:/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin:/usr/bin:/bin"
-#define DROPBEAR_SFTPSERVER 1
-#define SFTPSERVER_PATH "/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/sftp-server"
-EOF
-    autoconf
-    autoheader
-    ./configure --host arm-webos-linux-gnueabi --disable-lastlog
-    PROGRAMS="dropbear scp"
-    make PROGRAMS="${PROGRAMS}" -j$(nproc --all)
-    arm-webos-linux-gnueabi-strip ${PROGRAMS}
-    cp ${PROGRAMS} "${TARGET_DIR}"
+    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-dynamic_crypt-v1.patch"
+    cp -v -- "${PATCH_DIR}/dropbear-localoptions.h" localoptions.h
+    ./configure --host arm-webos-linux-gnueabi --disable-lastlog --enable-dynamic-crypt
+    local programs='dropbear scp'
+    make ${MAKEOPTS} -- PROGRAMS="${programs}"
+    arm-webos-linux-gnueabi-strip -- ${programs}
+    cp -v -v -t "${TARGET_DIR}" -- ${programs}
 }
 
-function build_rsync() {
-    . "${NDK_PATH}/environment-setup"
+build_rsync() {
     cd /opt/rsync-src
     ./configure --host arm-webos-linux-gnueabi \
         --disable-simd --disable-debug --with-included-popt=yes --with-included-zlib=yes \
         --disable-lz4 --disable-zstd --disable-xxhash --disable-md2man --disable-acl-support
-    make -j$(nproc --all)
-    arm-webos-linux-gnueabi-strip rsync
-    cp rsync "${TARGET_DIR}"
+    make ${MAKEOPTS}
+    arm-webos-linux-gnueabi-strip -- rsync
+    cp -v -t "${TARGET_DIR}" -- rsync
 }
 
-function build_sftp() {
-	. "${NDK_PATH}/environment-setup"
+build_sftp() {
 	cd /opt/openssh-src
 	./configure --host=arm-webos-linux-gnueabi --without-openssl
-	make sftp-server -j$(nproc --all)
-	arm-webos-linux-gnueabi-strip sftp-server
-	cp sftp-server "${TARGET_DIR}"
+	make ${MAKEOPTS} -- sftp-server
+	arm-webos-linux-gnueabi-strip -- sftp-server
+	cp -v -t "${TARGET_DIR}" -- sftp-server
 }
 
-install_ndk &
-download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2020.81.tar.gz' 'c7cfc687088daca392b780f4af87d92ec1803f062c4c984f02062adc41b8147f' &
-download 'rsync'    'https://github.com/WayneD/rsync/archive/refs/tags/v3.2.3.tar.gz'           '3127c93d7081db075d1057a44b0bd68ff37f297ba9fe2554043c3e4481ae5056' &
-download 'openssh'  'https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-8.6p1.tar.gz' 'c3e6e4da1621762c850d03b47eed1e48dff4cc9608ddeb547202a234df8ed7ae' &
+[ -d "${TARGET_DIR}" ] || mkdir -p -- "${TARGET_DIR}"
+
+install_ndk 'https://github.com/openlgtv/buildroot-nc4/releases/download/webos-2974f83/arm-webos-linux-gnueabi_sdk-buildroot.tar.gz' 'd7d7454390d366446c15797e1523e63a03e77cdb6391b8858a0e27d243ace34d' &
+download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz' 'e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2' &
+download 'rsync'    'https://github.com/WayneD/rsync/archive/refs/tags/v3.2.7.tar.gz'           '4f2a350baa93dc666078b84bc300767a77789ca12f0dec3cb4b3024971f8ef47' &
+download 'openssh'  'https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.1p1.tar.gz' '19f85009c7e3e23787f0236fbb1578392ab4d4bf9f8ec5fe6bc1cd7e8bfdd288' &
 wait
 
-build_dropbear &
-build_rsync &
-build_sftp &
-wait
+. "${NDK_PATH}/environment-setup"
+
+build_dropbear
+build_rsync
+build_sftp

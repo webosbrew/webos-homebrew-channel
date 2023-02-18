@@ -41,6 +41,16 @@ else
     sync
     sleep 2
 
+    # Close fds to avoid leaking Luna socket
+    fds="$(ls -1 "/proc/$$/fd")"
+    for fd in $fds; do
+        case $fd in
+        # Don't close stdin, stdout, stderr, or lock
+        0|1|2|200) ;;
+        *) eval "exec $fd>&-" ;;
+        esac
+    done
+
     # Reset devmode reboot counter
     rm -f /var/luna/preferences/dc*
 
@@ -57,13 +67,13 @@ else
 
     # Start root telnet server
     if [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]]; then
-        telnetd -l /bin/sh
+        telnetd -l /bin/sh 200>&-
     fi
 
     # Start sshd
     if [[ -e /var/luna/preferences/webosbrew_sshd_enabled ]]; then
         mkdir -p /var/lib/webosbrew/sshd
-        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R
+        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R 200>&-
     fi
 
     printf "\033[1;91mNEVER EVER OVERWRITE SYSTEM PARTITIONS LIKE KERNEL, ROOTFS, TVSERVICE.\nYour TV will be bricked, guaranteed! See https://rootmy.tv/warning for more info.\033[0m\n" > /tmp/motd
@@ -115,9 +125,8 @@ else
     fi
 
     # Run user startup hooks
-    if [[ -d /var/lib/webosbrew/init.d ]]; then
-        run-parts /var/lib/webosbrew/init.d
-    fi
+    mkdir -p /var/lib/webosbrew/init.d
+    run-parts /var/lib/webosbrew/init.d 200>&-
 
     # Reset failsafe flag after a while
     sleep 10

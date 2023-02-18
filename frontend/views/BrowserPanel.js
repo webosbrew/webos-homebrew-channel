@@ -104,6 +104,7 @@ module.exports = kind({
       ], ontap: 'itemSelected',
     },
     {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
+    {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
   ],
   bindings: [
     {from: 'repository', to: '$.appList.collection'},
@@ -129,6 +130,7 @@ module.exports = kind({
     this.refresh();
 
     this.$.updateStartupScript.send({});
+    this.$.autostart.send({});
   },
 
   transitionFinished: function (evt) {

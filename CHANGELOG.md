@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Uninstall button present on app details page
+- Autostart hook is now launched on app start, if it has not been run yet
+- Currently installed app version is displayed now if update is available
+- `/var/lib/webosbrew/init.d` directory is now automatically created on startup
+
+### Fixed
+- dropbear sshd patched to support webOS 22 (7.x)
+- Fixed `/autostart` endpoint on webOS 4.0
+- Fixed luna-service2 fd leak causing Homebrew Channel service to fail after 60
+  seconds if used for autostart on certain webOS versions.
+
+## [0.5.1] - 2022-07-17
+### Added
+- Autostart scripts are now launched on webOS 4.5+ without any existing boot
+  hooks.
+- Warning message discouraging people from modifying system partitions has been
+  added to motd.
 
 ## [0.5.0] - 2022-03-03
 ### Added

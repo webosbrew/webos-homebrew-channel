@@ -46,7 +46,7 @@ Execute the following snippet on target TV using SSH or Telnet:
 curl -L https://raw.githubusercontent.com/webosbrew/webos-homebrew-channel/main/tools/install.sh | sh -
 
 # Update startup script (assuming running as root)
-cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /var/lib/webosbrew/startup.sh
 ```
 
 ## Manual
@@ -63,7 +63,7 @@ cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/start
   ```
 * (root) Update startup script:
   ```sh
-  cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+  cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /var/lib/webosbrew/startup.sh
   ```
 
 Interfaces
@@ -231,12 +231,12 @@ ssh root@10.0.0.2 -p 9922 /media/developer/apps/usr/palm/services/org.webosbrew.
 ```sh
 npm run build-service && \
     cat dist/services/service.js | ssh root@10.0.0.2 -p 9922 sh -c 'cat > /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/service.js && pkill -f org.webosbrew.hbchannel.service'
-ssh root@10.0.0.2 -p 9922 /usr/bin/run-js-service -k -n /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service
+ssh root@10.0.0.2 /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/run-js-service -k -n /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service
 ```
 
-### Update start-devmode.sh script
+### Update startup.sh script
 ```sh
-cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /var/lib/webosbrew/startup.sh
 ```
 
 ### Release engineering

@@ -11,7 +11,17 @@ import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod } from './adapter';
+import {
+  asyncStat,
+  asyncExecFile,
+  asyncPipeline,
+  asyncUnlink,
+  asyncWriteFile,
+  asyncReadFile,
+  asyncChmod,
+  asyncExists,
+  asyncMkdir,
+} from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -30,7 +40,7 @@ const availableFlags = {
   blockUpdates: 'webosbrew_block_updates',
 } as Record<string, FlagName>;
 
-function runningAsRoot() {
+function runningAsRoot(): boolean {
   return process.getuid() === 0;
 }
 
@@ -69,7 +79,7 @@ async function isFile(targetPath: string): Promise<boolean> {
 /**
  * Copies a file
  */
-async function copyScript(sourcePath: string, targetPath: string) {
+async function copyScript(sourcePath: string, targetPath: string): Promise<void> {
   if (!(await isFile(sourcePath))) {
     throw new Error(`${sourcePath} is not a file`);
   }
@@ -92,7 +102,7 @@ async function hashFile(filePath: string, algorithm: string): Promise<string> {
 /**
  * Elevates a package by name.
  */
-async function elevateService(pkg: string) {
+async function elevateService(pkg: string): Promise<void> {
   if (runningAsRoot()) {
     console.info('Elevating service...');
     await asyncExecFile(path.join(__dirname, 'elevate-service'), [pkg]);
@@ -112,18 +122,13 @@ function flagPath(flag: FlagName): string {
  * Returns whether a flag is set or not.
  */
 async function flagRead(flag: FlagName): Promise<boolean> {
-  try {
-    await asyncStat(flagPath(flag));
-    return true;
-  } catch (err) {
-    return false;
-  }
+  return asyncExists(flagPath(flag));
 }
 
 /**
  * Sets the value of a flag.
  */
-async function flagSet(flag: FlagName, enabled: boolean) {
+async function flagSet(flag: FlagName, enabled: boolean): Promise<boolean> {
   if (enabled) {
     // The file content is ignored, file presence is what matters. Writing '1' acts as a hint.
     await asyncWriteFile(flagPath(flag), '1');
@@ -187,6 +192,50 @@ async function installPackage(filePath: string, service: Service): Promise<strin
         req.cancel();
       }
     });
+    req.on('cancel', (msg) => {
+      if (msg.payload && msg.payload.errorText) {
+        reject(new Error(msg.payload.errorText));
+      } else {
+        reject(new Error('cancelled'));
+      }
+    });
+  });
+}
+
+async function removePackage(packageId: string, service: Service): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = service.subscribe('luna://com.webos.appInstallService/dev/remove', {
+      id: packageId,
+      subscribe: true,
+    });
+
+    req.on('response', (res) => {
+      console.info('appInstallService remove response:', res);
+
+      if (res.payload.returnValue === false) {
+        reject(new Error(`${res.payload.errorCode}: ${res.payload.errorText}`));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.details && res.payload.details.errorCode !== undefined) {
+        reject(new Error(`${res.payload.details.errorCode}: ${res.payload.details.reason}`));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.statusValue === 25 && res.payload.details.reason !== undefined) {
+        reject(new Error(res.payload.details.reason));
+        req.cancel();
+        return;
+      }
+
+      if (res.payload.statusValue === 31) {
+        resolve();
+        req.cancel();
+      }
+    });
+
     req.on('cancel', (msg) => {
       if (msg.payload && msg.payload.errorText) {
         reject(new Error(msg.payload.errorText));
@@ -314,6 +363,17 @@ function runService() {
   );
 
   /**
+   * Removes existing package.
+   */
+  service.register(
+    'uninstall',
+    tryRespond(async (message: Message) => {
+      await removePackage(message.payload.id, getInstallerService());
+      return { statusText: 'Finished.' };
+    }),
+  );
+
+  /**
    * Returns the current value of all available flags, plus whether we're running as root.
    */
   service.register(
@@ -384,9 +444,13 @@ function runService() {
 
         const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
         const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
+
         const updateableChecksums = [
           'c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92',
           'bcbe9f8cea451c40190334ee4819427b316c0dba889b502049fb99f7a4807c6b',
+          '15bd94b71c652b5d64ff79f2a88f965f9a61992ed3ce064617323d6a950d5d49',
+          '5caab3681cdd52cc9b59136a180cd0a1ffb98ec39bf571c38c0a4eb528ce13fb',
+          'befe927c6f62b87545aaefb4b2648a227b22695fa0f78a228dcacf1fbba11aeb',
         ];
 
         // RootMyTV v2
@@ -520,28 +584,25 @@ function runService() {
 
   service.register(
     'autostart',
-    tryRespond(() => {
+    tryRespond(async () => {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
       }
-      if (fs.existsSync('/tmp/webosbrew_startup')) {
+      if (await asyncExists('/tmp/webosbrew_startup')) {
         return { message: 'Startup script already executed.', returnValue: true };
       }
       // Copy startup.sh if doesn't exist
-      if (!fs.existsSync('/var/lib/webosbrew/startup.sh')) {
+      if (!(await asyncExists('/var/lib/webosbrew/startup.sh'))) {
         try {
-          fs.mkdirSync('/var/lib/webosbrew/', { mode: 0o755 });
+          await asyncMkdir('/var/lib/webosbrew/', 0o755);
         } catch (e) {
           // Ignore
         }
-        fs.copyFileSync(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
+        await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
       }
       // Make startup.sh executable
-      try {
-        fs.accessSync('/var/lib/webosbrew/startup.sh', fs.constants.X_OK);
-      } catch (e) {
-        fs.chmodSync('/var/lib/webosbrew/startup.sh', 0o755);
-      }
+      await asyncChmod('/var/lib/webosbrew/startup.sh', 0o755);
+
       child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
         cwd: '/home/root',
         env: { LD_PRELOAD: '' },

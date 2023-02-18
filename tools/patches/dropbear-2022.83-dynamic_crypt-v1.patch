@@ -1,0 +1,280 @@
+Building with --enable-dynamic-crypt will cause dropbear to attempt to
+load crypt() dynamically at startup. It will first attempt to load
+libcrypt.so.2, followed by libcrypt.so.1. Failure to load libcrypt.so.2
+is normal on webOS 6.x and older. If crypt() is not found, dropbear will
+continue running, but password authentication will not work.
+
+This solves a compatibility issue with webOS 22/7. It ships
+with libcrypt.so.2, while previous versions of webOS have libcrypt.so.1.
+The soname changed because webOS 22/7 uses libxcrypt built with a flag
+that disables some backwards compatibility features. These changes do not
+affect the crypt() function.
+
+diff -Naur dropbear-2022.83.orig/auth.h dropbear-2022.83/auth.h
+--- dropbear-2022.83.orig/auth.h	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/auth.h	2022-11-22 14:19:06.553706227 -0500
+@@ -32,6 +32,10 @@
+ 
+ void svr_authinitialise(void);
+ 
++/* >>> dynamic libcrypt patch >>> */
++void svr_auth_load_libcrypt(void);
++/* <<< dynamic libcrypt patch <<< */
++
+ /* Server functions */
+ void recv_msg_userauth_request(void);
+ void send_msg_userauth_failure(int partial, int incrfail);
+diff -Naur dropbear-2022.83.orig/config.h.in dropbear-2022.83/config.h.in
+--- dropbear-2022.83.orig/config.h.in	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/config.h.in	2022-12-03 15:17:12.209591523 -0500
+@@ -60,6 +60,9 @@
+ /* External Public Key Authentication */
+ #undef DROPBEAR_PLUGIN
+ 
++/* Dynamically load crypt() */
++#undef DYNAMIC_CRYPT
++
+ /* Define to 1 if you have the `basename' function. */
+ #undef HAVE_BASENAME
+ 
+diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
+--- dropbear-2022.83.orig/configure	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/configure	2022-12-03 15:42:59.154695430 -0500
+@@ -728,6 +728,7 @@
+ enable_harden
+ enable_werror
+ enable_largefile
++enable_dynamic_crypt
+ with_zlib
+ enable_zlib
+ with_pam
+@@ -1385,6 +1386,7 @@
+   --disable-harden        Don't set hardened build flags
+   --enable-werror         Set -Werror when building
+   --disable-largefile     omit support for large files
++  --enable-dynamic-crypt  Dynamically load crypt()
+   --disable-zlib          Don't include zlib support
+   --enable-pam            Try to include PAM support
+   --disable-openpty       Don't use openpty, use alternative method
+@@ -5340,6 +5342,7 @@
+ 
+ fi
+ 
++
+ ac_fn_c_check_func "$LINENO" "crypt" "ac_cv_func_crypt"
+ if test "x$ac_cv_func_crypt" = xyes
+ then :
+@@ -5389,13 +5392,79 @@
+ 
+ fi
+ 
+-
+ if test "t$found_crypt_func" = there; then
+ 
+ printf "%s\n" "#define HAVE_CRYPT 1" >>confdefs.h
+ 
+ fi
+ 
++# Check whether --enable-dynamic-crypt was given.
++if test ${enable_dynamic_crypt+y}
++then :
++  enableval=$enable_dynamic_crypt;
++		# option is given
++
++		if test "x$enableval" = "xyes"; then
++			# replace -lcrypt with -ldl
++			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for dlsym in -ldl" >&5
++printf %s "checking for dlsym in -ldl... " >&6; }
++if test ${ac_cv_lib_dl_dlsym+y}
++then :
++  printf %s "(cached) " >&6
++else $as_nop
++  ac_check_lib_save_LIBS=$LIBS
++LIBS="-ldl  $LIBS"
++cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++/* Override any GCC internal prototype to avoid an error.
++   Use char because int might match the return type of a GCC
++   builtin and then its argument prototype would still apply.  */
++char dlsym ();
++int
++main (void)
++{
++return dlsym ();
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"
++then :
++  ac_cv_lib_dl_dlsym=yes
++else $as_nop
++  ac_cv_lib_dl_dlsym=no
++fi
++rm -f core conftest.err conftest.$ac_objext conftest.beam \
++    conftest$ac_exeext conftest.$ac_ext
++LIBS=$ac_check_lib_save_LIBS
++fi
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_dl_dlsym" >&5
++printf "%s\n" "$ac_cv_lib_dl_dlsym" >&6; }
++if test "x$ac_cv_lib_dl_dlsym" = xyes
++then :
++  CRYPTLIB="-ldl"
++fi
++
++			ac_fn_c_check_header_compile "$LINENO" "dlfcn.h" "ac_cv_header_dlfcn_h" "$ac_includes_default"
++if test "x$ac_cv_header_dlfcn_h" = xyes
++then :
++
++else $as_nop
++  as_fn_error $? "*** dlfcn.h missing - needed for dynamic libcrypt" "$LINENO" 5
++fi
++a
++
++printf "%s\n" "#define DYNAMIC_CRYPT 1" >>confdefs.h
++
++		fi
++
++
++fi
++
++
++
++
+ # Check if zlib is needed
+ 
+ # Check whether --with-zlib was given.
+diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
+--- dropbear-2022.83.orig/configure.ac	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/configure.ac	2022-12-03 01:43:26.730834528 -0500
+@@ -219,11 +219,27 @@
+ 	CRYPTLIB="-lcrypt"
+ 	found_crypt_func=here
+ 	])
+-AC_SUBST(CRYPTLIB)
+ if test "t$found_crypt_func" = there; then
+ AC_DEFINE(HAVE_CRYPT, 1, [crypt() function])
+ fi
+ 
++AC_ARG_ENABLE([dynamic-crypt],
++	[  --enable-dynamic-crypt  Dynamically load crypt()],
++	[
++		# option is given
++
++		if test "x$enableval" = "xyes"; then
++			# replace -lcrypt with -ldl
++			AC_CHECK_LIB([dl], [dlsym], [CRYPTLIB="-ldl"])
++			AC_CHECK_HEADER([dlfcn.h], [],
++				[AC_MSG_ERROR([*** dlfcn.h missing - needed for dynamic libcrypt])])a
++			AC_DEFINE([DYNAMIC_CRYPT], 1, [Dynamically load crypt()])
++		fi
++	]
++)
++
++AC_SUBST([CRYPTLIB])
++
+ # Check if zlib is needed
+ AC_ARG_WITH(zlib,
+ 	[  --with-zlib=PATH        Use zlib in PATH],
+diff -Naur dropbear-2022.83.orig/svr-authpasswd.c dropbear-2022.83/svr-authpasswd.c
+--- dropbear-2022.83.orig/svr-authpasswd.c	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/svr-authpasswd.c	2022-11-22 15:11:00.193096063 -0500
+@@ -33,6 +33,70 @@
+ 
+ #if DROPBEAR_SVR_PASSWORD_AUTH
+ 
++/* >>> dynamic libcrypt patch >>> */
++#include <dlfcn.h>
++
++typedef char *(*crypt_f)(const char *, const char *);
++
++static crypt_f load_crypt(const char *soname) {
++	char *error = NULL;
++	void *handle = NULL;
++	crypt_f func = NULL;
++
++	if ((handle = dlopen(soname, RTLD_LAZY)) == NULL) {
++		error = dlerror();
++		dropbear_log(LOG_DEBUG, "Failed to open library %s: %s", soname, error ? error : "<NULL>");
++
++		return NULL;
++	}
++
++	if ((func = (crypt_f) dlsym(handle, "crypt")) == NULL) {
++		/* any libcrypt.so should have crypt() */
++		error = dlerror();
++		dropbear_log(LOG_WARNING, "Failed to load crypt() from %s: %s", soname, error ? error : "<NULL>");
++
++		dlclose(handle);
++
++		return NULL;
++	}
++
++	return func;
++}
++
++static crypt_f crypt_func = NULL;
++
++void svr_auth_load_libcrypt(void) {
++	const char *sonames[] = {
++		/* webOS 22 (7) */
++		"libcrypt.so.2",
++		/* webOS <= 6 */
++		"libcrypt.so.1",
++	};
++
++	for (unsigned int i = 0; i < (sizeof(sonames) / sizeof(sonames[0])); i++) {
++		if ((crypt_func = load_crypt(sonames[i])) != NULL) {
++			dropbear_log(LOG_INFO, "Loaded crypt() from %s", sonames[i]);
++			break;
++		}
++	}
++
++	if (crypt_func == NULL) {
++		dropbear_log(LOG_WARNING, "Failed to load crypt() from libcrypt.so: Password auth will not work");
++	}
++}
++
++static char *do_crypt(const char *phrase, const char *setting) {
++	if (crypt_func == NULL) {
++		dropbear_log(LOG_ERR, "Can't use password auth because libcrypt.so/crypt() was not found");
++
++		/* XXX: set errno to ENOSYS? */
++		return NULL;
++	}
++
++	return crypt_func(phrase, setting);
++}
++/* <<< dynamic libcrypt patch <<< */
++
+ /* not constant time when strings are differing lengths. 
+  string content isn't leaked, and crypt hashes are predictable length. */
+ static int constant_time_strcmp(const char* a, const char* b) {
+@@ -68,7 +132,9 @@
+ 	if (valid_user && passwordlen <= DROPBEAR_MAX_PASSWORD_LEN) {
+ 		/* the first bytes of passwdcrypt are the salt */
+ 		passwdcrypt = ses.authstate.pw_passwd;
+-		testcrypt = crypt(password, passwdcrypt);
++		/* >>> dynamic libcrypt patch >>> */
++		testcrypt = do_crypt(password, passwdcrypt);
++		/* <<< dynamic libcrypt patch <<< */
+ 	}
+ 	m_burn(password, passwordlen);
+ 	m_free(password);
+diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
+--- dropbear-2022.83.orig/svr-main.c	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/svr-main.c	2022-11-22 15:42:43.045535740 -0500
+@@ -466,6 +466,12 @@
+ 	/* Now we can setup the hostkeys - needs to be after logging is on,
+ 	 * otherwise we might end up blatting error messages to the socket */
+ 	load_all_hostkeys();
++
++	/* >>> dynamic libcrypt patch >>> */
++#ifdef DROPBEAR_SVR_PASSWORD_AUTH
++	svr_auth_load_libcrypt();
++#endif
++	/* <<< dynamic libcrypt patch <<< */
+ }
+ 
+ /* Set up listening sockets for all the requested ports */
