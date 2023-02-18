@@ -125,9 +125,8 @@ else
     fi
 
     # Run user startup hooks
-    if [[ -d /var/lib/webosbrew/init.d ]]; then
-        run-parts /var/lib/webosbrew/init.d 200>&-
-    fi
+    mkdir -p /var/lib/webosbrew/init.d
+    run-parts /var/lib/webosbrew/init.d 200>&-
 
     # Reset failsafe flag after a while
     sleep 10
