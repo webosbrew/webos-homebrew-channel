@@ -421,7 +421,7 @@ function runService() {
    */
   service.register(
     'checkRoot',
-    tryRespond(async () => runningAsRoot()),
+    tryRespond(async () => ({ returnValue: runningAsRoot() })),
   );
 
   /**
