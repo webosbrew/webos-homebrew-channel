@@ -26,6 +26,7 @@ var
   TooltipDecorator = require('moonstone/TooltipDecorator'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
   LunaService = require('enyo-webos/LunaService'),
+  SystemInfoPanel = require('./SystemInfoPanel.js'),
   ConfigUtils = require('../configutils.js');
 
 var not = function (x) { return !x };
@@ -65,6 +66,11 @@ module.exports = kind({
                   label: 'webosbrew version',
                   text: 'unknown',
                   ontap: 'versionTap',
+                },
+                {
+                  kind: Item,
+                  content: 'System information',
+                  ontap: 'sysinfoTap',
                 },
                 {
                   kind: LabeledTextItem,
@@ -262,5 +268,14 @@ module.exports = kind({
       this.$.errorPopup.show();
     }
   },
+  events: {
+    onRequestPushPanel: '',
+  },
+  sysinfoTap: function (sender, evt) {
+    this.doRequestPushPanel({
+      panel: {
+        kind: SystemInfoPanel,
+      },
+    });
+  },
 });
-
