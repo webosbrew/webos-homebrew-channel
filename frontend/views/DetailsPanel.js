@@ -254,12 +254,12 @@ module.exports = kind({
 
     {
       from: 'appInfo', to: '$.launchButton.disabled', transform: function (value) {
-        return !value;
+        return !value || this.model.get('id') == 'org.webosbrew.hbchannel';
       },
     },
     {
       from: 'appInfo', to: '$.uninstallButton.disabled', transform: function (value) {
-        return !value;
+        return !value || this.model.get('id') == 'org.webosbrew.hbchannel';
       },
     },
   ],

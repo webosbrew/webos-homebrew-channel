@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2023-02-24
+### Changed
+- Disabled Launch/Uninstall button on Homebrew Channel application details page
+  to prevent accidental removals. Homebrew Channel can still technically be
+  removed by long-pressing its icon on home screen, but this will of course
+  break most of root-related functionality and prevent further rooting until
+  factory reset in many cases.
+
 ## [0.6.1] - 2023-02-20
 ### Fixed
 - Support for legacy SCP protocol over SSH
