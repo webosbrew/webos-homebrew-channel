@@ -339,6 +339,7 @@ module.exports = kind({
     this.installRequest = this.$.installCall.send({
       ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl') || this.repositoryURL),
       ipkHash: this.packageInfo.get('ipkHash').sha256,
+      id: this.model.get("id"),
       subscribe: true,
     });
     this.$.installButton.set('disabled', true);

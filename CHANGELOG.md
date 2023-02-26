@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2023-02-26
+### Fixed
+- Fix Homebrew Channel self-update/reelevation on webOS 22
+
 ## [0.6.2] - 2023-02-24
 ### Changed
 - Disabled Launch/Uninstall button on Homebrew Channel application details page

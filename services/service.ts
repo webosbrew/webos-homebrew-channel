@@ -146,20 +146,19 @@ async function flagSet(flag: FlagName, enabled: boolean): Promise<boolean> {
 /**
  * Package info
  */
-async function packageInfo(filePath: string): Promise<Record<string, string> | null> {
-  try {
-    const control = await asyncExecFile('sh', ['-c', `ar -p ${filePath} control.tar.gz | tar zx --to-stdout`], { encoding: 'utf8' });
+async function packageInfo(filePath: string): Promise<Record<string, string>> {
+  const control = await asyncExecFile('sh', ['-c', `ar -p ${filePath} control.tar.gz | tar zxO`], { encoding: 'utf8' });
 
-    return Object.fromEntries(
-      control
-        .split('\n')
-        .filter((m) => m.length)
-        .map((p) => [p.slice(0, p.indexOf(': ')), p.slice(p.indexOf(': ') + 2)]),
-    );
-  } catch (err) {
-    console.warn('Error occured when fetching package info:', err);
-    return null;
+  const resp = Object.fromEntries(
+    control
+      .split('\n')
+      .filter((m) => m.length)
+      .map((p) => [p.slice(0, p.indexOf(': ')), p.slice(p.indexOf(': ') + 2)]),
+  );
+  if (!resp.Package) {
+    throw new Error(`Invalid package info: ${JSON.stringify(resp)}`);
   }
+  return resp;
 }
 
 /**
@@ -289,7 +288,7 @@ function runService() {
   /**
    * Installs the requested ipk from a URL.
    */
-  type InstallPayload = { ipkUrl: string; ipkHash: string };
+  type InstallPayload = { ipkUrl: string; ipkHash: string; id?: string };
   service.register(
     'install',
     tryRespond(async (message: Message) => {
@@ -319,7 +318,13 @@ function runService() {
         throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum}`);
       }
 
-      const pkginfo = await packageInfo(targetPath);
+      let pkginfo: Record<string, string> = { Package: payload.id };
+
+      try {
+        pkginfo = await packageInfo(targetPath);
+      } catch (err) {
+        await createToast(`Package info fetch failed: ${err.message}`, service);
+      }
 
       // If we are running as root we likely want to retain root
       // execution/private bus permissions. During package install running app
@@ -332,9 +337,9 @@ function runService() {
       // until we do that.
       //
       // If reelevation fails for some reason the service should still be
-      // reelevated on reboot (since we launch elevate-service in startup.sh
-      // script)
-      if (pkginfo && pkginfo.Package === kHomebrewChannelPackageId && runningAsRoot()) {
+      // reelevated on reboot on devices with persistent autostart hooks (since
+      // we launch elevate-service in startup.sh script)
+      if (runningAsRoot() && pkginfo && pkginfo.Package === kHomebrewChannelPackageId) {
         message.respond({ statusText: 'Self-update…' });
         await createToast('Performing self-update...', service);
 
