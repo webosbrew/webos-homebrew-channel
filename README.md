@@ -244,3 +244,73 @@ cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/start
 npm version minor
 git push origin main --tags
 ```
+
+### Testing
+Before every release following features should be verified:
+
+* Releases with startup.sh updates:
+  * A single "/var/lib/webosbrew/startup.sh updated!" or
+    "/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh
+    updated!" notification should pop up on first Homebrew Channel launch *once*.
+  * Further app launches should *not* show any other notifications (unless
+    Homebrew Channel is rolled back to some older version)
+
+* Non-installed app info page:
+  * Install button should be enabled
+  * Launch button should be disabled
+  * "Project page" and inline application description links should be clickable
+    and should open system browser
+  * After clikcing "Install" button should transform into a progress bar
+  * Installation should finish with "Application installed: Application Name" -
+    no other notifications should be shown.
+  * After installation "Launch" button should be enabled, "Install" button
+    should be disabled and called "Completed"
+
+* Installed app info page:
+  * Update button should be disabled
+  * Launch button should be enabled and should launch selected application
+  * After pressing remote button 5 disabled "Update" button should transform to
+    enabled "Reinstall" button. Clicking it should perform usual package
+    installation.
+  * Uninstall button should be enabled and should remove an application when
+    pressed.
+  * On Homebrew Channel app info page Launch and Uninstall buttons shoud always
+    be *disabled*.
+  * If an update is available for application "Version" should show eg. "0.1.2
+    (installed: 0.1.0)"
+
+* Homebrew Channel Self-update - reinstall/update can be force-enabled by
+  pressing remote button 5 on Homebrew Channel app page.
+  * Self-update should show the following notifications:
+    * Performing self-update...
+    * Performing self-update (inner)
+    * Elevating...
+    * Self-update finished!
+  * "Package info fetch failed: ..." notification should *not* be shown.
+
+* Settings page:
+  * Root status should show "ok"
+  * "System reboot" button should perform a full system reboot
+  * "Add repository" button should show an URL text prompt. Entering an invalid
+    url "aaa" and going back to main page should show "An error occured while
+    downloading some repositories: aaa (0)". Main page should still be
+    navigatable and applications should be installable. Pressing on "aaa"
+    repository in settings should remove it from the list.
+  * Switching off all repositories (Default repository / Extra non-free
+    software) and going back to main page should produce an empty page without
+    any errors. Going back to settings and enabling these back again should
+    populate main apps list page back again.
+  * Switching "Root Configuration" options should not show any errors. "Root
+    Configuration" option values should be saved immediately - after going back
+    to main page, then going to settings again - these should show correct
+    values, as last set on the settings page. (a second ago)
+    After pressing "System reboot" apropriate configuration should get applied.
+
+* Root execution service:
+  * Homebrew using `/exec` and other endpoints should work correctly. Good
+    testing target is "Custom Screensaver" app since it uses plain `/exec` calls
+    without going through its own service.
+
+* Autostart:
+  * On TVs without persistent script boot hook (eg. crashd) Telnet/sshd should
+    be accessible (when enabled) *before launching Homebrew Channel itself*.
