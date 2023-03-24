@@ -100,6 +100,15 @@ async function hashFile(filePath: string, algorithm: string): Promise<string> {
 }
 
 /**
+ * Hashes a string with specified algorithm.
+ *
+ * Input should be UTF-8.
+ */
+function hashString(data: string, algorithm: string): string {
+  return createHash(algorithm).update(data, 'utf-8').digest('hex');
+}
+
+/**
  * Elevates a package by name.
  */
 async function elevateService(pkg: string): Promise<void> {
@@ -526,10 +535,13 @@ function runService() {
 
         // RootMyTV v1
         if (await isFile(startDevmode)) {
-          const localChecksum = await hashFile(startDevmode, 'sha256');
           // Warn and return empty string on read error
-          let startDevmodeContents = await asyncReadFile(startDevmode, { encoding: 'utf-8'} )
-            .catch((err) => (console.warn(`reading ${startDevmode} failed: ${err.toString()}`), '')) as string;
+          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err) => {
+            console.warn(`reading ${startDevmode} failed: ${err.toString()}`);
+            return '';
+          })) as string;
+
+          const localChecksum = hashString(startDevmodeContents, 'sha256');
 
           if (localChecksum !== bundledStartupChecksum && updatableChecksums.indexOf(localChecksum) !== -1) {
             await copyScript(bundledStartup, startDevmode);
