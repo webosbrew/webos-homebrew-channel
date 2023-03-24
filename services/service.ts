@@ -527,10 +527,14 @@ function runService() {
         // RootMyTV v1
         if (await isFile(startDevmode)) {
           const localChecksum = await hashFile(startDevmode, 'sha256');
+          // Warn and return empty string on read error
+          let startDevmodeContents = await asyncReadFile(startDevmode, { encoding: 'utf-8'} )
+            .catch((err) => (console.warn(`reading ${startDevmode} failed: ${err.toString()}`), '')) as string;
+
           if (localChecksum !== bundledStartupChecksum && updatableChecksums.indexOf(localChecksum) !== -1) {
             await copyScript(bundledStartup, startDevmode);
             messages.push(`${startDevmode} updated!`);
-          } else if (localChecksum !== bundledJumpstartChecksum && (await asyncReadFile(startDevmode)).indexOf('org.webosbrew') !== -1) {
+          } else if (localChecksum !== bundledJumpstartChecksum && startDevmodeContents.indexOf('org.webosbrew') !== -1) {
             // Show notification about mismatched startup script if contains
             // org.webosbrew string (which is not used on jumpstart.sh nor
             // official start-devmode.sh)
@@ -538,9 +542,10 @@ function runService() {
           }
         }
       } catch (err) {
+        console.log(`Startup script update failed: ${err.stack}`);
         messages = ['Startup script update failed!', ...messages, `Error: ${err.toString()}`];
         await createToast(messages.join('<br/>'), service);
-        return { returnValue: false, statusText: 'Startup script update failed.', messages };
+        return { returnValue: false, statusText: 'Startup script update failed.', stack: err.stack, messages };
       }
 
       if (messages.length) {
