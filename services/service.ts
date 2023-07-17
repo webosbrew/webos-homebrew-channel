@@ -276,7 +276,13 @@ async function registerActivity(service: Service) {
     },
   };
 
-  return new Promise((resolve) => service.activityManager.create(activity, resolve));
+  const spec = {
+    activity,
+    start: true,
+    replace: true,
+  };
+
+  return new Promise((resolve) => service.activityManager.create(spec, resolve));
 }
 
 /**
