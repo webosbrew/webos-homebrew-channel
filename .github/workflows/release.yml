@@ -24,12 +24,17 @@ jobs:
     - run: npm run package
     - run: npm run manifest
 
+    - name: Get release
+      id: get_release
+      uses: bruceadams/get-release@v1.3.2
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
     - name: Upload Release assets
-      id: upload-release-assets
       uses: ncipollo/release-action@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        name: Release ${{ steps.tagName.outputs.tag }}
+        name: Release ${{ steps.get_release.outputs.tag_name }}
         allowUpdates: true
         omitNameDuringUpdate: true
         omitBodyDuringUpdate: true
