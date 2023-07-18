@@ -116,11 +116,13 @@ else
     done
 
     # Deprecate old path
-    chattr -i /home/root/unwritable
-    rm -rf /home/root/unwritable
+    if [[ -d /home/root/unwritable ]]; then
+      chattr -i /home/root/unwritable
+      rm -rf /home/root/unwritable
+    fi
 
     # Automatically elevate Homebrew Channel service
-    if [[ -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]]; then
+    if [[ -z "${SKIP_ELEVATION}" && -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]]; then
         /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
     fi
 
