@@ -39,4 +39,4 @@ jobs:
         omitNameDuringUpdate: true
         omitBodyDuringUpdate: true
         omitPrereleaseDuringUpdate: true
-        artifacts: *.ipk,org.webosbrew.hbchannel.manifest.json
+        artifacts: '*.ipk,org.webosbrew.hbchannel.manifest.json'
