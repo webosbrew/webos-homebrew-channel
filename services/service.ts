@@ -246,6 +246,46 @@ async function removePackage(packageId: string, service: Service): Promise<void>
 }
 
 /**
+ * Register activity to call /autostart on boot
+ */
+async function registerActivity(service: Service) {
+  const activity = {
+    name: 'org.webosbrew.hbchannel.service.autostart',
+    description: 'Start HBChannel service on boot.',
+    type: {
+      foreground: true,
+      persist: true,
+      continuous: true,
+    },
+    trigger: {
+      method: 'luna://com.webos.bootManager/getBootStatus',
+      params: {
+        subscribe: true,
+      },
+      where: {
+        prop: ['signals', 'core-boot-done'],
+        op: '=',
+        val: true,
+      },
+    },
+    callback: {
+      method: 'luna://org.webosbrew.hbchannel.service/autostart',
+      params: {
+        reason: 'activity',
+      },
+    },
+  };
+
+  const spec = {
+    activity,
+    start: true,
+    replace: true,
+  };
+
+  return new Promise((resolve) => service.activityManager.create(spec, resolve));
+}
+
+/**
  * Thin wrapper that responds with a successful message or an error in case of a JS exception.
  */
 function tryRespond<T extends Record<string, any>>(runner: (message: Message) => T) {
@@ -588,8 +628,13 @@ function runService() {
   );
 
   service.register(
+    'registerActivity',
+    tryRespond(() => registerActivity(service)),
+  );
+
+  service.register(
     'autostart',
-    tryRespond(async () => {
+    tryRespond(async (message) => {
       if (!runningAsRoot()) {
         return { message: 'Not running as root.', returnValue: true };
       }
@@ -614,6 +659,12 @@ function runService() {
         detached: true,
         stdio: ['ignore', 'ignore', 'ignore'],
       });
+
+      // Register activity if autostart was triggered in traditional way
+      if (message.payload?.reason !== 'activity') {
+        await registerActivity(service);
+      }
+
       return { returnValue: true };
     }),
   );
