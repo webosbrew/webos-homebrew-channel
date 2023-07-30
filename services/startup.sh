@@ -22,6 +22,9 @@ fi
 
 touch "${once}"
 
+# Use default directory if SERVICE_DIR is not provided.
+SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
+
 if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
     # In case a reboot occured during last startup - open an emergency telnet
     # server and nag user to actually fix this. (since further reboots could
@@ -73,7 +76,7 @@ else
     # Start sshd
     if [[ -e /var/luna/preferences/webosbrew_sshd_enabled ]]; then
         mkdir -p /var/lib/webosbrew/sshd
-        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/dropbear -R 200>&-
+        "${SERVICE_DIR}/bin/dropbear" -R 200>&-
     fi
 
     printf "\033[1;91mNEVER EVER OVERWRITE SYSTEM PARTITIONS LIKE KERNEL, ROOTFS, TVSERVICE.\nYour TV will be bricked, guaranteed! See https://rootmy.tv/warning for more info.\033[0m\n" > /tmp/motd
@@ -122,8 +125,9 @@ else
     fi
 
     # Automatically elevate Homebrew Channel service
-    if [[ -z "${SKIP_ELEVATION}" && -x /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ]]; then
-        /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service
+    elevate_script="${SERVICE_DIR}/elevate-service"
+    if [[ -z "${SKIP_ELEVATION}" && -x "${elevate_script}" ]]; then
+        "${elevate_script}"
     fi
 
     # Run user startup hooks
