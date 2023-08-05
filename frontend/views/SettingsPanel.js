@@ -1,64 +1,91 @@
-var
-  kind = require('enyo/kind'),
-  Spinner = require('moonstone/Spinner'),
-  DataRepeater = require('enyo/DataRepeater'),
-  Collection = require('enyo/Collection'),
-  Model = require('enyo/Model'),
-  AjaxSource = require('enyo/AjaxSource'),
-  Dialog = require('moonstone/Dialog'),
-  Panel = require('moonstone/Panel'),
-  Scroller = require('moonstone/Scroller'),
-  Divider = require('moonstone/Divider'),
-  ToggleItem = require('moonstone/ToggleItem'),
-  Tooltip = require('moonstone/Tooltip'),
-  Icon = require('moonstone/Icon'),
-  IconButton = require('moonstone/IconButton'),
-  Button = require('moonstone/Button'),
-  Input = require('moonstone/Input'),
-  InputDecorator = require('moonstone/InputDecorator'),
-  ObjectActionDecorator = require('moonstone/ObjectActionDecorator'),
-  ItemOverlay = require('moonstone/ItemOverlay'),
-  ItemOverlaySupport = ItemOverlay.ItemOverlaySupport,
-  Marquee = require('moonstone/Marquee'),
-  MarqueeText = Marquee.Text,
-  Item = require('moonstone/Item'),
-  Popup = require('moonstone/Popup'),
-  TooltipDecorator = require('moonstone/TooltipDecorator'),
-  LabeledTextItem = require('moonstone/LabeledTextItem'),
-  LunaService = require('enyo-webos/LunaService'),
-  ConfigUtils = require('../configutils.js');
+import kind from 'enyo/kind';
+import DataRepeater from 'enyo/DataRepeater';
+import Collection from 'enyo/Collection';
+import Dialog from 'moonstone/Dialog';
+import Panel from 'moonstone/Panel';
+import Scroller from 'moonstone/Scroller';
+import Divider from 'moonstone/Divider';
+import ToggleItem from 'moonstone/ToggleItem';
+import Tooltip from 'moonstone/Tooltip';
+import Icon from 'moonstone/Icon';
+import Button from 'moonstone/Button';
+import Input from 'moonstone/Input';
+import InputDecorator from 'moonstone/InputDecorator';
+import Item from 'moonstone/Item';
+import Popup from 'moonstone/Popup';
+import TooltipDecorator from 'moonstone/TooltipDecorator';
+import LabeledTextItem from 'moonstone/LabeledTextItem';
+import LunaService from 'enyo-webos/LunaService';
 
-var not = function (x) { return !x };
+import * as ConfigUtils from '../configutils.js';
 
-var magic = {t: 0, n: 0};
+const not = (x) => !x;
 
-module.exports = kind({
+const magic = { t: 0, n: 0 };
+
+export default kind({
   name: 'SettingsPanel',
   kind: Panel,
   title: 'Settings',
   headerType: 'medium',
   components: [
     {
-      kind: Scroller, fit: true, components: [
+      kind: Scroller,
+      fit: true,
+      components: [
         {
-          classes: 'moon-hspacing top', components: [
+          classes: 'moon-hspacing top',
+          components: [
             {
               components: [
-                {kind: Divider, content: 'Root configuration'},
-                {kind: ToggleItem, name: 'telnet', disabled: true, content: 'Telnet', onchange: 'updateConfiguration'},
-                {kind: ToggleItem, name: 'sshd', disabled: true, content: 'SSH Server', onchange: 'updateConfiguration'},
-                {kind: ToggleItem, name: 'blockUpdates', disabled: true, content: 'Block system updates', onchange: 'updateConfiguration'},
+                { kind: Divider, content: 'Root configuration' },
                 {
-                  kind: TooltipDecorator, components: [
-                    {kind: ToggleItem, name: 'failsafe', disabled: true, content: 'Failsafe mode', onchange: 'updateConfiguration'},
-                    {
-                      kind: Tooltip, position: 'right bottom', components: [
-                        {content: 'This disables all early system modifications and leaves recovery telnet running. Gets automatically tripped in case of a reboot/crash during early system startup.', uppercase: false, style: 'width: 30rem; white-space: normal'}
-                      ]
-                    },
-                  ], style: 'width: 100%',
+                  kind: ToggleItem,
+                  name: 'telnet',
+                  disabled: true,
+                  content: 'Telnet',
+                  onchange: 'updateConfiguration',
                 },
-                {kind: Divider, content: 'System information'},
+                {
+                  kind: ToggleItem,
+                  name: 'sshd',
+                  disabled: true,
+                  content: 'SSH Server',
+                  onchange: 'updateConfiguration',
+                },
+                {
+                  kind: ToggleItem,
+                  name: 'blockUpdates',
+                  disabled: true,
+                  content: 'Block system updates',
+                  onchange: 'updateConfiguration',
+                },
+                {
+                  kind: TooltipDecorator,
+                  components: [
+                    {
+                      kind: ToggleItem,
+                      name: 'failsafe',
+                      disabled: true,
+                      content: 'Failsafe mode',
+                      onchange: 'updateConfiguration',
+                    },
+                    {
+                      kind: Tooltip,
+                      position: 'right bottom',
+                      components: [
+                        {
+                          content:
+                            'This disables all early system modifications and leaves recovery telnet running. Gets automatically tripped in case of a reboot/crash during early system startup.',
+                          uppercase: false,
+                          style: 'width: 30rem; white-space: normal',
+                        },
+                      ],
+                    },
+                  ],
+                  style: 'width: 100%',
+                },
+                { kind: Divider, content: 'System information' },
                 {
                   kind: LabeledTextItem,
                   name: 'version',
@@ -84,55 +111,106 @@ module.exports = kind({
             },
             {
               components: [
-                {kind: Divider, content: 'Repositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
+                { kind: Divider, content: 'Repositories' },
                 {
-                  kind: DataRepeater, name: 'extraRepositories',
+                  kind: ToggleItem,
+                  content: 'https://repo.webosbrew.org - Default repository',
+                  checked: true,
+                  name: 'enableDefault',
+                  ontap: 'saveRepositories',
+                },
+                {
+                  kind: ToggleItem,
+                  content: 'https://repo.webosbrew.org - Extra non-free software',
+                  checked: false,
+                  name: 'enableNonfree',
+                  ontap: 'saveRepositories',
+                },
+                {
+                  kind: DataRepeater,
+                  name: 'extraRepositories',
                   components: [
                     {
                       components: [
                         {
-                          kind: Item, mixins: [ItemOverlaySupport], components: [
-                            {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/', name: 'repoURL'}
-                          ], endingComponents: [
-                            {kind: Icon, icon: 'trash', small: true}
+                          kind: Item,
+                          mixins: [ItemOverlaySupport],
+                          components: [
+                            {
+                              kind: MarqueeText,
+                              content: 'https://repo.webosbrew.org/api/',
+                              name: 'repoURL',
+                            },
                           ],
+                          endingComponents: [{ kind: Icon, icon: 'trash', small: true }],
                         },
                       ],
-                      bindings: [
-                        {from: 'model.url', to: '$.repoURL.content'},
-                      ],
+                      bindings: [{ from: 'model.url', to: '$.repoURL.content' }],
                       ontap: 'repoClicked',
                     },
                   ],
                 },
-                {kind: Item, content: 'Add repository', centered: true, style: 'margin-top: 3rem', ontap: 'showRepoAddDialog'},
+                {
+                  kind: Item,
+                  content: 'Add repository',
+                  centered: true,
+                  style: 'margin-top: 3rem',
+                  ontap: 'showRepoAddDialog',
+                },
               ],
               classes: 'moon-16h',
-            }
-          ]
-        }
-      ]
+            },
+          ],
+        },
+      ],
     },
-    {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
-    {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
-    {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
-    {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
+    {
+      kind: Popup,
+      name: 'errorPopup',
+      content: 'An error occured while downloading repository.',
+      allowHtml: true,
+      modal: true,
+      allowBackKey: true,
+    },
+    {
+      kind: LunaService,
+      name: 'getConfiguration',
+      service: 'luna://org.webosbrew.hbchannel.service',
+      method: 'getConfiguration',
+      onResponse: 'onGetConfiguration',
+      onError: 'onGetConfiguration',
+    },
+    {
+      kind: LunaService,
+      name: 'setConfiguration',
+      service: 'luna://org.webosbrew.hbchannel.service',
+      method: 'setConfiguration',
+      onResponse: 'onSetConfiguration',
+      onError: 'onSetConfiguration',
+    },
+    { kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot' },
     {
       name: 'repoAddDialog',
       kind: Dialog,
       title: 'Add repository',
       subTitle: 'Enter repository URL:',
       message: [
-        {kind: InputDecorator, components: [
-          {kind: Input, placeholder: 'https://...', type: 'url', name: 'repositoryDialogURL', style: 'width: 100%'},
-        ], style: 'width: 100%; margin-bottom: 1em'},
+        {
+          kind: InputDecorator,
+          components: [
+            {
+              kind: Input,
+              placeholder: 'https://...',
+              type: 'url',
+              name: 'repositoryDialogURL',
+              style: 'width: 100%',
+            },
+          ],
+          style: 'width: 100%; margin-bottom: 1em',
+        },
       ],
-      components: [
-        {kind: Button, content: 'Add repository', ontap: 'addRepositorySubmit'},
-      ]
-    }
+      components: [{ kind: Button, content: 'Add repository', ontap: 'addRepositorySubmit' }],
+    },
   ],
 
   // This is set when processing addRepository launchMode
@@ -148,17 +226,17 @@ module.exports = kind({
   rebootRequired: false,
 
   bindings: [
-    {from: "rootTextStatus", to: '$.rootStatus.text'},
-    {from: "rootIsActive", to: '$.telnet.disabled', transform: not},
-    {from: "rootIsActive", to: '$.sshd.disabled', transform: not},
-    {from: "rootIsActive", to: '$.blockUpdates.disabled', transform: not},
-    {from: "rootIsActive", to: '$.failsafe.disabled', transform: not},
-    {from: "rootIsActive", to: '$.reboot.disabled', transform: not},
-    {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
-    {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
-    {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
-    {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
-    {from: "extraRepositories", to: "$.extraRepositories.collection"},
+    { from: 'rootTextStatus', to: '$.rootStatus.text' },
+    { from: 'rootIsActive', to: '$.telnet.disabled', transform: not },
+    { from: 'rootIsActive', to: '$.sshd.disabled', transform: not },
+    { from: 'rootIsActive', to: '$.blockUpdates.disabled', transform: not },
+    { from: 'rootIsActive', to: '$.failsafe.disabled', transform: not },
+    { from: 'rootIsActive', to: '$.reboot.disabled', transform: not },
+    { from: 'telnetEnabled', to: '$.telnet.checked', oneWay: false },
+    { from: 'sshdEnabled', to: '$.sshd.checked', oneWay: false },
+    { from: 'blockUpdates', to: '$.blockUpdates.checked', oneWay: false },
+    { from: 'failsafe', to: '$.failsafe.checked', oneWay: false },
+    { from: 'extraRepositories', to: '$.extraRepositories.collection' },
   ],
 
   create: function () {
@@ -171,9 +249,11 @@ module.exports = kind({
     this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
     this.$.enableNonfree.set('checked', repositoriesConfig.enableNonfree);
 
-    global.webOS.fetchAppInfo((function (info) {
-      this.$.version.set('text', info.version);
-    }).bind(this));
+    global.webOS.fetchAppInfo(
+      function (info) {
+        this.$.version.set('text', info.version);
+      }.bind(this),
+    );
   },
   transitionFinished: function (evt) {
     if (!evt.isOffscreen) {
@@ -197,9 +277,11 @@ module.exports = kind({
     var input = this.$.repoAddDialog.$.message.$.repositoryDialogURL;
     var url = input.getValue();
     console.info('Adding', url);
-    this.extraRepositories.add([{
-      url: url,
-    }]);
+    this.extraRepositories.add([
+      {
+        url: url,
+      },
+    ]);
     input.set('value', '');
     this.$.repoAddDialog.hide();
     this.saveRepositories();
@@ -242,10 +324,10 @@ module.exports = kind({
       sshdEnabled: this.sshdEnabled,
       blockUpdates: this.blockUpdates,
       failsafe: this.failsafe,
-    })
+    });
   },
   reboot: function () {
-    this.$.reboot.send({reason: 'SwDownload'});
+    this.$.reboot.send({ reason: 'SwDownload' });
     this.$.errorPopup.set('content', 'Rebooting...');
     this.$.errorPopup.set('allowBackKey', false);
     this.$.errorPopup.set('spotlightModal', true);
@@ -263,4 +345,3 @@ module.exports = kind({
     }
   },
 });
-

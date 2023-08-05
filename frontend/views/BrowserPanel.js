@@ -1,44 +1,45 @@
-var
-  kind = require('enyo/kind'),
-  Model = require('enyo/Model'),
-  DetailsPanel = require('./DetailsPanel'),
-  Overlay = require('moonstone/Overlay'),
-  Item = require('moonstone/Item'),
-  IconButton = require('moonstone/IconButton'),
-  Scroller = require('moonstone/Scroller'),
-  MoonImage = require('moonstone/Image'),
-  EnyoImage = require('enyo/Image'),
-  Marquee = require('moonstone/Marquee'),
-  Panel = require('moonstone/Panel'),
-  Source = require('enyo/Source'),
-  Popup = require('moonstone/Popup'),
-  Spinner = require('moonstone/Spinner'),
-  DataGridList = require('moonstone/DataGridList'),
-  GridListImageItem = require('moonstone/GridListImageItem'), // FIXME: we use styles from that :/
-  AjaxSource = require('enyo/AjaxSource'),
-  Ajax = require('enyo/Ajax'),
-  Collection = require('enyo/Collection'),
-  LunaService = require('enyo-webos/LunaService'),
-  ConfigUtils = require('../configutils.js'),
-  SettingsPanel = require('./SettingsPanel.js');
+import kind from 'enyo/kind';
+import Model from 'enyo/Model';
+import DetailsPanel from './DetailsPanel';
+import Overlay from 'moonstone/Overlay';
+import Item from 'moonstone/Item';
+import IconButton from 'moonstone/IconButton';
+import Scroller from 'moonstone/Scroller';
+import MoonImage from 'moonstone/Image';
+import Marquee from 'moonstone/Marquee';
+import Panel from 'moonstone/Panel';
+import Source from 'enyo/Source';
+import Popup from 'moonstone/Popup';
+import Spinner from 'moonstone/Spinner';
+import DataGridList from 'moonstone/DataGridList';
+import AjaxSource from 'enyo/AjaxSource';
+import Collection from 'enyo/Collection';
+import LunaService from 'enyo-webos/LunaService';
+
+import * as ConfigUtils from '../configutils.js';
+
+import SettingsPanel from './SettingsPanel.js';
+
+// FIXME: we use styles from that :/
+import 'moonstone/GridListImageItem';
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
 
-var RepoPackageModel = kind({
+const RepoPackageModel = kind({
   kind: Model,
-  name: "RepoPackageModel",
-  primaryKey: "uid",
+  name: 'RepoPackageModel',
+  primaryKey: 'uid',
 });
 
-var NestedSource = kind({
+const NestedSource = kind({
   kind: Source,
   name: 'NestedSource',
   collection: null,
   fetch: function (model, opts) {
     console.info('NestedSource.fetch()', model, opts, this.collection);
     this.collection.fetch({
-      success: function(col, _, result) {
+      success: (col, _, result) => {
         console.info('nested success:', result, col);
         if (result.length === 1 && result[0].attributes.repository === null) {
           col.errorCode = '600';
@@ -47,7 +48,7 @@ var NestedSource = kind({
           opts.success(result);
         }
       },
-      error: function(col, state, next, errorCode) {
+      error: function (col, state, next, errorCode) {
         console.info('nested error:', arguments, this);
         col.errorCode = errorCode;
         opts.error([], errorCode);
@@ -56,7 +57,7 @@ var NestedSource = kind({
   },
 });
 
-var AppListItem = kind({
+const AppListItem = kind({
   name: 'AppListItem',
   kind: Item,
   classes: 'moon-gridlist-imageitem horizontal-gridList-item horizontal-gridList-image-item', //  moon-imageitem',
@@ -70,8 +71,8 @@ var AppListItem = kind({
       style: 'width: 100px; height: 100px; float: left; padding-right: 20px; padding-top: 5px',
       sizing: 'contain',
     },
-    {name: 'caption', classes: 'caption', kind: Marquee.Text},
-    {name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text},
+    { name: 'caption', classes: 'caption', kind: Marquee.Text },
+    { name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text },
   ],
   published: {
     caption: '',
@@ -79,50 +80,80 @@ var AppListItem = kind({
   },
 
   bindings: [
-    {from: 'model.title', to: '$.caption.content'},
-    {from: 'model.id', to: '$.subCaption.content'},
-    {from: 'model.iconUri', to: '$.img.src'},
-  ]
+    { from: 'model.title', to: '$.caption.content' },
+    { from: 'model.id', to: '$.subCaption.content' },
+    { from: 'model.iconUri', to: '$.img.src' },
+  ],
 });
 
-module.exports = kind({
+export default kind({
   name: 'BrowserPanel',
   kind: Panel,
   title: 'Homebrew Channel',
   titleBelow: 'webosbrew.org',
   headerType: 'medium',
   headerComponents: [
-    {kind: IconButton, icon: 'rollbackward', ontap: 'refresh'},
-    {kind: IconButton, icon: 'gear', ontap: 'openSettings'},
+    { kind: IconButton, icon: 'rollbackward', ontap: 'refresh' },
+    { kind: IconButton, icon: 'gear', ontap: 'openSettings' },
   ],
   components: [
-    {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
-    {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading some repositories.', modal: false, autoDismiss: true, allowBackKey: true},
+    { kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true },
     {
-      name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
-        {kind: AppListItem}
-      ], ontap: 'itemSelected',
+      kind: Popup,
+      name: 'errorPopup',
+      content: 'An error occured while downloading some repositories.',
+      modal: false,
+      autoDismiss: true,
+      allowBackKey: true,
     },
-    {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
-    {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
+    {
+      name: 'appList',
+      selection: false,
+      fit: true,
+      spacing: 20,
+      minWidth: 500,
+      minHeight: 120,
+      kind: DataGridList,
+      scrollerOptions: { kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true },
+      components: [{ kind: AppListItem }],
+      ontap: 'itemSelected',
+    },
+    {
+      kind: LunaService,
+      name: 'updateStartupScript',
+      service: 'luna://org.webosbrew.hbchannel.service',
+      method: 'updateStartupScript',
+    },
+    { kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart' },
   ],
   bindings: [
-    {from: 'repository', to: '$.appList.collection'},
+    { from: 'repository', to: '$.appList.collection' },
     {
-      from: 'repository.status', to: '$.spinner.showing', transform: function (value) {
+      from: 'repository.status',
+      to: '$.spinner.showing',
+      transform: function (value) {
         return this.repository.isBusy() && !this.repository.isError();
-      }
+      },
     },
     {
-      from: 'repository.status', to: '$.errorPopup.showing', transform: function (value) {
+      from: 'repository.status',
+      to: '$.errorPopup.showing',
+      transform: function (value) {
         return this.repository.isError();
-      }
+      },
     },
     {
-      from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
-        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' (' + s.collection.errorCode + ')'; }).filter(Boolean).join(', ') : '';
-        return 'An error occured while downloading some repositories:\n'+statusList;
-      }
+      from: 'repository.status',
+      to: '$.errorPopup.content',
+      transform: function (value) {
+        const statusList = this.repository.source
+              ?.filter((s) => s.collection.errorCode !== undefined)
+              ?.map((s) => `${s.collection.url} (${s.collection.errorCode})`)
+              ?.filter(Boolean)
+              ?.join(', ');
+
+        return `An error occurred while downloading some repositories: ${statusList}`;
+      },
     },
   ],
   create: function () {
@@ -151,54 +182,63 @@ module.exports = kind({
     if (repos.length === 0) {
       this.set('repository', new Collection([]));
     } else {
-      this.set('repository', new Collection({
-        model: RepoPackageModel,
-        source: repos.map(function (url) {
-          return new NestedSource({
-            collection: new Collection({
-              model: RepoPackageModel,
-              url: url,
-              source: new AjaxSource(),
-              options: {parse: true},
-              parse: function (data) {
-                try {
-                  if (data && data.packages) {
-                    data.packages.forEach(function (element) {
-                      element.uid = element.id + '|' + url;
-                      element.repository = url;
-                      element.official = url === ConfigUtils.repositoryBaseURL;
-                    });
-                    return data.packages;
-                  }
-                } catch (err) { console.warn('parsing failed', err, arguments, this); }
+      this.set(
+        'repository',
+        new Collection({
+          model: RepoPackageModel,
+          source: repos.map(
+            (url) =>
+              new NestedSource({
+                collection: new Collection({
+                  model: RepoPackageModel,
+                  url,
+                  source: new AjaxSource(),
+                  options: { parse: true },
+                  parse: function (data) {
+                    try {
+                      return data?.packages?.map((x) => ({
+                        ...x,
+                        uid: `${x.id}|${url}`,
+                        repository: url,
+                        official: url === ConfigUtils.repositoryBaseURL,
+                      }));
+                    } catch (err) {
+                      console.warn('parsing failed', err, arguments, this);
+                    }
 
-                // This is very dirty. We don't have a way of indicating an
-                // invalid repository to NestedResource. Since uid is generated
-                // by our code, let's just assume `null` uid is an indicator of
-                // a failed parse...
-                return [{repository: null}];
-              },
-            }),
-          });
+                    // This is very dirty. We don't have a way of indicating an
+                    // invalid repository to NestedResource. Since uid is generated
+                    // by our code, let's just assume `null` uid is an indicator of
+                    // a failed parse...
+                    return [{ repository: null }];
+                  },
+                }),
+              }),
+          ),
         }),
-      }));
+      );
       this.repository.fetch();
     }
   },
-
   events: {
-    onRequestPushPanel: ''
+    onRequestPushPanel: '',
   },
   itemSelected: function (sender, ev) {
     if (ev.model) {
-      this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
+      this.doRequestPushPanel({
+        panel: {
+          kind: DetailsPanel,
+          model: ev.model,
+          repositoryURL: ev.model.get('repository'),
+        },
+      });
     }
   },
   openSettings: function (sender, ev) {
     this.doRequestPushPanel({
       panel: {
         kind: SettingsPanel,
-      }
+      },
     });
   },
 });
