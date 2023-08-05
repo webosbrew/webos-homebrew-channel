@@ -8,8 +8,7 @@
         "!win32"
     ],
     "scripts": {
-        "build": "enyo pack",
-        "build-service": "webpack",
+        "build": "webpack",
         "package": "ares-package dist/ -e enyo-ilib",
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
         "deploy": "ares-install org.webosbrew.hbchannel_${npm_package_version}_all.ipk",
@@ -17,8 +16,8 @@
         "clean": "rm -rf dist/",
         "lint": "eslint .",
         "build-local": "npm-run-all --serial build-local:**",
-        "build-local:frontend": "enyo pack",
-        "build-local:service": "webpack",
+        "build-local:frontend": "webpack --config-name frontend",
+        "build-local:service": "webpack --config-name service",
         "build-local:package": "ares-package dist/ -e enyo-ilib",
         "build-and-launch": "npm-run-all --serial build-local deploy launch",
         "version": "node tools/sync-version.js && git add appinfo.json"

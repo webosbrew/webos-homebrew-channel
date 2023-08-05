@@ -11,6 +11,7 @@ const ShebangPlugin = require('webpack-shebang-plugin');
 
 const config: ConfigOptions[] = [
   (_, argv) => ({
+    name: 'frontend',
     mode: argv.mode ?? 'development',
     entry: './frontend/index.js',
     output: {
@@ -44,6 +45,7 @@ const config: ConfigOptions[] = [
     plugins: [new MoonstoneResolverPlugin()],
   }),
   (_, argv) => ({
+    name: 'service',
     target: 'node0.10',
     mode: argv.mode ?? 'development',
 
