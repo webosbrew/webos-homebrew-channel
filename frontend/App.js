@@ -1,13 +1,9 @@
-/**
-	Define your enyo/Application kind in this file.
-*/
+import kind from 'enyo/kind';
+import Application from 'enyo/Application';
 
-var
-	kind = require('enyo/kind'),
-	Application = require('enyo/Application'),
-	MainView = require('./views/MainView');
+import MainView from './views/MainView';
 
-module.exports = kind({
-	kind: Application,
-	view: MainView
+export default kind({
+  kind: Application,
+  view: MainView,
 });

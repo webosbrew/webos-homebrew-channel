@@ -1,21 +1,17 @@
-var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
-var repositoryNonfreeBaseURL = 'https://repo.webosbrew.org/api/non-free/apps.json';
+export const repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
+export const repositoryNonfreeBaseURL = 'https://repo.webosbrew.org/api/non-free/apps.json';
 
-function getConfig() {
-  var repositoriesConfig = {
+export function getConfig() {
+  const repositoriesConfig = {
     repositories: [],
     disableDefault: false,
     enableNonfree: false,
   };
 
   try {
-    var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
-    if (parsed.disableDefault !== undefined)
-      repositoriesConfig.disableDefault = parsed.disableDefault;
-    if (parsed.repositories !== undefined)
-      repositoriesConfig.repositories = parsed.repositories;
-    if (parsed.enableNonfree !== undefined)
-      repositoriesConfig.enableNonfree = parsed.enableNonfree;
+    const parsed = JSON.parse(window.localStorage.getItem('repositoriesConfig'));
+
+    Object.assign(repositoriesConfig, parsed);
   } catch (err) {
     console.warn('Config load failed:', err);
   }
@@ -23,28 +19,29 @@ function getConfig() {
   return repositoriesConfig;
 }
 
-function getRepositories() {
+export function getRepositories() {
   try {
-    var repositoriesConfig = getConfig();
-    var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
-    if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
-    if (repositoriesConfig.enableNonfree) repos.push(repositoryNonfreeBaseURL);
-    return repos;
+    const { repositories, disableDefault, enableNonfree } = getConfig();
+
+    const urls = repositories.map(({ url }) => url);
+
+    if (!disableDefault) {
+      urls.push(repositoryBaseURL);
+    }
+
+    if (enableNonfree) {
+      urls.push(repositoryNonfreeBaseURL);
+    }
+
+    return urls;
   } catch (err) {
     console.warn(err);
+
     return [repositoryBaseURL];
   }
 }
 
-function setConfig(config) {
-  window.localStorage['repositoriesConfig'] = JSON.stringify(config);
+export function setConfig(config) {
+  window.localStorage.setItem('repositoriesConfig', JSON.stringify(config));
   console.info(window.localStorage['repositoriesConfig']);
 }
-
-module.exports = {
-  repositoryBaseURL: repositoryBaseURL,
-
-  getRepositories: getRepositories,
-  getConfig: getConfig,
-  setConfig: setConfig,
-};
