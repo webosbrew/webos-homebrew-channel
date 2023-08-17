@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { statSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { execFile } from 'child_process';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 
 process.env.PATH = `/usr/sbin:${process.env.PATH}`;
 
@@ -28,10 +28,16 @@ function patchServiceFile(serviceFile: string): boolean {
 
   if (serviceFileNew.indexOf('/run-js-service') !== -1) {
     console.info(`[ ] ${serviceFile} is a JS service`);
-    serviceFileNew = serviceFileNew.replace(
-      /^Exec=\/usr\/bin\/run-js-service/gm,
-      'Exec=/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/run-js-service',
-    );
+
+    // run-js-service should be in the same directory as this script.
+    const runJsServicePath = resolve(__dirname, 'run-js-service');
+
+    if (!existsSync(runJsServicePath)) {
+      console.error(`[!] run-js-service does not exist at ${runJsServicePath}`);
+      return false;
+    }
+
+    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/run-js-service/gm, `Exec=${runJsServicePath}`);
   } else if (serviceFileNew.indexOf('/jailer') !== -1) {
     console.info(`[ ] ${serviceFile} is a native service`);
     serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (match, binaryPath) => `Exec=${binaryPath}`);

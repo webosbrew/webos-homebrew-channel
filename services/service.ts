@@ -497,6 +497,7 @@ function runService() {
           '5caab3681cdd52cc9b59136a180cd0a1ffb98ec39bf571c38c0a4eb528ce13fb',
           'befe927c6f62b87545aaefb4b2648a227b22695fa0f78a228dcacf1fbba11aeb',
           'd914b3b444433bf49ff83c3c0ae0b729cf7544c074e72c23ec24e5f86aaaf4ac',
+          '6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f',
         ];
 
         // RootMyTV v2
@@ -659,6 +660,7 @@ function runService() {
         env: {
           LD_PRELOAD: '',
           SKIP_ELEVATION: 'true',
+          SERVICE_DIR: __dirname,
         },
         detached: true,
         stdio: ['ignore', 'ignore', 'ignore'],
