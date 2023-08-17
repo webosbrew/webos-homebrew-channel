@@ -34,7 +34,7 @@ export const asyncExecFile: (
 ) => Promise<string> = Bluebird.Promise.promisify(execFile);
 export const asyncStat: (path: string) => Promise<fs.Stats> = Bluebird.Promise.promisify(fs.stat);
 export const asyncUnlink: (path: string) => Promise<void> = Bluebird.Promise.promisify(fs.unlink);
-export const asyncReadFile: (path: string, options?: any) => Promise<Buffer> = Bluebird.Promise.promisify(fs.readFile);
+export const asyncReadFile: (path: string, options?: any) => Promise<Buffer | string> = Bluebird.Promise.promisify(fs.readFile);
 export const asyncWriteFile: (path: string, contents: string, options?: fs.WriteFileOptions) => Promise<void> = Bluebird.Promise.promisify(
   fs.writeFile,
 );
