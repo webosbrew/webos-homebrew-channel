@@ -55,7 +55,7 @@ cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/start
 * Install it using `ares-install` SDK command or using the following command
   directly on a TV:
   ```sh
-  luna-send-pub -i 'luna://com.webos.appInstallService/dev/install' '{"id":"com.ares.defaultName","ipkUrl":"/tmp/path/to/hbchannel.ipk","subscribe":true}'`
+  luna-send-pub -i 'luna://com.webos.appInstallService/dev/install' '{"id":"com.ares.defaultName","ipkUrl":"/tmp/path/to/hbchannel.ipk","subscribe":true}'
   ```
 * (root) Elevate privileges by running:
   ```sh
