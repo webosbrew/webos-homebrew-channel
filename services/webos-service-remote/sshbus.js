@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file, no-underscore-dangle */
 import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
+import { asyncReadFile } from '../adapter';
 import Message from './message';
 import SSH from './ssh-promise';
 
@@ -80,39 +81,61 @@ export default class Handle {
     return Message.constructBody(stdout.trim(), false);
   }
 
-  _getSshConfig() {
-    if (!this.service.call) {
-      const conf = this.service;
-      // Assume this is static configuration for testing
-      return new Promise((resolve) => {
-        resolve({
-          host: conf.host,
-          port: conf.port,
-          username: conf.username,
-          privateKey: readFileSync(conf.privateKeyPath),
-          passphrase: conf.passphrase,
-        });
-      });
-    }
+  querySmId() {
     return new Promise((resolve, reject) => {
       this.service.call('luna://com.webos.service.sm/deviceid/getIDs', { idType: ['NDUID'] }, (message) => {
         if (!message.payload.returnValue) {
           reject(new Error('Failed to call getIDs'));
           return;
         }
-        const idItem = message.payload.idList.find((item) => item.idType === 'NDUID');
-        if (!idItem) {
+        const id = message.payload.idList.find((item) => item.idType === 'NDUID')?.idValue;
+        if (!id) {
           reject(new Error('Failed to find NDUID'));
-          return;
+        } else {
+          resolve(id);
         }
-        resolve({
-          host: '127.0.0.1',
-          port: 9922,
-          username: 'prisoner',
-          privateKey: readFileSync('/var/luna/preferences/webos_rsa'),
-          passphrase: idItem.idValue.substring(0, 6).toUpperCase(),
-        });
       });
     });
+  }
+
+  async queryNyxId() {
+    const raw = (await asyncReadFile('/var/run/nyx/device_info.json')).toString();
+
+    const start = raw.indexOf('{');
+    const { nduid } = JSON.parse(raw.slice(start, raw.indexOf('}', start)));
+    if (!nduid) {
+      throw new Error('Failed to get NDU ID from Nyx');
+    }
+    return nduid;
+  }
+
+  async _getSshConfig() {
+    if (!this.service.call) {
+      const conf = this.service;
+      // Assume this is a static configuration for testing
+      return {
+        host: conf.host,
+        port: conf.port,
+        username: conf.username,
+        privateKey: readFileSync(conf.privateKeyPath),
+        passphrase: conf.passphrase,
+      };
+    }
+
+    let nduId;
+
+    try {
+      nduId = await this.querySmId();
+    } catch {
+      nduId = await this.queryNyxId();
+    }
+
+    return {
+      host: '127.0.0.1',
+      port: 9922,
+      username: 'prisoner',
+      privateKey: readFileSync('/var/luna/preferences/webos_rsa'),
+      passphrase: nduId.slice(0, 6).toUpperCase(),
+    };
   }
 }
