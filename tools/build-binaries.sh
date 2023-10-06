@@ -37,8 +37,7 @@ download() {
 
 build_dropbear() {
     cd "${BUILD_ROOT}/dropbear-src"
-    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-dynamic_crypt-v1.patch"
-    cp -v -- "${PATCH_DIR}/dropbear-localoptions.h" localoptions.h
+    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-webos-v1.patch"
     ./configure ${CONFIGURE_FLAGS} --disable-lastlog --enable-dynamic-crypt
     local programs='dropbear scp'
     make ${MAKEOPTS} -- PROGRAMS="${programs}"
