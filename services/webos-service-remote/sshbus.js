@@ -81,7 +81,7 @@ export default class Handle {
     return Message.constructBody(stdout.trim(), false);
   }
 
-  querySmId() {
+  querySmNduid() {
     return new Promise((resolve, reject) => {
       this.service.call('luna://com.webos.service.sm/deviceid/getIDs', { idType: ['NDUID'] }, (message) => {
         if (!message.payload.returnValue) {
@@ -98,13 +98,13 @@ export default class Handle {
     });
   }
 
-  async queryNyxId() {
+  static async queryNyxNduid() {
     const raw = (await asyncReadFile('/var/run/nyx/device_info.json')).toString();
 
     const start = raw.indexOf('{');
     const { nduid } = JSON.parse(raw.slice(start, raw.indexOf('}', start)));
     if (!nduid) {
-      throw new Error('Failed to get NDU ID from Nyx');
+      throw new Error('Failed to get NDUID from Nyx');
     }
     return nduid;
   }
@@ -125,9 +125,9 @@ export default class Handle {
     let nduId;
 
     try {
-      nduId = await this.querySmId();
+      nduId = await this.querySmNduid();
     } catch {
-      nduId = await this.queryNyxId();
+      nduId = await Handle.queryNyxNduid();
     }
 
     return {
