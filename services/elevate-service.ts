@@ -123,96 +123,107 @@ function main(argv: string[]) {
 
   let configChanged = false;
 
-  const serviceFile = `/var/luna-service2-dev/services.d/${serviceName}.service`;
-  const clientPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.root.json`;
-  const apiPermFile = `/var/luna-service2-dev/api-permissions.d/${serviceName}.api.public.json`;
-  const manifestFile = `/var/luna-service2-dev/manifests.d/${appName}.json`;
-  const roleFile = `/var/luna-service2-dev/roles.d/${serviceName}.service.json`;
+  for (const lunaRoot of ['/var/luna-service2-dev', '/var/luna-service2']) {
+    const serviceFile = `${lunaRoot}/services.d/${serviceName}.service`;
+    const clientPermFile = `${lunaRoot}/client-permissions.d/${serviceName}.root.json`;
+    const apiPermFile = `${lunaRoot}/api-permissions.d/${serviceName}.api.public.json`;
+    const manifestFile = `${lunaRoot}/manifests.d/${appName}.json`;
+    const roleFile = `${lunaRoot}/roles.d/${serviceName}.service.json`;
 
-  if (isFile(serviceFile)) {
-    console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
-    if (patchServiceFile(serviceFile)) {
-      configChanged = true;
-    }
-  }
-
-  if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
-    console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
-    writeFileSync(
-      clientPermFile,
-      JSON.stringify({
-        [`${serviceName}*`]: ['all'],
-      }),
-    );
-    configChanged = true;
-  }
-
-  if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
-    console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
-    writeFileSync(
-      apiPermFile,
-      JSON.stringify({
-        public: [`${serviceName}/*`],
-      }),
-    );
-    configChanged = true;
-  }
-
-  if (isFile(roleFile)) {
-    if (patchRolesFile(roleFile)) {
-      configChanged = true;
-    }
-  }
-
-  if (isFile(manifestFile)) {
-    console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
-    const manifestFileOriginal = readFileSync(manifestFile).toString();
-    const manifestFileParsed = JSON.parse(manifestFileOriginal);
-    if (manifestFileParsed.clientPermissionFiles && manifestFileParsed.clientPermissionFiles.indexOf(clientPermFile) === -1) {
-      console.info('[ ] manifest - adding client permissions file...');
-      manifestFileParsed.clientPermissionFiles.push(clientPermFile);
+    if (isFile(serviceFile)) {
+      console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
+      if (patchServiceFile(serviceFile)) {
+        configChanged = true;
+      }
+    } else {
+      // Skip everything else if service file is not found.
+      continue;
     }
 
-    if (manifestFileParsed.apiPermissionFiles && manifestFileParsed.apiPermissionFiles.indexOf(apiPermFile) === -1) {
-      console.info('[ ] manifest - adding API permissions file...');
-      manifestFileParsed.apiPermissionFiles.push(apiPermFile);
-    }
-
-    const manifestFileNew = JSON.stringify(manifestFileParsed);
-    if (manifestFileNew !== manifestFileOriginal) {
-      console.info(`[~] Updating manifest file: ${manifestFile}`);
-      console.info('-', manifestFileOriginal);
-      console.info('+', manifestFileNew);
-      writeFileSync(manifestFile, manifestFileNew);
-      configChanged = true;
-    }
-  }
-
-  const legacyPubServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
-  const legacyPrvServiceFile = `/var/palm/ls2-dev/services/prv/${serviceName}.service`;
-  const legacyPubRolesFile = `/var/palm/ls2-dev/roles/pub/${serviceName}.json`;
-  const legacyPrvRolesFile = `/var/palm/ls2-dev/roles/prv/${serviceName}.json`;
-
-  if (isFile(legacyPubServiceFile)) {
-    console.info(`[~] Found legacy webOS <3.x service file: ${legacyPubServiceFile}`);
-    if (patchServiceFile(legacyPubServiceFile)) {
+    if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
+      console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
+      writeFileSync(
+        clientPermFile,
+        JSON.stringify({
+          [`${serviceName}*`]: ['all'],
+        }),
+      );
       configChanged = true;
     }
 
-    if (patchServiceFile(legacyPrvServiceFile)) {
+    if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
+      console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
+      writeFileSync(
+        apiPermFile,
+        JSON.stringify({
+          public: [`${serviceName}/*`],
+        }),
+      );
       configChanged = true;
+    }
+
+    if (isFile(roleFile)) {
+      if (patchRolesFile(roleFile)) {
+        configChanged = true;
+      }
+    }
+
+    if (isFile(manifestFile)) {
+      console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
+      const manifestFileOriginal = readFileSync(manifestFile).toString();
+      const manifestFileParsed = JSON.parse(manifestFileOriginal);
+      if (manifestFileParsed.clientPermissionFiles && manifestFileParsed.clientPermissionFiles.indexOf(clientPermFile) === -1) {
+        console.info('[ ] manifest - adding client permissions file...');
+        manifestFileParsed.clientPermissionFiles.push(clientPermFile);
+      }
+
+      if (manifestFileParsed.apiPermissionFiles && manifestFileParsed.apiPermissionFiles.indexOf(apiPermFile) === -1) {
+        console.info('[ ] manifest - adding API permissions file...');
+        manifestFileParsed.apiPermissionFiles.push(apiPermFile);
+      }
+
+      const manifestFileNew = JSON.stringify(manifestFileParsed);
+      if (manifestFileNew !== manifestFileOriginal) {
+        console.info(`[~] Updating manifest file: ${manifestFile}`);
+        console.info('-', manifestFileOriginal);
+        console.info('+', manifestFileNew);
+        writeFileSync(manifestFile, manifestFileNew);
+        configChanged = true;
+      }
     }
   }
 
-  if (isFile(legacyPubRolesFile)) {
-    if (patchRolesFile(legacyPubRolesFile)) {
-      configChanged = true;
-    }
-  }
+  for (const legacyLunaRoot of ['/var/palm/ls2-dev', '/var/palm/ls2']) {
+    const legacyPubServiceFile = `${legacyLunaRoot}/services/pub/${serviceName}.service`;
+    const legacyPrvServiceFile = `${legacyLunaRoot}/services/prv/${serviceName}.service`;
+    const legacyPubRolesFile = `${legacyLunaRoot}/roles/pub/${serviceName}.json`;
+    const legacyPrvRolesFile = `${legacyLunaRoot}/roles/prv/${serviceName}.json`;
 
-  if (isFile(legacyPrvRolesFile)) {
-    if (patchRolesFile(legacyPrvRolesFile)) {
-      configChanged = true;
+    if (isFile(legacyPubServiceFile)) {
+      console.info(`[~] Found legacy webOS <3.x service file: ${legacyPubServiceFile}`);
+      if (patchServiceFile(legacyPubServiceFile)) {
+        configChanged = true;
+      }
+
+      if (isFile(legacyPrvServiceFile)) {
+        if (patchServiceFile(legacyPrvServiceFile)) {
+          configChanged = true;
+        }
+      } else {
+        console.warn(`[!] Did not find legacy private service file: ${legacyPrvServiceFile}`);
+      }
+    }
+
+    if (isFile(legacyPubRolesFile)) {
+      if (patchRolesFile(legacyPubRolesFile)) {
+        configChanged = true;
+      }
+    }
+
+    if (isFile(legacyPrvRolesFile)) {
+      if (patchRolesFile(legacyPrvRolesFile)) {
+        configChanged = true;
+      }
     }
   }
 
