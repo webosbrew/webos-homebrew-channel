@@ -78,7 +78,7 @@
         "bluebird": "^3.7.2",
         "core-js": "^3.12.1",
         "dompurify": "^2.2.8",
-        "node-fetch": "^2.6.1",
+        "node-fetch": "^2.6.1 <2.6.8",
         "progress-stream": "^2.0.0",
         "regenerator-runtime": "^0.13.7",
         "shell-escape": "^0.2.0",
