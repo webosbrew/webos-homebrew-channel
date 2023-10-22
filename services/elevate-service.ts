@@ -113,7 +113,7 @@ function patchRolesFile(path: string, requiredNames: string[] = ['*', 'com.webos
   return false;
 }
 
-export default function main(argv: string[]) {
+function main(argv: string[]) {
   let [serviceName = 'org.webosbrew.hbchannel.service', appName = serviceName.split('.').slice(0, -1).join('.')] = argv;
 
   if (serviceName === 'org.webosbrew.hbchannel') {
@@ -232,6 +232,4 @@ export default function main(argv: string[]) {
   }
 }
 
-if (require.main === module) {
-  main(process.argv.slice(2));
-}
+main(process.argv.slice(2));
