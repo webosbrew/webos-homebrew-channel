@@ -30,6 +30,14 @@ import ServiceRemote from './webos-service-remote';
 
 const kHomebrewChannelPackageId = rootAppInfo.id;
 const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
+const homebrewBaseDir = ((): string | null => {
+  try {
+    return path.resolve(__dirname, '../../../../');
+  } catch (err) {
+    console.warn('getting homebrewBaseDir failed:', err);
+    return null;
+  }
+})();
 
 // Maps internal setting field name with filesystem flag name.
 type FlagName = string;
@@ -439,6 +447,7 @@ function runService() {
       const flags = Object.fromEntries(await Promise.all(futureFlags));
       return {
         root: process.getuid() === 0,
+        homebrewBaseDir,
         ...flags,
       };
     }),
