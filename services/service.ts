@@ -270,7 +270,7 @@ async function removePackage(packageId: string, service: Service): Promise<void>
 /**
  * Register activity to call /autostart on boot
  */
-async function registerActivity(service: Service) {
+async function registerActivity(service: Service): Promise<void> {
   const activity = {
     name: 'org.webosbrew.hbchannel.service.autostart',
     description: 'Start HBChannel service on boot.',
