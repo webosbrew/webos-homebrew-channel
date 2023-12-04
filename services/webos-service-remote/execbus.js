@@ -16,6 +16,15 @@ class Request extends EventEmitter {
 }
 
 export default class Handle {
+  constructor(usePublic) {
+    if (typeof usePublic === 'boolean') {
+      this.usePublic = usePublic;
+    } else {
+      /* use luna-send-pub when not root */
+      this.usePublic = process.uid !== 0;
+    }
+  }
+
   /**
    * Send a message via luna-send and start interactive session
    * @param {string} uri
@@ -24,10 +33,14 @@ export default class Handle {
    */
   // eslint-disable-next-line class-methods-use-this
   subscribe(uri, payload) {
+    const command = this.usePublic ? 'luna-send-pub' : 'luna-send';
+    /* using -a with luna-send-pub causes an error */
+    const args = [...(this.usePublic ? [] : ['-a', 'webosbrew']), '-i', uri, payload];
+
     let process;
     let request;
     try {
-      process = spawn('luna-send', ['-a', 'webosbrew', '-i', uri, payload]);
+      process = spawn(command, args);
       request = new Request(process);
       const stream = process.stdout;
       let stdout = '';
@@ -55,7 +68,7 @@ export default class Handle {
             JSON.stringify({
               returnValue: false,
               errorCode: -1,
-              errorText: `Unable to exec luna-send: ${err}`,
+              errorText: `Unable to exec ${command}: ${err}`,
             }),
             false,
           ),
