@@ -324,10 +324,8 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
 }
 
 function runService() {
-  const service = new Service(serviceInfo.id);
+  const service = new Service(serviceInfo.id, null, { idleTimer: 30 });
   const serviceRemote = new ServiceRemote();
-
-  service.activityManager.idleTimeout = 30;
 
   function getInstallerService(): Service {
     if (runningAsRoot) {
