@@ -7,7 +7,7 @@ import path from 'path';
 import child_process from 'child_process';
 
 // @ts-ignore
-import { Promise } from 'bluebird';
+import { Promise } from 'bluebird'; // eslint-disable-line @typescript-eslint/no-redeclare
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';

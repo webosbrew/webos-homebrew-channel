@@ -2,6 +2,7 @@ type Response<T extends Record<string, any>> = T & {
   returnValue: true;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 type Error<T extends Record<string, any>> = T & {
   returnValue: false;
   errorText: string;
