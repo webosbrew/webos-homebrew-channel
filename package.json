@@ -82,7 +82,7 @@
         "progress-stream": "^2.0.0",
         "regenerator-runtime": "^0.13.7",
         "stream.pipeline-shim": "^1.1.0",
-        "webos-service": "git+https://github.com/webosose/nodejs-module-webos-service.git#59172863e61abb53b2f3f174ab9a23c655819188"
+        "webos-service": "github:webosose/nodejs-module-webos-service#1dd2c9d6cd21eb5d84f7619432ed6d2784bb56f9"
     },
     "homepage": "https://github.com/webosbrew/webos-homebrew-channel#readme"
 }
