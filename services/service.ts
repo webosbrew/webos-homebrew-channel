@@ -304,7 +304,7 @@ async function registerActivity(service: Service): Promise<void> {
     replace: true,
   };
 
-  return new Promise((resolve) => service.activityManager.create(spec, resolve));
+  return new Promise((resolve) => service.activityManager.create(spec, () => resolve()));
 }
 
 /**
