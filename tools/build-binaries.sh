@@ -5,6 +5,7 @@
 set -e -x
 
 NDK_PATH="${NDK_PATH:-/opt/ndk}"
+BUILD_ROOT="${BUILD_ROOT:-/tmp/dropbear-build}"
 SRC_ROOT="${SRC_ROOT:-$(realpath -e -s -- "$(dirname -- "${0}")/..")}"
 PATCH_DIR="${PATCH_DIR:-${SRC_ROOT}/tools/patches}"
 TARGET_DIR="${TARGET_DIR:-${SRC_ROOT}/services/bin}"
@@ -25,7 +26,7 @@ install_ndk() {
 # Download and checksum a src
 download() {
     local src="/tmp/${1}.tar.gz"
-    local srcdir="/opt/${1}-src"
+    local srcdir="${BUILD_ROOT}/${1}-src"
     rm -r -f -- "${srcdir}"
     mkdir -p -- "${srcdir}"
     wget -O "${src}" -- "${2}"
@@ -35,31 +36,30 @@ download() {
 }
 
 build_dropbear() {
-    cd /opt/dropbear-src
-    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-dynamic_crypt-v1.patch"
-    cp -v -- "${PATCH_DIR}/dropbear-localoptions.h" localoptions.h
-    ./configure --host arm-webos-linux-gnueabi --disable-lastlog --enable-dynamic-crypt
+    cd "${BUILD_ROOT}/dropbear-src"
+    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-webos-v1.patch"
+    ./configure ${CONFIGURE_FLAGS} --disable-lastlog --enable-dynamic-crypt
     local programs='dropbear scp'
     make ${MAKEOPTS} -- PROGRAMS="${programs}"
-    arm-webos-linux-gnueabi-strip -- ${programs}
+    ${STRIP} -- ${programs}
     cp -v -v -t "${TARGET_DIR}" -- ${programs}
 }
 
 build_rsync() {
-    cd /opt/rsync-src
-    ./configure --host arm-webos-linux-gnueabi \
+    cd "${BUILD_ROOT}/rsync-src"
+    ./configure ${CONFIGURE_FLAGS} \
         --disable-simd --disable-debug --with-included-popt=yes --with-included-zlib=yes \
         --disable-lz4 --disable-zstd --disable-xxhash --disable-md2man --disable-acl-support
     make ${MAKEOPTS}
-    arm-webos-linux-gnueabi-strip -- rsync
+    ${STRIP} -- rsync
     cp -v -t "${TARGET_DIR}" -- rsync
 }
 
 build_sftp() {
-	cd /opt/openssh-src
-	./configure --host=arm-webos-linux-gnueabi --without-openssl
+	cd "${BUILD_ROOT}/openssh-src"
+	./configure ${CONFIGURE_FLAGS} --without-openssl --without-zlib-version-check
 	make ${MAKEOPTS} -- sftp-server
-	arm-webos-linux-gnueabi-strip -- sftp-server
+	${STRIP} -- sftp-server
 	cp -v -t "${TARGET_DIR}" -- sftp-server
 }
 

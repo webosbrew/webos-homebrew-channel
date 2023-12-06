@@ -1,14 +1,5 @@
-Building with --enable-dynamic-crypt will cause dropbear to attempt to
-load crypt() dynamically at startup. It will first attempt to load
-libcrypt.so.2, followed by libcrypt.so.1. Failure to load libcrypt.so.2
-is normal on webOS 6.x and older. If crypt() is not found, dropbear will
-continue running, but password authentication will not work.
-
-This solves a compatibility issue with webOS 22/7. It ships
-with libcrypt.so.2, while previous versions of webOS have libcrypt.so.1.
-The soname changed because webOS 22/7 uses libxcrypt built with a flag
-that disables some backwards compatibility features. These changes do not
-affect the crypt() function.
+Adds dynamic loading of crypt(), determination of paths at runtime based on
+location of executable, and host key paths.
 
 diff -Naur dropbear-2022.83.orig/auth.h dropbear-2022.83/auth.h
 --- dropbear-2022.83.orig/auth.h	2022-11-14 09:30:00.000000000 -0500
@@ -26,7 +17,7 @@ diff -Naur dropbear-2022.83.orig/auth.h dropbear-2022.83/auth.h
  void send_msg_userauth_failure(int partial, int incrfail);
 diff -Naur dropbear-2022.83.orig/config.h.in dropbear-2022.83/config.h.in
 --- dropbear-2022.83.orig/config.h.in	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/config.h.in	2022-12-03 15:17:12.209591523 -0500
++++ dropbear-2022.83/config.h.in	2022-11-22 15:17:12.209591523 -0500
 @@ -60,6 +60,9 @@
  /* External Public Key Authentication */
  #undef DROPBEAR_PLUGIN
@@ -39,7 +30,7 @@ diff -Naur dropbear-2022.83.orig/config.h.in dropbear-2022.83/config.h.in
  
 diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
 --- dropbear-2022.83.orig/configure	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/configure	2022-12-03 15:42:59.154695430 -0500
++++ dropbear-2022.83/configure	2023-10-06 15:14:50.935096748 -0400
 @@ -728,6 +728,7 @@
  enable_harden
  enable_werror
@@ -56,15 +47,7 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
    --disable-zlib          Don't include zlib support
    --enable-pam            Try to include PAM support
    --disable-openpty       Don't use openpty, use alternative method
-@@ -5340,6 +5342,7 @@
- 
- fi
- 
-+
- ac_fn_c_check_func "$LINENO" "crypt" "ac_cv_func_crypt"
- if test "x$ac_cv_func_crypt" = xyes
- then :
-@@ -5389,13 +5392,79 @@
+@@ -5389,13 +5391,79 @@
  
  fi
  
@@ -130,7 +113,7 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
 +else $as_nop
 +  as_fn_error $? "*** dlfcn.h missing - needed for dynamic libcrypt" "$LINENO" 5
 +fi
-+a
++
 +
 +printf "%s\n" "#define DYNAMIC_CRYPT 1" >>confdefs.h
 +
@@ -147,7 +130,7 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
  # Check whether --with-zlib was given.
 diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
 --- dropbear-2022.83.orig/configure.ac	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/configure.ac	2022-12-03 01:43:26.730834528 -0500
++++ dropbear-2022.83/configure.ac	2023-10-06 15:14:04.615103635 -0400
 @@ -219,11 +219,27 @@
  	CRYPTLIB="-lcrypt"
  	found_crypt_func=here
@@ -166,7 +149,7 @@ diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
 +			# replace -lcrypt with -ldl
 +			AC_CHECK_LIB([dl], [dlsym], [CRYPTLIB="-ldl"])
 +			AC_CHECK_HEADER([dlfcn.h], [],
-+				[AC_MSG_ERROR([*** dlfcn.h missing - needed for dynamic libcrypt])])a
++				[AC_MSG_ERROR([*** dlfcn.h missing - needed for dynamic libcrypt])])
 +			AC_DEFINE([DYNAMIC_CRYPT], 1, [Dynamically load crypt()])
 +		fi
 +	]
@@ -177,6 +160,28 @@ diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
  # Check if zlib is needed
  AC_ARG_WITH(zlib,
  	[  --with-zlib=PATH        Use zlib in PATH],
+diff -Naur dropbear-2022.83.orig/localoptions.h dropbear-2022.83/localoptions.h
+--- dropbear-2022.83.orig/localoptions.h	1969-12-31 19:00:00.000000000 -0500
++++ dropbear-2022.83/localoptions.h	2023-10-06 15:08:16.055149973 -0400
+@@ -0,0 +1,18 @@
++#define DSS_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_dss_host_key"
++#define RSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_rsa_host_key"
++#define ECDSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ecdsa_host_key"
++#define ED25519_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_ed25519_host_key"
++/* fallback DEFAULT_PATH */
++#define DEFAULT_PATH_FB "/home/root/.local/bin:/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin:/usr/bin:/bin"
++/* %s replaced with directory containing dropbear */
++#define DEFAULT_PATH_FMT "/home/root/.local/bin:%s:/usr/bin:/bin"
++/* fallback DEFAULT_ROOT_PATH */
++#define DEFAULT_ROOT_PATH_FB "/home/root/.local/bin:/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin:/usr/sbin:/usr/bin:/sbin:/bin"
++/* %s replaced with directory containing dropbear */
++#define DEFAULT_ROOT_PATH_FMT "/home/root/.local/bin:%s:/usr/sbin:/usr/bin:/sbin:/bin"
++#define DROPBEAR_SFTPSERVER 1
++/* fallback SFTPSERVER_PATH */
++#define SFTPSERVER_PATH_FB "/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin/sftp-server"
++/* %s replaced with directory containing dropbear */
++#define SFTPSERVER_PATH_FMT "%s/sftp-server"
++#define DEFAULT_WEBOS_BIN_PATH "/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin"
 diff -Naur dropbear-2022.83.orig/svr-authpasswd.c dropbear-2022.83/svr-authpasswd.c
 --- dropbear-2022.83.orig/svr-authpasswd.c	2022-11-14 09:30:00.000000000 -0500
 +++ dropbear-2022.83/svr-authpasswd.c	2022-11-22 15:11:00.193096063 -0500
@@ -262,10 +267,45 @@ diff -Naur dropbear-2022.83.orig/svr-authpasswd.c dropbear-2022.83/svr-authpassw
  	}
  	m_burn(password, passwordlen);
  	m_free(password);
+diff -Naur dropbear-2022.83.orig/svr-chansession.c dropbear-2022.83/svr-chansession.c
+--- dropbear-2022.83.orig/svr-chansession.c	2022-11-14 09:30:00.000000000 -0500
++++ dropbear-2022.83/svr-chansession.c	2023-07-30 11:14:40.226544607 -0400
+@@ -685,7 +685,8 @@
+ 		if (issubsys) {
+ #if DROPBEAR_SFTPSERVER
+ 			if ((cmdlen == 4) && strncmp(chansess->cmd, "sftp", 4) == 0) {
+-				char *expand_path = expand_homedir_path(SFTPSERVER_PATH);
++				extern const char *webos_sftpserver_path;
++				char *expand_path = expand_homedir_path(webos_sftpserver_path);
+ 				m_free(chansess->cmd);
+ 				chansess->cmd = m_strdup(expand_path);
+ 				m_free(expand_path);
+@@ -1013,9 +1014,11 @@
+ 	addnewvar("HOME", ses.authstate.pw_dir);
+ 	addnewvar("SHELL", get_user_shell());
+ 	if (getuid() == 0) {
+-		addnewvar("PATH", DEFAULT_ROOT_PATH);
++		extern const char *webos_default_root_path;
++		addnewvar("PATH", webos_default_root_path);
+ 	} else {
+-		addnewvar("PATH", DEFAULT_PATH);
++		extern const char *webos_default_path;
++		addnewvar("PATH", webos_default_path);
+ 	}
+ 	if (cp != NULL) {
+ 		addnewvar("LANG", cp);
 diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
 --- dropbear-2022.83.orig/svr-main.c	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/svr-main.c	2022-11-22 15:42:43.045535740 -0500
-@@ -466,6 +466,12 @@
++++ dropbear-2022.83/svr-main.c	2023-10-06 15:20:49.195034204 -0400
+@@ -38,6 +38,7 @@
+ static void main_inetd(void);
+ static void main_noinetd(int argc, char ** argv, const char* multipath);
+ static void commonsetup(void);
++static void set_webos_paths(void);
+ 
+ #if defined(DBMULTI_dropbear) || !DROPBEAR_MULTI
+ #if defined(DBMULTI_dropbear) && DROPBEAR_MULTI
+@@ -466,6 +467,14 @@
  	/* Now we can setup the hostkeys - needs to be after logging is on,
  	 * otherwise we might end up blatting error messages to the socket */
  	load_all_hostkeys();
@@ -275,6 +315,112 @@ diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
 +	svr_auth_load_libcrypt();
 +#endif
 +	/* <<< dynamic libcrypt patch <<< */
++
++	set_webos_paths();
  }
  
  /* Set up listening sockets for all the requested ports */
+@@ -506,3 +515,103 @@
+ 	}
+ 	return sockpos;
+ }
++
++static char *get_own_path(void) {
++    struct stat sb;
++
++	if (lstat("/proc/self/exe", &sb) == -1) {
++		dropbear_log(LOG_WARNING, "lstat() failed (errno=%d) on /proc/self/exe", errno);
++		return NULL;
++	}
++
++	ssize_t bufsiz;
++
++	if (sb.st_size != 0) {
++		bufsiz = sb.st_size;
++	} else {
++		bufsiz = PATH_MAX;
++	}
++
++	char *buf = m_malloc(bufsiz);
++
++    if (readlink("/proc/self/exe", buf, bufsiz) == -1) {
++        dropbear_log(LOG_WARNING, "readlink() failed (errno=%d) on /proc/self/exe", errno);
++		m_free(buf);
++		return NULL;
++	}
++
++	char *dir = m_strdup(dirname(buf));
++
++	m_free(buf);
++
++	if (stat(dir, &sb) == -1) {
++		dropbear_log(LOG_WARNING, "stat() failed (errno=%d) on target of /proc/self/exe: %s", errno, dir);
++		m_free(dir);
++		return NULL;
++	}
++
++	if (!S_ISDIR(sb.st_mode)) {
++		dropbear_log(LOG_WARNING, "Target of /proc/self/exe is not a directory: %s", dir);
++		m_free(dir);
++		return NULL;
++	}
++
++	if (dir[0] != '/') {
++		dropbear_log(LOG_WARNING, "Target of /proc/self/exe is not absolute: %s", dir);
++		m_free(dir);
++		return NULL;
++	}
++
++	return dir;
++}
++
++const char *webos_default_path = NULL;
++const char *webos_default_root_path = NULL;
++const char *webos_sftpserver_path = NULL;
++
++static void set_webos_paths(void) {
++	char *own_path = NULL;
++	const char *bin_path = NULL;
++
++	if ((own_path = get_own_path()) != NULL) {
++		bin_path = own_path;
++		dropbear_log(LOG_DEBUG, "Got webOS bin path: %s", bin_path);
++	} else {
++		bin_path = DEFAULT_WEBOS_BIN_PATH;
++		dropbear_log(LOG_WARNING, "Failed to get webOS bin path; using default: %s", bin_path);
++	}
++
++	char *temp = NULL;
++
++	if (asprintf(&temp, DEFAULT_PATH_FMT, bin_path) != -1) {
++		webos_default_path = temp;
++		dropbear_log(LOG_DEBUG, "Constructed default path: %s", webos_default_path);
++	} else {
++		webos_default_path = DEFAULT_PATH_FB;
++		dropbear_log(LOG_WARNING, "Failed to construct default path; using fallback: %s", webos_default_path);
++	}
++
++	temp = NULL;
++
++	if (asprintf(&temp, DEFAULT_ROOT_PATH_FMT, bin_path) != -1) {
++		webos_default_root_path = temp;
++		dropbear_log(LOG_DEBUG, "Constructed default root path: %s", webos_default_root_path);
++	} else {
++		webos_default_root_path = DEFAULT_ROOT_PATH_FB;
++		dropbear_log(LOG_WARNING, "Failed to construct default root path; using fallback: %s", webos_default_root_path);
++	}
++
++	temp = NULL;
++
++	if (asprintf(&temp, SFTPSERVER_PATH_FMT, bin_path) != -1) {
++		webos_sftpserver_path = temp;
++		dropbear_log(LOG_DEBUG, "Constructed sftp-server path: %s", webos_sftpserver_path);
++	} else {
++		webos_sftpserver_path = SFTPSERVER_PATH_FB;
++		dropbear_log(LOG_WARNING, "Failed to construct sftp-server path; using fallback: %s", webos_sftpserver_path);
++	}
++
++	if (own_path != NULL) {
++		m_free(own_path);
++	}
++}
