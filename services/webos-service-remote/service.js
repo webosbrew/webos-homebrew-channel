@@ -1,22 +1,13 @@
 import Message from './message';
-import SSHHandle from './sshbus';
 import ExecHandle from './execbus';
 import Subscription from './subscription';
 
 /**
- * Drop in replacement for webos-service, but using SSH shell to call luna-send-pub instead.
+ * Drop in replacement for webos-service, but luna-send(-pub) instead.
  */
 export default class Service {
-  /**
-   *
-   * @param {Service|null} service from webos-service module. Used for retreving SSH pubkey passphrase. If null is provided, alternative backend using root execution is used
-   */
-  constructor(service) {
-    if (service === null) {
-      this.sendingHandle = new ExecHandle();
-    } else {
-      this.sendingHandle = new SSHHandle(service);
-    }
+  constructor() {
+    this.sendingHandle = new ExecHandle();
   }
 
   /* Call a service on the bus
