@@ -4,7 +4,7 @@ import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { execFile } from 'child_process';
 import { dirname, resolve } from 'path';
 
-process.env.PATH = `/usr/sbin:${process.env.PATH}`;
+process.env['PATH'] = `/usr/sbin:${process.env['PATH']}`;
 
 function isFile(path: string): boolean {
   try {
@@ -40,7 +40,7 @@ function patchServiceFile(serviceFile: string): boolean {
     serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/run-js-service/gm, `Exec=${runJsServicePath}`);
   } else if (serviceFileNew.indexOf('/jailer') !== -1) {
     console.info(`[ ] ${serviceFile} is a native service`);
-    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (match, binaryPath) => `Exec=${binaryPath}`);
+    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (_, binaryPath) => `Exec=${binaryPath}`);
   } else if (serviceFileNew.indexOf('Exec=/media') === -1) {
     // Ignore elevated native services...
     console.info(`[~] ${serviceFile}: unknown service type, this may cause some troubles`);

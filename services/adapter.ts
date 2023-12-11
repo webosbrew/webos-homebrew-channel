@@ -24,6 +24,7 @@ fetch.Promise = Bluebird.Promise;
 // Sadly these need to be manually typed according to
 // https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node
 // since types infered from Bluebird.Promise.promisify are wrong.
+// @ts-ignore
 export const asyncPipeline: (
   ...args: ReadonlyArray<NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.ReadWriteStream>
 ) => Promise<void> = Bluebird.Promise.promisify(pipeline);

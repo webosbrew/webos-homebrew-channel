@@ -5,13 +5,23 @@
         "target": "es5",
         "allowJs": true,
         "lib": [
-            "es2019"
+            "es5"
         ],
-        "moduleResolution": "node",
+        "moduleResolution": "node10",
         "allowSyntheticDefaultImports": true,
-        "noImplicitAny": true,
+        "exactOptionalPropertyTypes": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noPropertyAccessFromIndexSignature": true,
         "noUncheckedIndexedAccess": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "strict": true,
         "resolveJsonModule": true,
+        "types": [
+            "node"
+        ],
         "esModuleInterop": true
     },
     "exclude": [

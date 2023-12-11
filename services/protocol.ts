@@ -1,16 +1,16 @@
-type Response<T extends Record<string, any>> = T & {
+interface Response {
   returnValue: true;
-};
+}
 
-type ErrorResponse<T extends Record<string, any>> = T & {
+interface ErrorResponse {
   returnValue: false;
   errorText: string;
-};
+}
 
-export function makeSuccess<T>(payload: T): Response<T> {
+export function makeSuccess(payload: Record<string, any>): Response {
   return { returnValue: true, ...payload };
 }
 
-export function makeError<T>(error: string, payload?: T): ErrorResponse<T> {
+export function makeError(error: string, payload?: Record<string, any>): ErrorResponse {
   return { returnValue: false, errorText: error, ...payload };
 }
