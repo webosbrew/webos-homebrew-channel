@@ -8,8 +8,14 @@ function getConfig() {
     enableNonfree: false,
   };
 
+  var storedConfig = window.localStorage['repositoriesConfig'];
+
+  if (storedConfig === undefined) {
+    return repositoriesConfig;
+  }
+
   try {
-    var parsed = JSON.parse(window.localStorage['repositoriesConfig']);
+    var parsed = JSON.parse(storedConfig);
     if (parsed.disableDefault !== undefined)
       repositoriesConfig.disableDefault = parsed.disableDefault;
     if (parsed.repositories !== undefined)
