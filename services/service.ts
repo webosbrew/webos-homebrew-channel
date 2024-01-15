@@ -600,7 +600,15 @@ function runService() {
    * Executes a shell command and responds with exit code, stdout and stderr.
    */
   type ExecPayload = { command: string };
-  service.register('exec', (message) => {
+  service.register('exec', (message: Message) => {
+    if (!('command' in message.payload)) {
+      message.respond(makeError('missing "command"'));
+      return;
+    } else if (typeof message.payload['command'] !== 'string') {
+      message.respond(makeError('"command" is not a string'));
+      return;
+    }
+
     const payload = message.payload as ExecPayload;
     child_process.exec(payload.command, { encoding: 'buffer' }, (error, stdout, stderr) => {
       const response = {
