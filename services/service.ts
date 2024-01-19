@@ -39,6 +39,18 @@ const homebrewBaseDir = ((): string | null => {
   }
 })();
 
+const nodeVersion = (() => {
+  try {
+    // Just in case there's a build/pre-release suffix.
+    const core = process.versions.node.split(/[-+]/, 1)[0] as string;
+    const [major, minor = 0, patch = 0] = core.split('.').map((x) => parseInt(x, 10));
+    return { major, minor, patch };
+  } catch (err) {
+    console.warn('getting nodeVersion failed:', err);
+    return { major: 0, minor: 0, patch: 0 };
+  }
+})();
+
 // Maps internal setting field name with filesystem flag name.
 type FlagName = string;
 const availableFlags = {
@@ -610,7 +622,10 @@ function runService() {
     }
 
     const payload = message.payload as ExecPayload;
-    child_process.exec(payload.command, { encoding: 'buffer' }, (error, stdout, stderr) => {
+
+    const encoding = nodeVersion.major === 0 && nodeVersion.minor < 12 ? null : 'buffer';
+
+    child_process.exec(payload.command, { encoding }, (error, stdout, stderr) => {
       const response = {
         error,
         stdoutString: stdout.toString(),
