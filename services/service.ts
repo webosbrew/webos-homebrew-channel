@@ -516,6 +516,7 @@ function runService() {
           'befe927c6f62b87545aaefb4b2648a227b22695fa0f78a228dcacf1fbba11aeb',
           'd914b3b444433bf49ff83c3c0ae0b729cf7544c074e72c23ec24e5f86aaaf4ac',
           '6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f',
+          'e04a3d61098c6f74d466da6fb457a52fb61a9cc86869059ae32b13bf43cd9d10',
         ];
 
         // RootMyTV v2

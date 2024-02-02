@@ -25,7 +25,7 @@ touch "${once}"
 # Use default directory if SERVICE_DIR is not provided.
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
-if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
+if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
     # In case a reboot occured during last startup - open an emergency telnet
     # server and nag user to actually fix this. (since further reboots could
     # lead to devmode removal, etc...)
@@ -35,13 +35,14 @@ if [[ -f /var/luna/preferences/webosbrew_failsafe ]]; then
 
     luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b><br/>A crash has occured during startup. Fix any causes and reboot."}'
     sleep 15;
-    rm /var/luna/preferences/webosbrew_failsafe
+    rm -rf /var/luna/preferences/webosbrew_failsafe
+    sync -f /var/luna/preferences
     luna-send -a com.webos.service.secondscreen.gateway -f -n 1 luna://com.webos.notification/createAlert '{"sourceId":"webosbrew","message":"<b>Homebrew Channel</b> - Failsafe mode<br />A crash has occured during previous startup - root-related system customizations have been temporarily disabled.<br /><br /> System should go back to normal after a reboot.<br />Would you like to reboot now?","buttons":[{"label":"Reboot now","onclick":"luna://com.webos.service.sleep/shutdown/machineReboot","params":{"reason":"remoteKey"}},{"label":"Reboot later"}]}'
 else
     # Set a failsafe flag and sync filesystem to make sure it actually gets
     # tripped...
     touch /var/luna/preferences/webosbrew_failsafe
-    sync
+    sync -f /var/luna/preferences/webosbrew_failsafe
     sleep 2
 
     # Close fds to avoid leaking Luna socket
@@ -136,5 +137,6 @@ else
 
     # Reset failsafe flag after a while
     sleep 10
-    rm /var/luna/preferences/webosbrew_failsafe
+    rm -rf /var/luna/preferences/webosbrew_failsafe
+    sync -f /var/luna/preferences
 fi
