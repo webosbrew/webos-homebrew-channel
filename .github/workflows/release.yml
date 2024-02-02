@@ -1,4 +1,4 @@
-name: Build & Release
+name: 'Build & Release'
 
 on:
   release:
@@ -8,15 +8,20 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node-version: [20]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
 
-    - name: Use Node.js 18
+    - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: ${{ matrix.node-version }}
 
     - run: npm ci
     - run: npm run build -- --production
@@ -26,7 +31,7 @@ jobs:
 
     - name: Get release
       id: get_release
-      uses: bruceadams/get-release@v1.3.2
+      uses: bruceadams/get-release@74c3d60f5a28f358ccf241a00c9021ea16f0569f
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
