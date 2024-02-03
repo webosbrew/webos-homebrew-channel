@@ -5,29 +5,19 @@ on:
     types: [created]
 
 jobs:
-  build-and-release:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
       with:
-        submodules: recursive
-
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-
-    - run: npm ci
-    - run: npm run build -- --production
-    - run: npm run build-service -- --env production
-    - run: npm run package
-    - run: npm run manifest
+        pattern: 'hbchannel-*'
+        merge-multiple: true
 
     - name: Get release
       id: get_release
@@ -35,13 +25,13 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
-    - name: Upload Release assets
+    - name: Upload IPK
       uses: ncipollo/release-action@v1
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
         name: Release ${{ steps.get_release.outputs.tag_name }}
         allowUpdates: true
         omitNameDuringUpdate: true
         omitBodyDuringUpdate: true
+        omitDraftDuringUpdate: true
         omitPrereleaseDuringUpdate: true
-        artifacts: '*.ipk,org.webosbrew.hbchannel.manifest.json'
+        artifacts: '*.ipk,*.manifest.json'
