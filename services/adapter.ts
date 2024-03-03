@@ -1,5 +1,3 @@
-// import 'core-js/stable';
-// import 'regenerator-runtime/runtime';
 import './buffer-shim';
 
 import fs from 'fs';
