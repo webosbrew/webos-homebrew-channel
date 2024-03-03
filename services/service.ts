@@ -48,9 +48,12 @@ const availableFlags = {
   blockUpdates: 'webosbrew_block_updates',
 } as Record<string, FlagName>;
 
-function runningAsRoot(): boolean {
+const runningAsRoot: boolean = (() => {
+  if (typeof process.getuid === 'undefined') {
+    throw new Error('process.getuid() is missing');
+  }
   return process.getuid() === 0;
-}
+})();
 
 function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, args: Record<string, any>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -120,7 +123,7 @@ function hashString(data: string, algorithm: string): string {
  * Elevates a package by name.
  */
 async function elevateService(pkg: string): Promise<void> {
-  if (runningAsRoot()) {
+  if (runningAsRoot) {
     console.info('Elevating service...');
     await asyncExecFile(path.join(__dirname, 'elevate-service'), [pkg]);
   } else {
@@ -325,7 +328,7 @@ function runService() {
   service.activityManager.idleTimeout = 30;
 
   function getInstallerService(): Service {
-    if (runningAsRoot()) {
+    if (runningAsRoot) {
       return service;
     }
     return serviceRemote as Service;
@@ -396,7 +399,7 @@ function runService() {
       // If reelevation fails for some reason the service should still be
       // reelevated on reboot on devices with persistent autostart hooks (since
       // we launch elevate-service in startup.sh script)
-      if (runningAsRoot() && pkginfo && pkginfo.Package === kHomebrewChannelPackageId) {
+      if (runningAsRoot && pkginfo && pkginfo.Package === kHomebrewChannelPackageId) {
         message.respond({ statusText: 'Self-update…' });
         await createToast('Performing self-update...', service);
 
@@ -484,7 +487,7 @@ function runService() {
    */
   service.register(
     'checkRoot',
-    tryRespond(async () => ({ returnValue: runningAsRoot() })),
+    tryRespond(async () => ({ returnValue: runningAsRoot })),
   );
 
   /**
@@ -493,7 +496,7 @@ function runService() {
   service.register(
     'updateStartupScript',
     tryRespond(async () => {
-      if (!runningAsRoot()) {
+      if (!runningAsRoot) {
         return { returnValue: true, statusText: 'Not running as root.' };
       }
 
@@ -666,7 +669,7 @@ function runService() {
   service.register(
     'autostart',
     tryRespond(async (message) => {
-      if (!runningAsRoot()) {
+      if (!runningAsRoot) {
         return { message: 'Not running as root.', returnValue: true };
       }
       if (await asyncExists('/tmp/webosbrew_startup')) {
