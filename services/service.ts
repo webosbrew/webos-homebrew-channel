@@ -643,6 +643,8 @@ function runService() {
 
   /**
    * Stub service that emulates luna://com.webos.service.sm/license/apps/getDrmStatus
+   *
+   * This is intended to work with sampatcher.py, but it is not currently used.
    */
   type GetDrmStatusPayload = { appId: string };
   service.register(

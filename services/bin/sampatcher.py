@@ -4,7 +4,7 @@ import re
 import sys
 
 TARGET_STRING      = "luna://com.webos.service.sm/license/apps/getDrmStatus"
-REPLACEMENT_STRING = "luna://tv.rootmy.hbchannel.service/getDrmStatus\0"
+REPLACEMENT_STRING = "luna://org.webosbrew.hbchannel.service/getDrmStatus\0"
 
 sam_pid = int(sys.argv[1])
 
