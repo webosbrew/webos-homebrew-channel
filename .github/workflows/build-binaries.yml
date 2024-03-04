@@ -3,32 +3,32 @@ name: Build Binaries
 on:
   workflow_dispatch:
     inputs:
-        commit:
-          description: 'Commit binaries'
-          required: false
-          default: false
-          type: boolean
+      commit:
+        description: 'Commit binaries'
+        required: false
+        default: false
+        type: boolean
 
 env:
   TARGET_DIR: /tmp/output
-  COMMIT_DIR: ${{github.workspace}}/services/bin
+  COMMIT_DIR: ${{ github.workspace }}/services/bin
   
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Run build-binaries.sh
-      run: ${{github.workspace}}/tools/build-binaries.sh
+      run: ${{ github.workspace }}/tools/build-binaries.sh
       shell: bash
 
     - name: Upload binaries as artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: binaries-${{github.run_id}}
-        path: ${{env.TARGET_DIR}}
+        name: binaries-${{ github.run_id }}
+        path: ${{ env.TARGET_DIR }}
         if-no-files-found: error
 
     - name: Commit binaries
