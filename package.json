@@ -85,10 +85,10 @@
     "dependencies": {
         "bluebird": "^3.7.2",
         "core-js": "^3.36.0",
-        "dompurify": "^2.2.8",
+        "dompurify": "=3.0.1",
         "node-fetch": "=2.6.7",
         "progress-stream": "^2.0.0",
-        "regenerator-runtime": "^0.13.7",
+        "regenerator-runtime": "^0.14.1",
         "stream.pipeline-shim": "^1.1.0",
         "webos-service": "github:webosose/nodejs-module-webos-service#1dd2c9d6cd21eb5d84f7619432ed6d2784bb56f9"
     },
