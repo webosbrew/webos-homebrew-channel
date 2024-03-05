@@ -9,12 +9,11 @@ export default class Subscription extends EventEmitter {
     this.args = args;
     this.handle = handle;
     this.request = handle.subscribe(uri, JSON.stringify(args));
-    const self = this;
     this.request.addListener('response', (msg) => {
       let payload;
       try {
         payload = JSON.parse(msg.payload());
-      } catch (e) {
+      } catch {
         payload = {
           subscribed: false,
           returnValue: false,
@@ -24,14 +23,14 @@ export default class Subscription extends EventEmitter {
       }
 
       if (payload.subscribed === false) {
-        self.request.cancel();
-        self.emit('cancel', new Message(msg, handle));
+        this.request.cancel();
+        this.emit('cancel', new Message(msg, handle));
       } else {
-        self.emit('response', new Message(msg, handle));
+        this.emit('response', new Message(msg, handle));
       }
     });
     this.request.addListener('cancel', (msg) => {
-      self.emit('cancel', new Message(msg, handle));
+      this.emit('cancel', new Message(msg, handle));
     });
   }
 

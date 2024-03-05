@@ -7,7 +7,7 @@ interface ErrorResponse {
   errorText: string;
 }
 
-export function makeSuccess(payload: Record<string, any>): Response {
+export function makeSuccess(payload?: Record<string, any>): Response {
   return { returnValue: true, ...payload };
 }
 

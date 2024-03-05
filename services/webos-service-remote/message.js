@@ -14,7 +14,7 @@ export default class Message {
     this.token = body.token();
     try {
       this.payload = JSON.parse(body.payload());
-    } catch (e) {
+    } catch {
       console.error('Message: badly-formatted message payload');
       console.trace();
       this.payload = { badPayload: body.payload() };
