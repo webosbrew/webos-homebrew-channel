@@ -647,7 +647,7 @@ function runService() {
   service.register('spawn', (message) => {
     const payload = message.payload as ExecPayload;
     const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
-    const proc = child_process.spawn('/bin/sh', ['-c', payload.command]);
+    const proc = child_process.spawn('/bin/sh', ['-c', '--', payload.command]);
     proc.stdout.on('data', (data) =>
       respond('stdoutData', {
         stdoutString: data.toString(),
