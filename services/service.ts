@@ -467,13 +467,13 @@ function runService(): void {
       // and its services (since webOS 4.x) are killed using SIGKILL (9) signal.
       // In order to retain some part of our service still running as root
       // during upgrade we fork off our process and do self-update installation
-      // in there. After a successful install we relevate the service and exit.
+      // in there. After a successful install we re-elevate the service and exit.
       // Exiting cleanly is an important part, since forked process retains open
       // luna bus socket, and thus a new service will not be able to launch
       // until we do that.
       //
-      // If reelevation fails for some reason the service should still be
-      // reelevated on reboot on devices with persistent autostart hooks (since
+      // If re-elevation fails for some reason the service should still be
+      // re-elevated on reboot on devices with persistent autostart hooks (since
       // we launch elevate-service in startup.sh script)
       if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === kHomebrewChannelPackageId) {
         message.respond({ statusText: 'Self-update…' });
