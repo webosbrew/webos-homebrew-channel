@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/* Array.prototype.includes() only available from around Node.js v6. */
+import 'core-js/es/array/includes';
+
+/* String.prototype.includes() only available from around Node.js v4. */
+import 'core-js/es/string/includes';
+
 import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { execFile } from 'child_process';
 import { dirname, resolve } from 'path';
@@ -9,7 +15,7 @@ process.env['PATH'] = `/usr/sbin:${process.env['PATH']}`;
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -17,7 +23,7 @@ function isFile(path: string): boolean {
 function parentExists(path: string): boolean {
   try {
     return statSync(dirname(path)).isDirectory();
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -26,7 +32,7 @@ function patchServiceFile(serviceFile: string): boolean {
   const serviceFileOriginal = readFileSync(serviceFile).toString();
   let serviceFileNew = serviceFileOriginal;
 
-  if (serviceFileNew.indexOf('/run-js-service') !== -1) {
+  if (serviceFileNew.includes('/run-js-service')) {
     console.info(`[ ] ${serviceFile} is a JS service`);
 
     // run-js-service should be in the same directory as this script.
@@ -38,10 +44,10 @@ function patchServiceFile(serviceFile: string): boolean {
     }
 
     serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/run-js-service/gm, `Exec=${runJsServicePath}`);
-  } else if (serviceFileNew.indexOf('/jailer') !== -1) {
+  } else if (serviceFileNew.includes('/jailer')) {
     console.info(`[ ] ${serviceFile} is a native service`);
     serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (_, binaryPath) => `Exec=${binaryPath}`);
-  } else if (serviceFileNew.indexOf('Exec=/media') === -1) {
+  } else if (!serviceFileNew.includes('Exec=/media')) {
     // Ignore elevated native services...
     console.info(`[~] ${serviceFile}: unknown service type, this may cause some troubles`);
   }
@@ -56,19 +62,62 @@ function patchServiceFile(serviceFile: string): boolean {
   return false;
 }
 
-function patchRolesFile(path: string, requiredNames: string[] = ['*', 'com.webos.service.capture.client*']) {
+type Permission = {
+  service: string;
+  inbound?: string[];
+  outbound?: string[];
+};
+
+type Roles = {
+  appId: string;
+  type: string;
+  allowedNames: string[];
+  trustLevel: string;
+  permissions: Permission[];
+};
+
+type LegacyRoles = {
+  role: {
+    exeName: string;
+    type: string;
+    allowedNames: string[];
+  };
+  permissions: Permission[];
+};
+
+function isRecord(obj: unknown): obj is Record<string, any> {
+  return typeof obj === 'object' && !Array.isArray(obj);
+}
+
+function patchRolesFile(path: string, legacy: boolean, requiredNames: string[] = ['*', 'com.webos.service.capture.client*']) {
   const rolesOriginal = readFileSync(path).toString();
-  const rolesNew = JSON.parse(rolesOriginal);
+  const rolesNew = JSON.parse(rolesOriginal) as Roles | LegacyRoles;
 
-  for (const name of requiredNames) {
-    // webOS <4.x /var/ls2-dev role file
-    if (rolesNew?.role?.allowedNames && rolesNew?.role?.allowedNames.indexOf(name) === -1) {
-      rolesNew.role.allowedNames.push(name);
+  let allowedNames: string[] | null = null;
+
+  if (legacy) {
+    // webOS <4.x /var/palm/ls2-dev role file
+    const legacyRoles = rolesNew as LegacyRoles;
+    if (isRecord(legacyRoles.role) && Array.isArray(legacyRoles.role.allowedNames)) {
+      allowedNames = legacyRoles.role.allowedNames;
+    } else {
+      console.warn('[!] Legacy roles is missing allowedNames');
     }
-
+  } else {
     // webOS 4.x+ /var/luna-service2 role file
-    if (rolesNew?.allowedNames && rolesNew?.allowedNames.indexOf(name) === -1) {
-      rolesNew.allowedNames.push(name);
+    const newRoles = rolesNew as Roles;
+    if (Array.isArray(newRoles.allowedNames)) {
+      allowedNames = newRoles.allowedNames;
+    } else {
+      console.warn('[!] Roles file is missing allowedNames');
+    }
+  }
+
+  if (allowedNames !== null) {
+    for (const name of requiredNames) {
+      if (!allowedNames.includes(name)) {
+        allowedNames.push(name);
+      }
     }
   }
 
@@ -81,12 +130,12 @@ function patchRolesFile(path: string, requiredNames: string[] = ['*', 'com.webos
   // pieces of software verify explicit permission "service" key, thus we
   // sometimes may need some extra allowedNames/permissions, even though we
   // default to "*"
-  if (rolesNew.permissions) {
+  if (Array.isArray(rolesNew.permissions)) {
     const missingPermissionNames = requiredNames;
     rolesNew.permissions.forEach((perm: { outbound?: string[]; service?: string }) => {
-      if (perm.service && missingPermissionNames.indexOf(perm.service) !== -1)
+      if (perm.service && missingPermissionNames.includes(perm.service))
         missingPermissionNames.splice(missingPermissionNames.indexOf(perm.service), 1);
-      if (perm.outbound && perm.outbound.indexOf('*') === -1) {
+      if (perm.outbound && !perm.outbound.includes('*')) {
         perm.outbound.push('*');
       }
     });
@@ -113,6 +162,15 @@ function patchRolesFile(path: string, requiredNames: string[] = ['*', 'com.webos
   return false;
 }
 
+type Manifest = {
+  version: string;
+  serviceFiles: string[];
+  apiPermissionFiles?: string[];
+  id: string;
+  roleFiles: string[];
+  clientPermissionFiles?: string[];
+};
+
 function main(argv: string[]) {
   let [serviceName = 'org.webosbrew.hbchannel.service', appName = serviceName.split('.').slice(0, -1).join('.')] = argv;
 
@@ -123,96 +181,107 @@ function main(argv: string[]) {
 
   let configChanged = false;
 
-  const serviceFile = `/var/luna-service2-dev/services.d/${serviceName}.service`;
-  const clientPermFile = `/var/luna-service2-dev/client-permissions.d/${serviceName}.root.json`;
-  const apiPermFile = `/var/luna-service2-dev/api-permissions.d/${serviceName}.api.public.json`;
-  const manifestFile = `/var/luna-service2-dev/manifests.d/${appName}.json`;
-  const roleFile = `/var/luna-service2-dev/roles.d/${serviceName}.service.json`;
+  for (const lunaRoot of ['/var/luna-service2-dev', '/var/luna-service2']) {
+    const serviceFile = `${lunaRoot}/services.d/${serviceName}.service`;
+    const clientPermFile = `${lunaRoot}/client-permissions.d/${serviceName}.root.json`;
+    const apiPermFile = `${lunaRoot}/api-permissions.d/${serviceName}.api.public.json`;
+    const manifestFile = `${lunaRoot}/manifests.d/${appName}.json`;
+    const roleFile = `${lunaRoot}/roles.d/${serviceName}.service.json`;
 
-  if (isFile(serviceFile)) {
-    console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
-    if (patchServiceFile(serviceFile)) {
-      configChanged = true;
-    }
-  }
-
-  if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
-    console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
-    writeFileSync(
-      clientPermFile,
-      JSON.stringify({
-        [`${serviceName}*`]: ['all'],
-      }),
-    );
-    configChanged = true;
-  }
-
-  if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
-    console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
-    writeFileSync(
-      apiPermFile,
-      JSON.stringify({
-        public: [`${serviceName}/*`],
-      }),
-    );
-    configChanged = true;
-  }
-
-  if (isFile(roleFile)) {
-    if (patchRolesFile(roleFile)) {
-      configChanged = true;
-    }
-  }
-
-  if (isFile(manifestFile)) {
-    console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
-    const manifestFileOriginal = readFileSync(manifestFile).toString();
-    const manifestFileParsed = JSON.parse(manifestFileOriginal);
-    if (manifestFileParsed.clientPermissionFiles && manifestFileParsed.clientPermissionFiles.indexOf(clientPermFile) === -1) {
-      console.info('[ ] manifest - adding client permissions file...');
-      manifestFileParsed.clientPermissionFiles.push(clientPermFile);
+    if (isFile(serviceFile)) {
+      console.info(`[~] Found webOS 3.x+ service file: ${serviceFile}`);
+      if (patchServiceFile(serviceFile)) {
+        configChanged = true;
+      }
+    } else {
+      // Skip everything else if service file is not found.
+      continue;
     }
 
-    if (manifestFileParsed.apiPermissionFiles && manifestFileParsed.apiPermissionFiles.indexOf(apiPermFile) === -1) {
-      console.info('[ ] manifest - adding API permissions file...');
-      manifestFileParsed.apiPermissionFiles.push(apiPermFile);
-    }
-
-    const manifestFileNew = JSON.stringify(manifestFileParsed);
-    if (manifestFileNew !== manifestFileOriginal) {
-      console.info(`[~] Updating manifest file: ${manifestFile}`);
-      console.info('-', manifestFileOriginal);
-      console.info('+', manifestFileNew);
-      writeFileSync(manifestFile, manifestFileNew);
-      configChanged = true;
-    }
-  }
-
-  const legacyPubServiceFile = `/var/palm/ls2-dev/services/pub/${serviceName}.service`;
-  const legacyPrvServiceFile = `/var/palm/ls2-dev/services/prv/${serviceName}.service`;
-  const legacyPubRolesFile = `/var/palm/ls2-dev/roles/pub/${serviceName}.json`;
-  const legacyPrvRolesFile = `/var/palm/ls2-dev/roles/prv/${serviceName}.json`;
-
-  if (isFile(legacyPubServiceFile)) {
-    console.info(`[~] Found legacy webOS <3.x service file: ${legacyPubServiceFile}`);
-    if (patchServiceFile(legacyPubServiceFile)) {
+    if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
+      console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
+      writeFileSync(
+        clientPermFile,
+        JSON.stringify({
+          [`${serviceName}*`]: ['all'],
+        }),
+      );
       configChanged = true;
     }
 
-    if (patchServiceFile(legacyPrvServiceFile)) {
+    if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
+      console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
+      writeFileSync(
+        apiPermFile,
+        JSON.stringify({
+          public: [`${serviceName}/*`],
+        }),
+      );
       configChanged = true;
+    }
+
+    if (isFile(roleFile)) {
+      if (patchRolesFile(roleFile, false)) {
+        configChanged = true;
+      }
+    }
+
+    if (isFile(manifestFile)) {
+      console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
+      const manifestFileOriginal = readFileSync(manifestFile).toString();
+      const manifest = JSON.parse(manifestFileOriginal) as Manifest;
+      if (Array.isArray(manifest.clientPermissionFiles) && !manifest.clientPermissionFiles.includes(clientPermFile)) {
+        console.info('[ ] manifest - adding client permissions file...');
+        manifest.clientPermissionFiles.push(clientPermFile);
+      }
+
+      if (Array.isArray(manifest.apiPermissionFiles) && !manifest.apiPermissionFiles.includes(apiPermFile)) {
+        console.info('[ ] manifest - adding API permissions file...');
+        manifest.apiPermissionFiles.push(apiPermFile);
+      }
+
+      const manifestFileNew = JSON.stringify(manifest);
+      if (manifestFileNew !== manifestFileOriginal) {
+        console.info(`[~] Updating manifest file: ${manifestFile}`);
+        console.info('-', manifestFileOriginal);
+        console.info('+', manifestFileNew);
+        writeFileSync(manifestFile, manifestFileNew);
+        configChanged = true;
+      }
     }
   }
 
-  if (isFile(legacyPubRolesFile)) {
-    if (patchRolesFile(legacyPubRolesFile)) {
-      configChanged = true;
-    }
-  }
+  for (const legacyLunaRoot of ['/var/palm/ls2-dev', '/var/palm/ls2']) {
+    const legacyPubServiceFile = `${legacyLunaRoot}/services/pub/${serviceName}.service`;
+    const legacyPrvServiceFile = `${legacyLunaRoot}/services/prv/${serviceName}.service`;
+    const legacyPubRolesFile = `${legacyLunaRoot}/roles/pub/${serviceName}.json`;
+    const legacyPrvRolesFile = `${legacyLunaRoot}/roles/prv/${serviceName}.json`;
 
-  if (isFile(legacyPrvRolesFile)) {
-    if (patchRolesFile(legacyPrvRolesFile)) {
-      configChanged = true;
+    if (isFile(legacyPubServiceFile)) {
+      console.info(`[~] Found legacy webOS <3.x service file: ${legacyPubServiceFile}`);
+      if (patchServiceFile(legacyPubServiceFile)) {
+        configChanged = true;
+      }
+
+      if (isFile(legacyPrvServiceFile)) {
+        if (patchServiceFile(legacyPrvServiceFile)) {
+          configChanged = true;
+        }
+      } else {
+        console.warn(`[!] Did not find legacy private service file: ${legacyPrvServiceFile}`);
+      }
+    }
+
+    if (isFile(legacyPubRolesFile)) {
+      if (patchRolesFile(legacyPubRolesFile, true)) {
+        configChanged = true;
+      }
+    }
+
+    if (isFile(legacyPrvRolesFile)) {
+      if (patchRolesFile(legacyPrvRolesFile, true)) {
+        configChanged = true;
+      }
     }
   }
 
