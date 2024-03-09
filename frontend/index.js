@@ -1,7 +1,7 @@
 /**
-	Instantiate your enyo/Application kind in this file.  Note, application
-	rendering should be deferred until the DOM is ready by wrapping it in a
-	call to ready().
+  Instantiate your enyo/Application kind in this file.  Note, application
+  rendering should be deferred until the DOM is ready by wrapping it in a
+  call to ready().
 */
 
 var
