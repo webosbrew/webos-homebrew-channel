@@ -11,17 +11,7 @@ import { Promise } from 'bluebird'; // eslint-disable-line @typescript-eslint/no
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 import fetch from 'node-fetch';
-import {
-  asyncStat,
-  asyncExecFile,
-  asyncPipeline,
-  asyncUnlink,
-  asyncWriteFile,
-  asyncReadFile,
-  asyncChmod,
-  asyncExists,
-  asyncMkdir,
-} from './adapter';
+import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -107,6 +97,16 @@ async function isFile(targetPath: string): Promise<boolean> {
 }
 
 /**
+ * Check whether a path exists
+ */
+function exists(targetPath: string): Promise<boolean> {
+  return asyncStat(targetPath).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
  * Copies a file
  */
 async function copyScript(sourcePath: string, targetPath: string): Promise<void> {
@@ -169,7 +169,7 @@ function flagFilePath(flagFile: FlagFileName): string {
  * Returns whether a flag is set or not.
  */
 async function flagFileRead(flagFile: FlagFileName): Promise<boolean> {
-  return asyncExists(flagFilePath(flagFile));
+  return exists(flagFilePath(flagFile));
 }
 
 /**
@@ -785,11 +785,11 @@ function runService(): void {
       if (!runningAsRoot) {
         return { message: 'Not running as root.', returnValue: true };
       }
-      if (await asyncExists('/tmp/webosbrew_startup')) {
+      if (await exists('/tmp/webosbrew_startup')) {
         return { message: 'Startup script already executed.', returnValue: true };
       }
       // Copy startup.sh if doesn't exist
-      if (!(await asyncExists('/var/lib/webosbrew/startup.sh'))) {
+      if (!(await exists('/var/lib/webosbrew/startup.sh'))) {
         try {
           await asyncMkdir('/var/lib/webosbrew/', 0o755);
         } catch {
