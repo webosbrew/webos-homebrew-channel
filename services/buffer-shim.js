@@ -1,5 +1,5 @@
 /* eslint-disable no-buffer-constructor */
-const { SlowBuffer } = require('buffer');
+import { SlowBuffer } from 'buffer';
 
 function newBuffer(data, encoding, len) {
   return new Buffer(data, encoding, len);

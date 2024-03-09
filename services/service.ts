@@ -6,7 +6,7 @@ import { createHash } from 'crypto';
 import path from 'path';
 import child_process from 'child_process';
 
-// @ts-ignore
+// @ts-expect-error
 import { Promise } from 'bluebird'; // eslint-disable-line @typescript-eslint/no-redeclare
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
@@ -68,7 +68,7 @@ const runningAsRoot: boolean = (() => {
   return process.getuid() === 0;
 })();
 
-function assertNodeError(error: Error | unknown): asserts error is NodeJS.ErrnoException {
+function assertNodeError(error: unknown): asserts error is NodeJS.ErrnoException {
   if (!(error instanceof Error)) {
     throw error;
   }
@@ -101,7 +101,7 @@ function createToast(message: string, service: Service, extras: Record<string, a
 async function isFile(targetPath: string): Promise<boolean> {
   try {
     return (await asyncStat(targetPath)).isFile();
-  } catch (err: unknown) {
+  } catch {
     return false;
   }
 }
@@ -126,7 +126,13 @@ async function hashFile(filePath: string, algorithm: string): Promise<string> {
   const hash = createHash(algorithm, { encoding: 'hex' });
   await asyncPipeline(download, hash);
   hash.end();
-  return hash.read();
+  const ret: unknown = hash.read();
+
+  if (typeof ret !== 'string') {
+    throw new Error('reading result of hash failed');
+  }
+
+  return ret;
 }
 
 /**
@@ -203,6 +209,10 @@ async function packageInfo(filePath: string): Promise<Record<string, string>> {
   return resp;
 }
 
+function isRecord(obj: unknown): obj is Record<string, any> {
+  return typeof obj === 'object' && !Array.isArray(obj);
+}
+
 /**
  * Performs appInstallService/dev/install request.
  */
@@ -213,29 +223,39 @@ async function installPackage(filePath: string, service: Service): Promise<strin
       ipkUrl: filePath,
       subscribe: true,
     });
-    req.on('response', (res) => {
+
+    req.on('response', (res: Message): void => {
       console.info('appInstallService response:', res.payload);
 
-      if (res.payload.returnValue === false) {
-        reject(new Error(`${res.payload.errorCode}: ${res.payload.errorText}`));
+      if (res.payload['returnValue'] === false) {
+        reject(new Error(`${res.payload['errorCode']}: ${res.payload['errorText']}`));
         req.cancel();
         return;
       }
 
-      if (res.payload.details && res.payload.details.errorCode !== undefined) {
-        reject(new Error(`${res.payload.details.errorCode}: ${res.payload.details.reason}`));
+      if (isRecord(res.payload['details']) && res.payload['details']['errorCode'] !== undefined) {
+        reject(new Error(`${res.payload['details']['errorCode']}: ${res.payload['details']['reason']}`));
         req.cancel();
         return;
       }
 
-      if (res.payload.statusValue === 30) {
-        resolve(res.payload.details.packageId);
+      if (res.payload['statusValue'] === 30) {
+        const details: unknown = res.payload['details'];
+        if (!isRecord(details)) {
+          reject(new Error('"details" in response is not an object'));
+        } else if (typeof details['packageId'] !== 'string') {
+          reject(new Error('"details.payloadId" in response is not a string'));
+        } else {
+          resolve(details['packageId']);
+        }
         req.cancel();
       }
     });
-    req.on('cancel', (msg) => {
-      if (msg.payload && msg.payload.errorText) {
-        reject(new Error(msg.payload.errorText));
+
+    req.on('cancel', (msg: Message): void => {
+      if (isRecord(msg.payload) && 'errorText' in msg.payload) {
+        const errorText: unknown = msg.payload['errorText'];
+        reject(new Error(typeof errorText === 'string' ? errorText : 'errorText is not a string'));
       } else {
         reject(new Error('cancelled'));
       }
@@ -250,36 +270,44 @@ async function removePackage(packageId: string, service: Service): Promise<void>
       subscribe: true,
     });
 
-    req.on('response', (res) => {
+    req.on('response', (res: Message) => {
       console.info('appInstallService remove response:', res);
 
-      if (res.payload.returnValue === false) {
-        reject(new Error(`${res.payload.errorCode}: ${res.payload.errorText}`));
+      if (res.payload['returnValue'] === false) {
+        reject(new Error(`${res.payload['errorCode']}: ${res.payload['errorText']}`));
         req.cancel();
         return;
       }
 
-      if (res.payload.details && res.payload.details.errorCode !== undefined) {
-        reject(new Error(`${res.payload.details.errorCode}: ${res.payload.details.reason}`));
+      if (isRecord(res.payload['details']) && res.payload['details']['errorCode'] !== undefined) {
+        reject(new Error(`${res.payload['details']['errorCode']}: ${res.payload['details']['reason']}`));
         req.cancel();
         return;
       }
 
-      if (res.payload.statusValue === 25 && res.payload.details.reason !== undefined) {
-        reject(new Error(res.payload.details.reason));
+      if (res.payload['statusValue'] === 25) {
+        const details: unknown = res.payload['details'];
+        if (!isRecord(details)) {
+          reject(new Error('"details" in response is not an object'));
+        } else if (typeof details['reason'] !== 'string') {
+          reject(new Error('"details.reason" in response is not a string'));
+        } else {
+          reject(new Error(details['reason']));
+        }
         req.cancel();
         return;
       }
 
-      if (res.payload.statusValue === 31) {
+      if (res.payload['statusValue'] === 31) {
         resolve();
         req.cancel();
       }
     });
 
-    req.on('cancel', (msg) => {
-      if (msg.payload && msg.payload.errorText) {
-        reject(new Error(msg.payload.errorText));
+    req.on('cancel', (msg: Message) => {
+      if (isRecord(msg.payload) && 'errorText' in msg.payload) {
+        const errorText: unknown = msg.payload['errorText'];
+        reject(new Error(typeof errorText === 'string' ? errorText : 'errorText is not a string'));
       } else {
         reject(new Error('cancelled'));
       }
@@ -324,23 +352,45 @@ async function registerActivity(service: Service): Promise<void> {
     replace: true,
   };
 
-  return new Promise((resolve) => service.activityManager.create(spec, () => resolve()));
+  return new Promise((resolve) => {
+    service.activityManager.create(spec, () => {
+      resolve();
+    });
+  });
+}
+
+function simpleTryRespond(runner: (message: Message) => Promise<void>) {
+  return (message: Message): void => {
+    runner(message)
+      .then((): void => {
+        message.respond(makeSuccess());
+      })
+      .catch((err: unknown): void => {
+        assertNodeError(err);
+        message.respond(makeError(err.message));
+      })
+      .finally(() => {
+        message.cancel({});
+      });
+  };
 }
 
 /**
  * Thin wrapper that responds with a successful message or an error in case of a JS exception.
  */
-function tryRespond<T extends Record<string, any>>(runner: (message: Message) => T) {
-  return async (message: Message): Promise<void> => {
-    try {
-      const reply: T = await runner(message);
-      message.respond(makeSuccess(reply));
-    } catch (err: unknown) {
-      assertNodeError(err);
-      message.respond(makeError(err.message));
-    } finally {
-      message.cancel({});
-    }
+function tryRespond<T extends Record<string, any>>(runner: (message: Message) => Promise<T>) {
+  return (message: Message): void => {
+    runner(message)
+      .then((reply?: T): void => {
+        message.respond(makeSuccess(reply));
+      })
+      .catch((err: unknown): void => {
+        assertNodeError(err);
+        message.respond(makeError(err.message));
+      })
+      .finally(() => {
+        message.cancel({});
+      });
   };
 }
 
@@ -369,7 +419,11 @@ function runService(): void {
   /**
    * Installs the requested ipk from a URL.
    */
-  type InstallPayload = { ipkUrl: string; ipkHash: string; id?: string };
+  interface InstallPayload {
+    ipkUrl: string;
+    ipkHash: string;
+    id?: string;
+  }
   service.register(
     'install',
     tryRespond(async (message: Message) => {
@@ -421,7 +475,7 @@ function runService(): void {
       // If reelevation fails for some reason the service should still be
       // reelevated on reboot on devices with persistent autostart hooks (since
       // we launch elevate-service in startup.sh script)
-      if (runningAsRoot && pkginfo && pkginfo['Package'] === kHomebrewChannelPackageId) {
+      if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === kHomebrewChannelPackageId) {
         message.respond({ statusText: 'Self-update…' });
         await createToast('Performing self-update...', service);
 
@@ -452,10 +506,18 @@ function runService(): void {
   /**
    * Removes existing package.
    */
-  type UninstallPayload = { id: string };
+  interface UninstallPayload {
+    id: string;
+  }
   service.register(
     'uninstall',
     tryRespond(async (message: Message) => {
+      if (!('id' in message.payload)) {
+        throw new Error('missing "id"');
+      } else if (typeof message.payload['id'] !== 'string') {
+        throw new Error('"id" is not a string');
+      }
+
       const payload = message.payload as UninstallPayload;
       await removePackage(payload.id, getInstallerService());
       return { statusText: 'Finished.' };
@@ -492,7 +554,7 @@ function runService(): void {
       //       See https://github.com/microsoft/TypeScript/issues/41173
       const futureFlagSets = Object.entries(payload)
         .filter((pair: [string, boolean]): pair is [FlagName, boolean] => pair[0] in availableFlags)
-        .map(async ([flagName, value]) => [flagName, await flagFileSet(availableFlags[flagName], value)]);
+        .map(async ([flagName, value]): Promise<[FlagName, boolean]> => [flagName, await flagFileSet(availableFlags[flagName], value)]);
       return Object.fromEntries(await Promise.all(futureFlagSets));
     }),
   );
@@ -502,7 +564,7 @@ function runService(): void {
    */
   service.register(
     'reboot',
-    tryRespond(async () => {
+    simpleTryRespond(async (_message: Message) => {
       await asyncExecFile('reboot');
     }),
   );
@@ -510,10 +572,7 @@ function runService(): void {
   /**
    * Returns whether the service is running as root.
    */
-  service.register(
-    'checkRoot',
-    tryRespond(async () => ({ returnValue: runningAsRoot })),
-  );
+  service.register('checkRoot', (message: Message) => message.respond({ returnValue: runningAsRoot }));
 
   /**
    * Check for startup script updates
@@ -551,7 +610,7 @@ function runService(): void {
         if (await isFile(webosbrewStartup)) {
           const localChecksum = await hashFile(webosbrewStartup, 'sha256');
           if (localChecksum !== bundledStartupChecksum) {
-            if (updatableChecksums.indexOf(localChecksum) !== -1) {
+            if (updatableChecksums.includes(localChecksum)) {
               await copyScript(bundledStartup, webosbrewStartup);
               messages.push(`${webosbrewStartup} updated!`);
             } else {
@@ -575,17 +634,17 @@ function runService(): void {
         // RootMyTV v1
         if (await isFile(startDevmode)) {
           // Warn and return empty string on read error
-          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err) => {
+          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err: NodeJS.ErrnoException) => {
             console.warn(`reading ${startDevmode} failed: ${err.toString()}`);
             return '';
           })) as string;
 
           const localChecksum = hashString(startDevmodeContents, 'sha256');
 
-          if (localChecksum !== bundledStartupChecksum && updatableChecksums.indexOf(localChecksum) !== -1) {
+          if (localChecksum !== bundledStartupChecksum && updatableChecksums.includes(localChecksum)) {
             await copyScript(bundledStartup, startDevmode);
             messages.push(`${startDevmode} updated!`);
-          } else if (localChecksum !== bundledJumpstartChecksum && startDevmodeContents.indexOf('org.webosbrew') !== -1) {
+          } else if (localChecksum !== bundledJumpstartChecksum && startDevmodeContents.includes('org.webosbrew')) {
             // Show notification about mismatched startup script if contains
             // org.webosbrew string (which is not used on jumpstart.sh nor
             // official start-devmode.sh)
@@ -613,7 +672,9 @@ function runService(): void {
    * Roughly replicates com.webos.applicationManager/getAppInfo request in an
    * environment-independent way (non-root vs root).
    */
-  type GetAppInfoPayload = { id: string };
+  interface GetAppInfoPayload {
+    id: string;
+  }
   service.register(
     'getAppInfo',
     tryRespond(async (message: Message) => {
@@ -628,7 +689,9 @@ function runService(): void {
   /**
    * Executes a shell command and responds with exit code, stdout and stderr.
    */
-  type ExecPayload = { command: string };
+  interface ExecPayload {
+    command: string;
+  }
   service.register('exec', (message: Message) => {
     if (!('command' in message.payload)) {
       message.respond(makeError('missing "command"'));
@@ -662,23 +725,35 @@ function runService(): void {
    * Spawns a shell command and streams stdout & stderr bytes.
    */
   service.register('spawn', (message) => {
+    if (!('command' in message.payload)) {
+      message.respond(makeError('missing "command"'));
+      return;
+    } else if (typeof message.payload['command'] !== 'string') {
+      message.respond(makeError('"command" is not a string'));
+      return;
+    }
+
     const payload = message.payload as ExecPayload;
     const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
     const proc = child_process.spawn('/bin/sh', ['-c', '--', payload.command]);
-    proc.stdout.on('data', (data) =>
-      respond('stdoutData', {
-        stdoutString: data.toString(),
-        stdoutBytes: data.toString('base64'),
-      }),
+    proc.stdout.on(
+      'data',
+      (data: Buffer): void =>
+        void respond('stdoutData', {
+          stdoutString: data.toString(),
+          stdoutBytes: data.toString('base64'),
+        }),
     );
-    proc.stderr.on('data', (data) =>
-      respond('stderrData', {
-        stderrString: data.toString(),
-        stderrBytes: data.toString('base64'),
-      }),
+    proc.stderr.on(
+      'data',
+      (data: Buffer): void =>
+        void respond('stderrData', {
+          stderrString: data.toString(),
+          stderrBytes: data.toString('base64'),
+        }),
     );
-    proc.on('close', (closeCode) => respond('close', { closeCode }));
-    proc.on('exit', (exitCode) => respond('exit', { exitCode }));
+    proc.on('close', (closeCode): void => void respond('close', { closeCode }));
+    proc.on('exit', (exitCode): void => void respond('exit', { exitCode }));
   });
 
   /**
@@ -686,21 +761,22 @@ function runService(): void {
    *
    * This is intended to work with sampatcher.py, but it is not currently used.
    */
-  type GetDrmStatusPayload = { appId: string };
-  service.register(
-    'getDrmStatus',
-    tryRespond(async (message: Message) => ({
+  interface GetDrmStatusPayload {
+    appId: string;
+  }
+  service.register('getDrmStatus', (message: Message) =>
+    message.respond({
       appId: (message.payload as GetDrmStatusPayload).appId,
       drmType: 'NCG DRM',
       installBasePath: '/media/cryptofs',
       returnValue: true,
       isTimeLimited: false,
-    })),
+    }),
   );
 
   service.register(
     'registerActivity',
-    tryRespond(() => registerActivity(service)),
+    simpleTryRespond((_message: Message) => registerActivity(service)),
   );
 
   service.register(
@@ -716,7 +792,7 @@ function runService(): void {
       if (!(await asyncExists('/var/lib/webosbrew/startup.sh'))) {
         try {
           await asyncMkdir('/var/lib/webosbrew/', 0o755);
-        } catch (e) {
+        } catch {
           // Ignore
         }
         await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
@@ -747,10 +823,12 @@ function runService(): void {
   /**
    * Elevates the service specified by "id".
    */
-  type ElevateServicePayload = { id: string };
+  interface ElevateServicePayload {
+    id: string;
+  }
   service.register(
     'elevateService',
-    tryRespond(async (message: Message) => {
+    simpleTryRespond(async (message: Message) => {
       if (!('id' in message.payload)) {
         throw new Error('missing "id"');
       } else if (typeof message.payload['id'] !== 'string') {
@@ -779,7 +857,7 @@ if (process.argv[2] === 'self-update') {
     console.info('sigterm!');
   });
 
-  (async () => {
+  void (async (): Promise<void> => {
     const service = new ServiceRemote() as Service;
     try {
       const packagePath = process.argv[3];

@@ -8,7 +8,7 @@ import * as Bluebird from 'bluebird';
 
 // String.normalize is very large polyfill not included by default in core-js
 // and most likely we're not gonna need it
-if (!String.prototype.normalize) {
+if (typeof String.prototype.normalize !== 'function') {
   // eslint-disable-next-line no-extend-native
   String.prototype.normalize = function normalize() {
     return String(this);
@@ -16,13 +16,13 @@ if (!String.prototype.normalize) {
 }
 
 // Monkey-patch fetch Promise with Bluebird's.
-// @ts-ignore
+// @ts-expect-error
 fetch.Promise = Bluebird.Promise;
 
 // Sadly these need to be manually typed according to
 // https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node
 // since types infered from Bluebird.Promise.promisify are wrong.
-// @ts-ignore
+// @ts-expect-error
 export const asyncPipeline: (
   ...args: ReadonlyArray<NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.ReadWriteStream>
 ) => Promise<void> = Bluebird.Promise.promisify(pipeline);
@@ -38,5 +38,8 @@ export const asyncWriteFile: (path: string, contents: string, options?: fs.Write
   fs.writeFile,
 );
 export const asyncChmod: (path: string, mode: fs.Mode) => Promise<void> = Bluebird.Promise.promisify(fs.chmod);
-export const asyncExists: (path: string) => Promise<boolean> = (path) => new Promise((resolve) => fs.exists(path, resolve));
+export const asyncExists: (path: string) => Promise<boolean> = (path) =>
+  new Promise((resolve) => {
+    fs.exists(path, resolve);
+  });
 export const asyncMkdir: (path: string, mode?: fs.Mode) => Promise<void> = Bluebird.Promise.promisify(fs.mkdir);
