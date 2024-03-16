@@ -703,22 +703,32 @@ function runService(): void {
 
     const payload = message.payload as ExecPayload;
 
-    const encoding = nodeVersion.major === 0 && nodeVersion.minor < 12 ? null : 'buffer';
-
-    child_process.exec(payload.command, { encoding }, (error, stdout, stderr) => {
+    function commonResponse(error: child_process.ExecException | null, stdout: Buffer, stderr: Buffer) {
       const response = {
-        error,
         stdoutString: stdout.toString(),
         stdoutBytes: stdout.toString('base64'),
         stderrString: stderr.toString(),
         stderrBytes: stderr.toString('base64'),
       };
-      if (error) {
+      if (error !== null) {
         message.respond(makeError(error.message, response));
       } else {
         message.respond(makeSuccess(response));
       }
-    });
+    }
+
+    if (nodeVersion.major !== 0 && nodeVersion.minor >= 12) {
+      child_process.exec(payload.command, { encoding: 'buffer' }, commonResponse);
+    } else {
+      /* Node.js v0.10.x doesn't provide callback with Buffers, so fake it */
+      child_process.exec(
+        payload.command,
+        { encoding: 'binary' },
+        (error: child_process.ExecException | null, stdout: string, stderr: string) => {
+          commonResponse(error, Buffer.from(stdout, 'binary'), Buffer.from(stderr, 'binary'));
+        },
+      );
+    }
   });
 
   /**
