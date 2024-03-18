@@ -1,4 +1,4 @@
-/* eslint-disable max-classes-per-file, no-underscore-dangle */
+/* eslint-disable max-classes-per-file */
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { asyncExecFile } from '../adapter';
@@ -50,7 +50,6 @@ export default class Handle {
         stdout += data.toString();
         let searchPos = 0;
         let breakPos = 0;
-        // eslint-disable-next-line no-cond-assign
         while ((breakPos = stdout.indexOf('\n', searchPos)) > 0) {
           const line = stdout.substring(searchPos, breakPos).trim();
           request.emit('response', Message.constructBody(line, true));

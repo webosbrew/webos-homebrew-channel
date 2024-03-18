@@ -3,10 +3,10 @@ import ts from 'typescript-eslint';
 
 import jsoncParser from 'jsonc-eslint-parser';
 
-import prettierPlugin from 'eslint-plugin-prettier';
 import importPlugin from 'eslint-plugin-import';
 
-import prettierConfig from 'eslint-config-prettier';
+/* includes the plugin and enables the rules */
+import prettierRecommendedConfig from 'eslint-plugin-prettier/recommended';
 
 import globals from 'globals';
 
@@ -40,16 +40,24 @@ export default ts.config(
   js.configs.recommended,
   ...ts.configs.strictTypeChecked,
   ...airbnbCompat,
-  prettierConfig,
+  prettierRecommendedConfig,
   {
     /* all JS/TS files */
     files: ['**/*.{js,mjs,cjs,ts}'],
+    linterOptions: {
+      /* disable for now */
+      // reportUnusedDisableDirectives: 'warn',
+    },
     plugins: {
-      prettier: prettierPlugin,
       import: importPlugin,
     },
     rules: {
-      'prettier/prettier': ['error'],
+      'prettier/prettier': [
+        'error',
+        {
+          trailingComma: 'all',
+        },
+      ],
       /* allow names that start with _ to be unused */
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -57,8 +65,8 @@ export default ts.config(
           args: 'all',
           argsIgnorePattern: '^_',
           caughtErrors: 'all',
-          caughtErrorsIgnorePattern: '^_',
           destructuredArrayIgnorePattern: '^_',
+          /* varsIgnorePattern affects catch as well */
           varsIgnorePattern: '^_',
         },
       ],
@@ -115,7 +123,7 @@ export default ts.config(
     },
   },
   {
-    files: ['services/**/*.{js,ts}', 'tools/*.js', 'eslint.config.{js,cjs,mjs}', 'webpack.config.js'],
+    files: ['services/**/*.{js,ts}', 'tools/*.js', 'eslint.config.{js,mjs,cjs}', 'webpack.config.js'],
     /* all of these use node */
     languageOptions: {
       globals: {
@@ -140,13 +148,18 @@ export default ts.config(
   },
   {
     files: ['tools/*.js'],
+    languageOptions: {
+      /* these scripts run during build, so they can use recent Node.js */
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+    },
     rules: {
       /* not sure how to tell it these aren't modules */
       '@typescript-eslint/no-var-requires': 'off',
     },
   },
   {
-    files: ['*.config.{js,cjs,mjs}'],
+    files: ['*.config.{js,mjs,cjs}'],
     rules: {
       /* obviously we need dev dependencies */
       'import/no-extraneous-dependencies': [
@@ -159,7 +172,7 @@ export default ts.config(
     },
   },
   {
-    files: ['eslint.config.{js,cjs,mjs}'],
+    files: ['eslint.config.{js,mjs,cjs}'],
     rules: {
       /* necessary for flat config */
       'import/no-default-export': 'off',
@@ -169,6 +182,13 @@ export default ts.config(
     files: ['webpack.config.js'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+  {
+    files: ['babel.config.json', 'tsconfig.json'],
+    rules: {
+      /* has various issues (e.g., forcing arrays/objects onto a single line) */
+      'prettier/prettier': 'off',
     },
   },
 );
