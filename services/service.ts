@@ -10,8 +10,9 @@ import child_process from 'child_process';
 import { Promise } from 'bluebird'; // eslint-disable-line @typescript-eslint/no-redeclare
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
-import fetch from 'node-fetch';
+
 import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
+import { fetchWrapper } from './fetch-wrapper';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -432,7 +433,7 @@ function runService(): void {
 
       // Download
       message.respond({ statusText: 'Downloading…' });
-      const res = await fetch(payload.ipkUrl);
+      const res = await fetchWrapper(payload.ipkUrl);
       if (!res.ok) {
         throw new Error(res.statusText);
       }
