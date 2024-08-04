@@ -27,6 +27,7 @@
         "appinfo.json",
         "assets/**",
         "services/bin/**",
+        "services/certs/**",
         "services/services.json",
         "services/package.json",
         "services/run-js-service",
@@ -83,6 +84,7 @@
         "webpack-shebang-plugin": "^1.1.8"
     },
     "dependencies": {
+        "@throwaway96/node-load-cert-dir": "github:throwaway96/node-load-cert-dir#b1943cb64ccb5851c6c8885892716638d954b3f6",
         "bluebird": "^3.7.2",
         "core-js": "^3.36.0",
         "dompurify": "=3.0.1",
