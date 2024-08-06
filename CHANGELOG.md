@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2024-08-xx
+### Added
+- Add `/elevateService` method (@throwaway96; #171)
+- Support install locations other than `/media/developer` in `elevate-service`
+  (@throwaway96; #173)
+
+### Changed
+- Replace deprecated `fs.exists()` (@throwaway96; #175)
+- Various dev/workflow/administrative changes
+  (@throwaway96; #168, #169, #174, #176, #177, #191)
+
+### Fixed
+- Fix various certificate issues by using bundled Mozilla CA certs rather than
+  OpenSSL/Node.js stores (@throwaway96; #189)
+- Fix `/exec` on webOS 1 (@throwaway96; #172, #178)
+- Fix wrong service name in `sampatcher.py` (@throwaway96; #170)
 
 ## [0.6.3] - 2023-03-01
 ### Fixed
