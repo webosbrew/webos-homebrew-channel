@@ -9,7 +9,7 @@ Features
 * Independent webOS package repository
     * Homebrew discovery, installation & updates
 * Support for multiple repositories (outside of official
-  [repo.webosbrew.org](https://repo.webosbrew.org)
+  [repo.webosbrew.org](https://repo.webosbrew.org))
 
 * (root) Root execution service that can be easily used by webOS homebrew
   developers without a need of separate privilege escalation handling (`luna://org.webosbrew.hbchannel.service/exec`)
