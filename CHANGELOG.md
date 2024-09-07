@@ -4,7 +4,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2024-09-07
+### Added
+- Add autostart via activities on webOS 3.5+ (@kitsuned; #143)
+- Speed up startup by skipping unnecessary elevation attempts (@kitsuned; #146)
+- Add `/elevateService` method (@throwaway96; #171)
+- Support install locations other than `/media/developer`
+  (@throwaway96; #150, #155, #173)
+- Add `homebrewBaseDir` field to `/getConfiguration` (@throwaway96; #159)
+- Allow `elevate-service` to be imported (@kitsuned; #151)
+
+### Changed
+- Replace deprecated `fs.exists()` (@throwaway96; #175)
+- Various dev/workflow/administrative changes (@mariotaku, @throwaway96;
+  #144, #145, #163, #168, #169, #174, #176, #177, #191)
+
+### Fixed
+- Fix various certificate issues by using bundled Mozilla CA certs rather than
+  OpenSSL/Node.js stores (@throwaway96; #189)
+- Fix `/exec` on webOS 1 (@throwaway96; #172, #178)
+- Fix `startup.sh` update on webOS 1/2 and allow service debugging
+  (@throwaway96; #148)
+- Make failsafe flag more reliable (@throwaway96; #164)
+- Improve `install.sh` compatibility (@throwaway96; #166)
+- Fix NDUID retrieval on certain webOS versions (@kitsuned; #152)
+- Fix warning on empty `localStorage` (@throwaway96; #165)
+- Fix wrong service name in `sampatcher.py` (@throwaway96; #170)
+
+### Removed
+- Don't use Dev Mode SSH when not rooted (@throwaway96; #162)
 
 ## [0.6.3] - 2023-03-01
 ### Fixed
