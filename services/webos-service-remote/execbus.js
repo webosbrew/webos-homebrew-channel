@@ -88,10 +88,11 @@ export default class Handle {
    */
   // eslint-disable-next-line class-methods-use-this
   async call(uri, payload) {
-    const stdout = await asyncExecFile('luna-send', [
+    const command = this.usePublic ? 'luna-send-pub' : 'luna-send';
+    const stdout = await asyncExecFile(command, [
       // FIXME: Dirty hack... We likely want to accept appid in constructor
-      '-a',
-      payload.sourceId ? payload.sourceId : 'webosbrew',
+      /* using -a with luna-send-pub causes an error */
+      ...(this.usePublic ? [] : ['-a', payload.sourceId ? payload.sourceId : 'webosbrew']),
       '-n',
       '1',
       uri,
