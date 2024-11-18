@@ -13,6 +13,7 @@ import Service, { Message } from 'webos-service';
 
 import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
 import { fetchWrapper } from './fetch-wrapper';
+import { downloadJailConf } from './jail-conf';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -406,8 +407,14 @@ function runService(): void {
     return serviceRemote as Service;
   }
 
-  async function getAppInfo(appId: string): Promise<Record<string, any>> {
-    const appList = await asyncCall<{ apps: { id: string }[] }>(
+  interface AppInfo {
+    id: string;
+    title: string;
+    type: 'web' | 'native' | string;
+    folderPath: string;
+  }
+  async function getAppInfo(appId: string): Promise<AppInfo> {
+    const appList = await asyncCall<{ apps: AppInfo[] }>(
       getInstallerService(),
       'luna://com.webos.applicationManager/dev/listApps',
       {},
@@ -417,14 +424,14 @@ function runService(): void {
     return appInfo;
   }
 
-  /**
-   * Installs the requested ipk from a URL.
-   */
   interface InstallPayload {
     ipkUrl: string;
     ipkHash: string;
     id?: string;
   }
+  /**
+   * Installs the requested ipk from a URL.
+   */
   service.register(
     'install',
     tryRespond(async (message: Message) => {
@@ -491,6 +498,16 @@ function runService(): void {
 
       try {
         const appInfo = await getAppInfo(installedPackageId);
+        if (appInfo.type === 'native') {
+          await createToast(`Updating jailer config for ${appInfo['title']}…`, service);
+          const sdkVersion = await asyncCall(service, 'luna://com.webos.service.tv.systemproperty/getSystemInfo', {
+            keys: ['sdkVersion']
+          }).then((resp) => resp['sdkVersion']).catch(() => null);
+          if (sdkVersion) {
+            await downloadJailConf(appInfo.folderPath, sdkVersion)
+              .catch((err) => console.warn('jailer conf download failed:', err));
+          }
+        }
         await createToast(`Application installed: ${appInfo['title']}`, service);
       } catch (err: unknown) {
         console.warn('appinfo fetch failed:', err);
