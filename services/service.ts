@@ -498,7 +498,7 @@ function runService(): void {
 
       try {
         const appInfo = await getAppInfo(installedPackageId);
-        if (appInfo.type === 'native') {
+        if (appInfo.type === 'native' && runningAsRoot) {
           await createToast(`Updating jailer config for ${appInfo.title}…`, service);
           await buildBetterJail(appInfo.id, appInfo.folderPath)
             .catch((err) => console.warn('jailer execution failed:', err));
