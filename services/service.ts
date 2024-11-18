@@ -410,7 +410,7 @@ function runService(): void {
   interface AppInfo {
     id: string;
     title: string;
-    type: 'web' | 'native' | string;
+    type: string;
     folderPath: string;
   }
   async function getAppInfo(appId: string): Promise<AppInfo> {
@@ -499,16 +499,18 @@ function runService(): void {
       try {
         const appInfo = await getAppInfo(installedPackageId);
         if (appInfo.type === 'native') {
-          await createToast(`Updating jailer config for ${appInfo['title']}…`, service);
-          const sdkVersion = await asyncCall(service, 'luna://com.webos.service.tv.systemproperty/getSystemInfo', {
-            keys: ['sdkVersion']
-          }).then((resp) => resp['sdkVersion']).catch(() => null);
+          await createToast(`Updating jailer config for ${appInfo.title}…`, service);
+          const sdkVersion = await asyncCall<{
+            sdkVersion: string;
+          }>(service, 'luna://com.webos.service.tv.systemproperty/getSystemInfo', {
+            keys: ['sdkVersion'],
+          }).then((resp) => resp.sdkVersion).catch(() => null);
           if (sdkVersion) {
             await downloadJailConf(appInfo.folderPath, sdkVersion)
               .catch((err) => console.warn('jailer conf download failed:', err));
           }
         }
-        await createToast(`Application installed: ${appInfo['title']}`, service);
+        await createToast(`Application installed: ${appInfo.title}`, service);
       } catch (err: unknown) {
         console.warn('appinfo fetch failed:', err);
         await createToast(`Application installed: ${installedPackageId}`, service);
