@@ -1,0 +1,69 @@
+name: Bug Report
+description: Something within the app is not working as expected (SSH, app installation, etc...)
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Device Information
+  - type: input
+    attributes:
+      label: Homebrew Channel Version
+      description: What is the version of Homebrew Channel you are using?
+      placeholder: "Example: 0.7.2"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Device Model
+      description: What is the model of your device?
+      placeholder: "Example: LG C2"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: webOS Version
+      description: What is the webOS version of your device? Please don't confuse with the firmware version (XX.YY.ZZ).
+      placeholder: "Example: webOS 4.5.3"
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Rooted
+      description: Is your device rooted?
+      options:
+        - Yes
+        - No
+  - type: markdown
+    attributes:
+      value: |
+        ## Host Information
+        Please provide information about the computer you are streaming from.
+        This information is important especially when experiencing performance issues.
+  - type: markdown
+    attributes:
+      value: |
+        ## Issue Information
+        Please provide information about the issue you are experiencing.
+        This information is important to help us understand the issue.
+  - type: textarea
+    attributes:
+      label: Bug Description
+      description: What kind of incorrect behavior did you see?
+      placeholder: "Example: I can't see any apps in the Homebrew Channel"
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction Steps
+      description: Can you reproduce the issue? If so, please share below as steps.
+      placeholder: |
+        Example:
+        1. Open Homebrew Channel
+        2. Seeing empty apps list
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: What is the correct behavior do you think?
+      placeholder: "Seeing list of apps in the Homebrew Channel"
