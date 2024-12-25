@@ -10,7 +10,7 @@
     "scripts": {
         "build": "enyo pack",
         "build-service": "webpack",
-        "package": "ares-package dist/ -e enyo-ilib",
+        "package": "ares-package dist/ -e enyo-ilib -e *.map",
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
         "deploy": "ares-install org.webosbrew.hbchannel_${npm_package_version}_all.ipk",
         "launch": "ares-launch org.webosbrew.hbchannel",
@@ -19,7 +19,7 @@
         "build-local": "npm-run-all --serial build-local:**",
         "build-local:frontend": "enyo pack",
         "build-local:service": "webpack",
-        "build-local:package": "ares-package dist/ -e enyo-ilib",
+        "build-local:package": "ares-package dist/ -e enyo-ilib -e *.map",
         "build-and-launch": "npm-run-all --serial build-local deploy launch",
         "version": "node tools/sync-version.js && git add appinfo.json"
     },

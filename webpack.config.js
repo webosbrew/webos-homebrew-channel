@@ -11,7 +11,7 @@ module.exports = (env) => [
     // which seem to cause segfaults (at least) on nodeJS v0.12.2 used on webOS 3.x.
     // This feature makes sense only when using recent enough chrome-based
     // node inspector anyway.
-    devtool: false,
+    devtool: env.production ? false : 'hidden-source-map',
 
     entry: {
       'elevate-service': './services/elevate-service.ts',
