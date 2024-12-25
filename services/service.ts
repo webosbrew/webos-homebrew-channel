@@ -413,9 +413,11 @@ function runService(): void {
     type: string;
     folderPath: string;
   }
-  type AppsResponse = { apps: AppInfo[] };
+  interface AppsList {
+    apps: AppInfo[];
+  }
   async function getAppInfo(appId: string): Promise<AppInfo> {
-    const appList = await asyncCall<AppsResponse>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
+    const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
     const appInfo = appList.apps.find((app) => app.id === appId);
     if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
     return appInfo;
