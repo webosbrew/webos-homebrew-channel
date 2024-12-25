@@ -33,8 +33,8 @@ body:
       label: Rooted
       description: Is your device rooted?
       options:
-        - Yes
-        - No
+        - 'Yes'
+        - 'No'
   - type: markdown
     attributes:
       value: |
