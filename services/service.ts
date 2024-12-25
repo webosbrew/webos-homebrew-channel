@@ -413,12 +413,9 @@ function runService(): void {
     type: string;
     folderPath: string;
   }
+  type AppsResponse = { apps: AppInfo[] };
   async function getAppInfo(appId: string): Promise<AppInfo> {
-    const appList = await asyncCall<{ apps: AppInfo[] }>(
-      getInstallerService(),
-      'luna://com.webos.applicationManager/dev/listApps',
-      {},
-    );
+    const appList = await asyncCall<AppsResponse>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
     const appInfo = appList.apps.find((app) => app.id === appId);
     if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
     return appInfo;
@@ -500,8 +497,9 @@ function runService(): void {
         const appInfo = await getAppInfo(installedPackageId);
         if (appInfo.type === 'native' && runningAsRoot) {
           await createToast(`Updating jailer config for ${appInfo.title}…`, service);
-          await buildBetterJail(appInfo.id, appInfo.folderPath)
-            .catch((err) => console.warn('jailer execution failed:', err));
+          await buildBetterJail(appInfo.id, appInfo.folderPath).catch((err) => {
+            console.warn('jailer execution failed:', err);
+          });
         }
         await createToast(`Application installed: ${appInfo.title}`, service);
       } catch (err: unknown) {
