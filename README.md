@@ -38,7 +38,7 @@ wasn't before)
 
 ## Automated (recommended)
 Latest Homebrew Channel version is automatically installed when rooting a TV
-with https://rootmy.tv exploit.
+with most of working exploits. See https://cani.rootmy.tv or https://www.webosbrew.org/rooting/ for compatability.
 
 ## Automated
 Execute the following snippet on target TV using SSH or Telnet:
