@@ -40,12 +40,6 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## Host Information
-        Please provide information about the computer you are streaming from.
-        This information is important especially when experiencing performance issues.
-  - type: markdown
-    attributes:
-      value: |
         ## Issue Information
         Please provide information about the issue you are experiencing.
         This information is important to help us understand the issue.
