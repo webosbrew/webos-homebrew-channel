@@ -13,7 +13,6 @@ import Service, { Message } from 'webos-service';
 
 import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
 import { fetchWrapper } from './fetch-wrapper';
-import { buildBetterJail } from './better-jail';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -407,17 +406,12 @@ function runService(): void {
     return serviceRemote as Service;
   }
 
-  interface AppInfo {
-    id: string;
-    title: string;
-    type: string;
-    folderPath: string;
-  }
-  interface AppsList {
-    apps: AppInfo[];
-  }
-  async function getAppInfo(appId: string): Promise<AppInfo> {
-    const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
+  async function getAppInfo(appId: string): Promise<Record<string, any>> {
+    const appList = await asyncCall<{ apps: { id: string }[] }>(
+      getInstallerService(),
+      'luna://com.webos.applicationManager/dev/listApps',
+      {},
+    );
     const appInfo = appList.apps.find((app) => app.id === appId);
     if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
     return appInfo;
@@ -497,13 +491,7 @@ function runService(): void {
 
       try {
         const appInfo = await getAppInfo(installedPackageId);
-        if (appInfo.type === 'native' && runningAsRoot) {
-          await createToast(`Updating jailer config for ${appInfo.title}…`, service);
-          await buildBetterJail(appInfo.id, appInfo.folderPath).catch((err) => {
-            console.warn('jailer execution failed:', err);
-          });
-        }
-        await createToast(`Application installed: ${appInfo.title}`, service);
+        await createToast(`Application installed: ${appInfo['title']}`, service);
       } catch (err: unknown) {
         console.warn('appinfo fetch failed:', err);
         await createToast(`Application installed: ${installedPackageId}`, service);
