@@ -406,12 +406,17 @@ function runService(): void {
     return serviceRemote as Service;
   }
 
-  async function getAppInfo(appId: string): Promise<Record<string, any>> {
-    const appList = await asyncCall<{ apps: { id: string }[] }>(
-      getInstallerService(),
-      'luna://com.webos.applicationManager/dev/listApps',
-      {},
-    );
+  interface AppInfo {
+    id: string;
+    title: string;
+    type: string;
+    folderPath: string;
+  }
+  interface AppsList {
+    apps: AppInfo[];
+  }
+  async function getAppInfo(appId: string): Promise<AppInfo> {
+    const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
     const appInfo = appList.apps.find((app) => app.id === appId);
     if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
     return appInfo;
@@ -491,7 +496,7 @@ function runService(): void {
 
       try {
         const appInfo = await getAppInfo(installedPackageId);
-        await createToast(`Application installed: ${appInfo['title']}`, service);
+        await createToast(`Application installed: ${appInfo.title}`, service);
       } catch (err: unknown) {
         console.warn('appinfo fetch failed:', err);
         await createToast(`Application installed: ${installedPackageId}`, service);
