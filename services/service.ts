@@ -13,7 +13,6 @@ import Service, { Message } from 'webos-service';
 
 import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
 import { fetchWrapper } from './fetch-wrapper';
-import { buildBetterJail } from './better-jail';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
@@ -497,12 +496,6 @@ function runService(): void {
 
       try {
         const appInfo = await getAppInfo(installedPackageId);
-        if (appInfo.type === 'native' && runningAsRoot) {
-          await createToast(`Updating jailer config for ${appInfo.title}…`, service);
-          await buildBetterJail(appInfo.id, appInfo.folderPath).catch((err) => {
-            console.warn('jailer execution failed:', err);
-          });
-        }
         await createToast(`Application installed: ${appInfo.title}`, service);
       } catch (err: unknown) {
         console.warn('appinfo fetch failed:', err);
