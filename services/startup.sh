@@ -25,6 +25,9 @@ touch "${once}"
 # Use default directory if SERVICE_DIR is not provided.
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
+# Add service bin directory to PATH for devices without telnetd.
+export PATH="${PATH}:${SERVICE_DIR}/bin"
+
 if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
     # In case a reboot occured during last startup - open an emergency telnet
     # server and nag user to actually fix this. (since further reboots could
