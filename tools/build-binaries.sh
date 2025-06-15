@@ -63,12 +63,32 @@ build_sftp() {
 	cp -v -t "${TARGET_DIR}" -- sftp-server
 }
 
+build_telnetd() {
+  cd "${BUILD_ROOT}/busybox-src"
+  make allnoconfig
+  while read -r line; do
+    sed -i -e "s/.*${line%=*}.*/${line}/g" .config
+  done <<EOF
+CONFIG_SHOW_USAGE=y
+CONFIG_FEATURE_VERBOSE_USAGE=y
+CONFIG_FEATURE_COMPRESS_USAGE=y
+CONFIG_FEATURE_DEVPTS=y
+CONFIG_LFS=y
+CONFIG_TELNETD=y
+CONFIG_FEATURE_TELNETD_STANDALONE=y
+CONFIG_FEATURE_TELNETD_PORT_DEFAULT=23
+EOF
+  make ${MAKEOPTS} busybox
+  cp -v busybox "${TARGET_DIR}/telnetd"
+}
+
 [ -d "${TARGET_DIR}" ] || mkdir -p -- "${TARGET_DIR}"
 
 install_ndk 'https://github.com/openlgtv/buildroot-nc4/releases/download/webos-2974f83/arm-webos-linux-gnueabi_sdk-buildroot.tar.gz' 'd7d7454390d366446c15797e1523e63a03e77cdb6391b8858a0e27d243ace34d' &
 download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz' 'e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2' &
 download 'rsync'    'https://github.com/WayneD/rsync/archive/refs/tags/v3.2.7.tar.gz'           '4f2a350baa93dc666078b84bc300767a77789ca12f0dec3cb4b3024971f8ef47' &
 download 'openssh'  'https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.1p1.tar.gz' '19f85009c7e3e23787f0236fbb1578392ab4d4bf9f8ec5fe6bc1cd7e8bfdd288' &
+download 'busybox'  'https://busybox.net/downloads/busybox-1.36.1.tar.bz2'                      'b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314' &
 wait
 
 . "${NDK_PATH}/environment-setup"
@@ -76,3 +96,4 @@ wait
 build_dropbear
 build_rsync
 build_sftp
+build_telnetd
