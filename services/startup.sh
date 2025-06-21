@@ -30,7 +30,7 @@ if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
     # server and nag user to actually fix this. (since further reboots could
     # lead to devmode removal, etc...)
 
-    telnetd -l /bin/sh
+    "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
     sleep 1
 
     luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b><br/>A crash has occured during startup. Fix any causes and reboot."}'
@@ -71,7 +71,7 @@ else
 
     # Start root telnet server
     if [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]]; then
-        telnetd -l /bin/sh 200>&-
+        "${SERVICE_DIR}/bin/telnetd" -l /bin/sh 200>&-
     fi
 
     # Start sshd
