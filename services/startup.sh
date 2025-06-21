@@ -25,15 +25,12 @@ touch "${once}"
 # Use default directory if SERVICE_DIR is not provided.
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
-# Add service bin directory to PATH for devices without telnetd.
-export PATH="${PATH}:${SERVICE_DIR}/bin"
-
 if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
     # In case a reboot occured during last startup - open an emergency telnet
     # server and nag user to actually fix this. (since further reboots could
     # lead to devmode removal, etc...)
 
-    telnetd -l /bin/sh
+    "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
     sleep 1
 
     luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b><br/>A crash has occured during startup. Fix any causes and reboot."}'
@@ -74,7 +71,7 @@ else
 
     # Start root telnet server
     if [[ ! -e /var/luna/preferences/webosbrew_telnet_disabled ]]; then
-        telnetd -l /bin/sh 200>&-
+        "${SERVICE_DIR}/bin/telnetd" -l /bin/sh 200>&-
     fi
 
     # Start sshd
