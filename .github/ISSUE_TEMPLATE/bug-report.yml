@@ -6,6 +6,20 @@ body:
   - type: markdown
     attributes:
       value: |
+        ## Before Creating a Bug Report
+
+        This bug report is for issues in the Homebrew Channel app, **_NOT_** for apps installed via Homebrew Channel (e.g. Kodi, etc.).
+
+        If you are having issues with an app installed via Homebrew Channel, please reach out to the app's developers instead.
+  - type: checkboxes
+    attributes:
+      label: Confirmation
+      options:
+        - label: This bug report is for the Homebrew Channel app, not for apps installed via Homebrew Channel
+          required: true
+  - type: markdown
+    attributes:
+      value: |
         ## Device Information
   - type: input
     attributes:
