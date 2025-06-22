@@ -67,7 +67,7 @@ var AppListItem = kind({
       kind: MoonImage,
       name: 'img',
       // placeholder: EnyoImage.placeholder,
-      style: 'width: 100px; height: 100px; float: left; padding-right: 20px; padding-top: 5px',
+      style: 'width: 4.25rem; height: 4.25rem; float: left; padding-right: 1rem; padding-top: 0.25rem',
       sizing: 'contain',
     },
     {name: 'caption', classes: 'caption', kind: Marquee.Text},

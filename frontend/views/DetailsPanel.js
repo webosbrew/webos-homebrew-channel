@@ -70,7 +70,7 @@ module.exports = kind({
     {
       kind: MoonImage,
       name: 'headerImage',
-      style: 'width: 100px; height: 100px; float: left; padding-right: 20px; padding-top: 5px',
+      style: 'width: 5rem; height: 5rem; float: left; padding-right: 1rem; padding-top: 0.25rem;',
       sizing: 'contain',
     },
   ],
