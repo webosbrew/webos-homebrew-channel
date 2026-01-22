@@ -21,7 +21,7 @@ export default class Handle {
       this.usePublic = usePublic;
     } else {
       /* use luna-send-pub when not root */
-      this.usePublic = process.uid !== 0;
+      this.usePublic = process.getuid() !== 0;
     }
   }
 
