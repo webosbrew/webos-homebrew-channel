@@ -773,24 +773,6 @@ function runService(): void {
     proc.on('exit', (exitCode): void => void respond('exit', { exitCode }));
   });
 
-  /**
-   * Stub service that emulates luna://com.webos.service.sm/license/apps/getDrmStatus
-   *
-   * This is intended to work with sampatcher.py, but it is not currently used.
-   */
-  interface GetDrmStatusPayload {
-    appId: string;
-  }
-  service.register('getDrmStatus', (message: Message) =>
-    message.respond({
-      appId: (message.payload as GetDrmStatusPayload).appId,
-      drmType: 'NCG DRM',
-      installBasePath: '/media/cryptofs',
-      returnValue: true,
-      isTimeLimited: false,
-    }),
-  );
-
   service.register(
     'registerActivity',
     simpleTryRespond((_message: Message) => registerActivity(service)),
