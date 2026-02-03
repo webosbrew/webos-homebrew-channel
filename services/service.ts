@@ -45,6 +45,7 @@ const nodeVersion = (() => {
 // Maps internal setting field name with filesystem flag name.
 const availableFlags = {
   telnetDisabled: 'webosbrew_telnet_disabled',
+  failsafe: 'webosbrew_failsafe',
   sshdEnabled: 'webosbrew_sshd_enabled',
   blockUpdates: 'webosbrew_block_updates',
 } as const;
@@ -542,8 +543,6 @@ function runService(): void {
       return {
         root: runningAsRoot,
         homebrewBaseDir,
-        // failsafe flag was removed, keep it for compatibility reasons
-        failsafe: false,
         ...flags,
       };
     }),

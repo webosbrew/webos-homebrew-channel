@@ -26,9 +26,8 @@ touch "${once}"
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
 if [[ -e /dev/disk/by-label/RESCUE ]]; then
-    # If a removable drive with label "RESCUE" is present, enable an emergency
-    # root shell (telnet) for recovery/maintenance. This is meant to be an explicit,
-    # physical action by the user.
+    # If a removable drive with label "RESCUE" is present, launch an emergency
+    # root shell telnet server for recovery/maintenance.
 
     "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
     sleep 1
@@ -37,6 +36,13 @@ if [[ -e /dev/disk/by-label/RESCUE ]]; then
     sleep 15
 
     luna-send -a com.webos.service.secondscreen.gateway -f -n 1 luna://com.webos.notification/createAlert '{"sourceId":"webosbrew","message":"<b>Homebrew Channel</b> - Rescue mode<br/><br/>A USB drive labeled <i>RESCUE</i> was detected.<br/>Emergency access over telnet is enabled for recovery.<br/>Unplug the USB key and reboot to disable rescue mode.","buttons":[{"label":"Reboot now","onclick":"luna://com.webos.service.sleep/shutdown/machineReboot","params":{"reason":"remoteKey"}},{"label":"Reboot later"}]}'
+elif [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
+    # Failsafe mode is kept for compatibility.
+    # The automatic trigger for entering failsafe on too quick reboots has been removed.
+    "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
+    sleep 1
+
+    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "Running in failsafe mode!"}'
 else
     # Close fds to avoid leaking Luna socket
     fds="$(ls -1 "/proc/$$/fd")"

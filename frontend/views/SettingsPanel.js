@@ -48,6 +48,16 @@ module.exports = kind({
                 {kind: ToggleItem, name: 'telnet', disabled: true, content: 'Telnet', onchange: 'updateConfiguration'},
                 {kind: ToggleItem, name: 'sshd', disabled: true, content: 'SSH Server', onchange: 'updateConfiguration'},
                 {kind: ToggleItem, name: 'blockUpdates', disabled: true, content: 'Block system updates', onchange: 'updateConfiguration'},
+                {
+                  kind: TooltipDecorator, components: [
+                    {kind: ToggleItem, name: 'failsafe', disabled: true, content: 'Failsafe mode', onchange: 'updateConfiguration'},
+                    {
+                      kind: Tooltip, position: 'right bottom', components: [
+                        {content: 'This disables all early system modifications and leaves recovery telnet running. Gets automatically tripped in case of a reboot/crash during early system startup.', uppercase: false, style: 'width: 30rem; white-space: normal'}
+                      ]
+                    },
+                  ], style: 'width: 100%',
+                },
                 {kind: Divider, content: 'System information'},
                 {
                   kind: LabeledTextItem,
@@ -134,6 +144,7 @@ module.exports = kind({
   telnetEnabled: false,
   sshdEnabled: false,
   blockUpdates: false,
+  failsafe: false,
   rebootRequired: false,
 
   bindings: [
@@ -141,10 +152,12 @@ module.exports = kind({
     {from: "rootIsActive", to: '$.telnet.disabled', transform: not},
     {from: "rootIsActive", to: '$.sshd.disabled', transform: not},
     {from: "rootIsActive", to: '$.blockUpdates.disabled', transform: not},
+    {from: "rootIsActive", to: '$.failsafe.disabled', transform: not},
     {from: "rootIsActive", to: '$.reboot.disabled', transform: not},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
     {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
+    {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
     {from: "extraRepositories", to: "$.extraRepositories.collection"},
   ],
 
@@ -213,6 +226,7 @@ module.exports = kind({
       this.set('telnetEnabled', !response.telnetDisabled);
       this.set('sshdEnabled', response.sshdEnabled);
       this.set('blockUpdates', response.blockUpdates);
+      this.set('failsafe', response.failsafe);
     }
   },
   onSetConfiguration: function (sender, response) {
@@ -227,6 +241,7 @@ module.exports = kind({
       telnetDisabled: !this.telnetEnabled,
       sshdEnabled: this.sshdEnabled,
       blockUpdates: this.blockUpdates,
+      failsafe: this.failsafe,
     })
   },
   reboot: function () {
