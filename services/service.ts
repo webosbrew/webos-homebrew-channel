@@ -18,8 +18,10 @@ import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
 import { makeError, makeSuccess } from './protocol';
 import ServiceRemote from './webos-service-remote';
+import { createFakeActivityManager } from './fake-activity-manager';
 
-const kHomebrewChannelPackageId = rootAppInfo.id;
+const homebrewChannelPackageId = rootAppInfo.id;
+const autostartActivityName = `${homebrewChannelPackageId}.autostart`;
 const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
 const homebrewBaseDir = ((): string | null => {
   try {
@@ -29,6 +31,7 @@ const homebrewBaseDir = ((): string | null => {
     return null;
   }
 })();
+const isLegacyBus = fs.existsSync('/var/run/ls2/ls-hubd.private.pid');
 
 const nodeVersion = (() => {
   try {
@@ -80,7 +83,7 @@ function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, arg
 function createToast(message: string, service: Service, extras: Record<string, any> = {}): Promise<Record<string, any>> {
   console.info(`[toast] ${message}`);
   return asyncCall(service, 'luna://com.webos.notification/createToast', {
-    sourceId: kHomebrewChannelPackageId,
+    sourceId: homebrewChannelPackageId,
     message,
     ...extras,
   });
@@ -321,8 +324,8 @@ async function removePackage(packageId: string, service: Service): Promise<void>
  */
 async function registerActivity(service: Service): Promise<void> {
   const activity = {
-    name: 'org.webosbrew.hbchannel.service.autostart',
-    description: 'Start HBChannel service on boot.',
+    name: autostartActivityName,
+    description: 'Start Homebrew Channel service on boot',
     type: {
       foreground: true,
       persist: true,
@@ -341,9 +344,6 @@ async function registerActivity(service: Service): Promise<void> {
     },
     callback: {
       method: 'luna://org.webosbrew.hbchannel.service/autostart',
-      params: {
-        reason: 'activity',
-      },
     },
   };
 
@@ -353,11 +353,11 @@ async function registerActivity(service: Service): Promise<void> {
     replace: true,
   };
 
-  return new Promise((resolve) => {
-    service.activityManager.create(spec, () => {
-      resolve();
-    });
-  });
+  await asyncCall(service, 'luna://com.palm.activitymanager/create', spec);
+}
+
+async function pauseActivity(service: Service, activityName: string = autostartActivityName) {
+  await asyncCall(service, 'luna://com.palm.activitymanager/pause', { activityName });
 }
 
 function simpleTryRespond(runner: (message: Message) => Promise<void>) {
@@ -396,8 +396,17 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
 }
 
 function runService(): void {
-  const service = new Service(serviceInfo.id, undefined, { idleTimer: 30 });
+  const service = new Service(serviceInfo.id, isLegacyBus ? createFakeActivityManager(30) : undefined, { idleTimer: 30 });
   const serviceRemote = new ServiceRemote();
+
+  // legacy webOS (pre-ACG) used two luna buses: private and public.
+  // by default, public handle is used for outbound calls.
+  // AM inherits bus from requests and attempts to call trigger on public bus,
+  // which does not work for our case
+  if (runningAsRoot && service.privateHandle) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    service.sendingHandle = service.privateHandle;
+  }
 
   function getInstallerService(): Service {
     if (runningAsRoot) {
@@ -481,7 +490,7 @@ function runService(): void {
       // If re-elevation fails for some reason the service should still be
       // re-elevated on reboot on devices with persistent autostart hooks (since
       // we launch elevate-service in startup.sh script)
-      if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === kHomebrewChannelPackageId) {
+      if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === homebrewChannelPackageId) {
         message.respond({ statusText: 'Self-update…' });
         await createToast('Performing self-update...', service);
 
@@ -781,6 +790,18 @@ function runService(): void {
   service.register(
     'autostart',
     tryRespond(async (message: Message) => {
+      const calledByActivity = /^com\.(?:palm|webos)(?:\.service)?\.activitymanager$/.test(
+        (message.ls2Message as { senderServiceName: () => string }).senderServiceName(),
+      );
+
+      // legacy ActivityManager does not expire/satisfy activity after invoking the callback
+      // to prevent the service from restarting over and over, manually pause the activity
+      // it's done without await to avoid slowing down autostart
+      if (isLegacyBus && calledByActivity) {
+        pauseActivity(service).catch((payload) => {
+          console.warn('failed to pause autostart activity', payload);
+        });
+      }
       if (!runningAsRoot) {
         return { message: 'Not running as root.', returnValue: true };
       }
@@ -810,9 +831,13 @@ function runService(): void {
         stdio: ['ignore', 'ignore', 'ignore'],
       });
 
-      // Register activity if autostart was triggered in traditional way
-      if (message.payload['reason'] !== 'activity') {
-        await registerActivity(service);
+      // frontend calls /autostart on launch
+      if (!calledByActivity) {
+        try {
+          await registerActivity(service);
+        } catch (e) {
+          console.warn('failed to register activity', e);
+        }
       }
 
       return { returnValue: true };
