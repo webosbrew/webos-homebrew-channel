@@ -322,7 +322,7 @@ async function removePackage(packageId: string, service: Service): Promise<void>
 /**
  * Register activity to call /autostart on boot
  */
-async function registerActivity(service: Service): Promise<void> {
+function registerActivity(service: Service): Promise<Record<string, any>> {
   const activity = {
     name: autostartActivityName,
     description: 'Start Homebrew Channel service on boot',
@@ -354,7 +354,7 @@ async function registerActivity(service: Service): Promise<void> {
     replace: true,
   };
 
-  await asyncCall(service, 'luna://com.palm.activitymanager/create', spec);
+  return asyncCall(service, 'luna://com.palm.activitymanager/create', spec);
 }
 
 async function pauseActivity(service: Service, activityName: string = autostartActivityName) {
@@ -785,7 +785,7 @@ function runService(): void {
 
   service.register(
     'registerActivity',
-    simpleTryRespond((_message: Message) => registerActivity(service)),
+    tryRespond((_message: Message) => registerActivity(service)),
   );
 
   service.register(
