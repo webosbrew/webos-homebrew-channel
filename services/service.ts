@@ -397,7 +397,7 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
 }
 
 function runService(): void {
-  const service = new Service(serviceInfo.id, isLegacyBus ? createFakeActivityManager(30) : undefined, { idleTimer: 30 });
+  const service = new Service(serviceInfo.id, createFakeActivityManager(30));
   const serviceRemote = new ServiceRemote();
 
   // legacy webOS (pre-ACG) used two luna buses: private and public.
