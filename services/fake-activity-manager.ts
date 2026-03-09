@@ -3,22 +3,24 @@ import type { ActivityManager } from 'webos-service';
 type PublicAM = Pick<ActivityManager, 'create' | 'adopt' | 'complete'>;
 
 /**
- * for each request, `webos-service` _create_s an activity, waits for acknowledgment from ActivityManager,
- * and then runs method handler. eventually, the activity is _complete_d.
+ * for each request, `webos-service` creates an activity, waits for acknowledgment from ActivityManager,
+ * and then runs method handler. eventually, activity completes.
  *
  * if response from *any* call contains `$activity` field, `webos-service` attempts to _adopt_ it.
  * unfortunately, this also removes the activity from persistent DB.
  *
  * instead of patching the external library behavior, we use a stub.
  *
- * ActivityManager stub is still used to terminate service if it is idling for a while
+ * ActivityManager stub is still used to terminate service if it is idling for `ttlSeconds`.
  */
 class FakeActivityManager implements PublicAM {
   private _counter: number = 0;
 
   private _idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private readonly _ttlSeconds: number) {}
+  constructor(private readonly _ttlSeconds: number) {
+    this._idleTimer = setTimeout(this.quit.bind(this), this._ttlSeconds * 1000);
+  }
 
   create(_activity: any, callback?: (payload: any) => void) {
     this.acquire();
