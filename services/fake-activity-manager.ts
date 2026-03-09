@@ -39,6 +39,10 @@ class FakeActivityManager implements PublicAM {
 
   private acquire() {
     this._counter++;
+
+    if (this._idleTimer !== null) {
+      clearTimeout(this._idleTimer);
+    }
   }
 
   private release() {
@@ -46,8 +50,6 @@ class FakeActivityManager implements PublicAM {
 
     if (this._counter === 0) {
       this._idleTimer = setTimeout(this.quit.bind(this), this._ttlSeconds * 1000);
-    } else if (this._idleTimer !== null) {
-      clearTimeout(this._idleTimer);
     }
   }
 
