@@ -21,7 +21,7 @@ import ServiceRemote from './webos-service-remote';
 import { createFakeActivityManager } from './fake-activity-manager';
 
 const homebrewChannelPackageId = rootAppInfo.id;
-const autostartActivityName = `${homebrewChannelPackageId}.autostart`;
+const autostartActivityName = `${homebrewChannelPackageId}.service.autostart`;
 const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
 const homebrewBaseDir = ((): string | null => {
   try {
