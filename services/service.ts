@@ -330,6 +330,7 @@ async function registerActivity(service: Service): Promise<void> {
       foreground: true,
       persist: true,
       continuous: true,
+      explicit: true,
     },
     trigger: {
       method: 'luna://com.webos.bootManager/getBootStatus',
