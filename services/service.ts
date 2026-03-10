@@ -496,7 +496,7 @@ function runService(): void {
         await createToast('Performing self-update...', service);
 
         child_process.fork(__filename, ['self-update', targetPath]);
-        service.activityManager.idleTimeout = 1;
+        setTimeout(() => process.exit(0), 1000);
         return { statusText: 'Self-update' };
       }
 
