@@ -18,7 +18,7 @@ import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
 import { makeError, makeSuccess } from './protocol';
 import ServiceRemote from './webos-service-remote';
-import { createFakeActivityManager } from './fake-activity-manager';
+import { FakeActivityManager } from './fake-activity-manager';
 
 const homebrewChannelPackageId = rootAppInfo.id;
 const autostartActivityName = `${homebrewChannelPackageId}.service.autostart`;
@@ -397,8 +397,11 @@ function tryRespond<T extends Record<string, any>>(runner: (message: Message) =>
 }
 
 function runService(): void {
-  const service = new Service(serviceInfo.id, createFakeActivityManager(30));
+  const fakeAM = new FakeActivityManager();
+  const service = new Service(serviceInfo.id, fakeAM.cast());
   const serviceRemote = new ServiceRemote();
+
+  fakeAM.setService(service);
 
   // legacy webOS (pre-ACG) used two luna buses: private and public.
   // by default, public handle is used for outbound calls.

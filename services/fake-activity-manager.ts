@@ -1,4 +1,11 @@
+import type Service from 'webos-service';
 import type { ActivityManager } from 'webos-service';
+
+declare module 'webos-service/service' {
+  interface Service {
+    unregister(): void;
+  }
+}
 
 type PublicAM = Pick<ActivityManager, 'create' | 'adopt' | 'complete'>;
 
@@ -13,12 +20,15 @@ type PublicAM = Pick<ActivityManager, 'create' | 'adopt' | 'complete'>;
  *
  * ActivityManager stub is still used to terminate service if it is idling for `ttlSeconds`.
  */
-class FakeActivityManager implements PublicAM {
+export class FakeActivityManager implements PublicAM {
   private _counter: number = 0;
 
   private _idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private readonly _ttlSeconds: number) {
+  constructor(
+    private _service: Service | null = null,
+    private _ttlSeconds: number = 30,
+  ) {
     this._idleTimer = setTimeout(this.quit.bind(this), this._ttlSeconds * 1000);
   }
 
@@ -35,6 +45,15 @@ class FakeActivityManager implements PublicAM {
   complete(_activity: any, callback?: (payload: any) => void) {
     this.release();
     callback?.({ returnValue: true });
+  }
+
+  setService(service: Service) {
+    // types include many props that should not actually be public
+    this._service = service;
+  }
+
+  cast() {
+    return this as unknown as ActivityManager;
   }
 
   private acquire() {
@@ -55,11 +74,9 @@ class FakeActivityManager implements PublicAM {
 
   private quit() {
     console.log('quitting on next tick');
-    process.nextTick(() => process.exit(0));
-  }
-}
 
-export function createFakeActivityManager(ttlSeconds: number) {
-  // types include many props that should not actually be public
-  return new FakeActivityManager(ttlSeconds) as unknown as ActivityManager;
+    process.nextTick(() => process.exit(0));
+
+    this._service?.unregister();
+  }
 }
