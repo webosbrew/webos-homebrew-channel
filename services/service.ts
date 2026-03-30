@@ -31,7 +31,6 @@ const homebrewBaseDir = ((): string | null => {
     return null;
   }
 })();
-const isLegacyBus = fs.existsSync('/var/run/ls2/ls-hubd.private.pid');
 
 const nodeVersion = (() => {
   try {
@@ -794,15 +793,16 @@ function runService(): void {
   service.register(
     'autostart',
     tryRespond(async (message: Message) => {
-      const calledByActivity = /^com\.(?:palm|webos)(?:\.service)?\.activitymanager$/.test(
+      const calledByActivityManager = /^com\.(?:palm|webos)(?:\.service)?\.activitymanager$/.test(
         (message.ls2Message as { senderServiceName: () => string }).senderServiceName(),
       );
-
       // legacy ActivityManager does not expire/satisfy activity after invoking the callback
       // to prevent the service from restarting over and over, manually pause the activity
       // it's done without await to avoid slowing down autostart
-      if (isLegacyBus && calledByActivity) {
+      if (calledByActivityManager) {
         pauseActivity(service).catch((payload) => {
+          // /pause will complain on modern webOS about invalid activity state transition
+          // it's safe to ignore, activity is still persisted in db
           console.warn('failed to pause autostart activity', payload);
         });
       }
@@ -836,7 +836,7 @@ function runService(): void {
       });
 
       // frontend calls /autostart on launch
-      if (!calledByActivity) {
+      if (!calledByActivityManager) {
         try {
           await registerActivity(service);
         } catch (e) {
