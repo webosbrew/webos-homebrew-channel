@@ -18,7 +18,7 @@ import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
 import { makeError, makeSuccess } from './protocol';
 import ServiceRemote from './webos-service-remote';
-import { FakeActivityManager } from './fake-activity-manager';
+import FakeActivityManager from './fake-activity-manager';
 
 const homebrewChannelPackageId = rootAppInfo.id;
 const autostartActivityName = `${homebrewChannelPackageId}.service.autostart`;

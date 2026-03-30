@@ -2,6 +2,7 @@ import type Service from 'webos-service';
 import type { ActivityManager } from 'webos-service';
 
 declare module 'webos-service/service' {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   interface Service {
     unregister(): void;
   }
@@ -20,7 +21,7 @@ type PublicAM = Pick<ActivityManager, 'create' | 'adopt' | 'complete'>;
  *
  * ActivityManager stub is still used to terminate service if it is idling for `ttlSeconds`.
  */
-export class FakeActivityManager implements PublicAM {
+export default class FakeActivityManager implements PublicAM {
   private _counter: number = 0;
 
   private _idleTimer: ReturnType<typeof setTimeout> | null = null;
