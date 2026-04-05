@@ -7,6 +7,9 @@
     "os": [
         "!win32"
     ],
+    "engines": {
+        "node": "<=22"
+    },
     "scripts": {
         "build": "enyo pack",
         "build-service": "webpack",
