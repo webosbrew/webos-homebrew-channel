@@ -694,6 +694,17 @@ function runService(): void {
   );
 
   /**
+   * Returns a list of all installed applications.
+   */
+  service.register(
+    'listApps',
+    tryRespond(async (_message: Message) => {
+      const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
+      return { apps: appList.apps };
+    }),
+  );
+
+  /**
    * Executes a shell command and responds with exit code, stdout and stderr.
    */
   interface ExecPayload {

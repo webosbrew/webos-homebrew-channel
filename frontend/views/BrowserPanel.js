@@ -20,7 +20,8 @@ var
   Collection = require('enyo/Collection'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js'),
-  SettingsPanel = require('./SettingsPanel.js');
+  SettingsPanel = require('./SettingsPanel.js'),
+  versionHigher = require('../versionutils').versionHigher;
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
 // Page starts with 1
@@ -72,6 +73,7 @@ var AppListItem = kind({
     },
     {name: 'caption', classes: 'caption', kind: Marquee.Text},
     {name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text},
+    {name: 'updateBadge', style: 'position: absolute; top: 0.3rem; left: 0.3rem; width: 0.5rem; height: 0.5rem; background: #fff; border-radius: 50%;', showing: false},
   ],
   published: {
     caption: '',
@@ -82,6 +84,7 @@ var AppListItem = kind({
     {from: 'model.title', to: '$.caption.content'},
     {from: 'model.id', to: '$.subCaption.content'},
     {from: 'model.iconUri', to: '$.img.src'},
+    {from: 'model.hasUpdate', to: '$.updateBadge.showing'},
   ]
 });
 
@@ -105,6 +108,7 @@ module.exports = kind({
     },
     {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
     {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
+    {kind: LunaService, name: 'listAppsCall', service: 'luna://org.webosbrew.hbchannel.service', method: 'listApps', onResponse: 'onListAppsResponse', onError: 'onListAppsError'},
   ],
   bindings: [
     {from: 'repository', to: '$.appList.collection'},
@@ -182,8 +186,38 @@ module.exports = kind({
           });
         }),
       }));
-      this.repository.fetch();
+      var self = this;
+      this.repository.fetch({
+        success: function () {
+          self.checkForUpdates();
+        },
+      });
     }
+  },
+
+  checkForUpdates: function () {
+    this.$.listAppsCall.send({});
+  },
+
+  onListAppsResponse: function (sender, msg) {
+    if (!msg.apps || !this.repository) return;
+    var installedApps = {};
+    msg.apps.forEach(function (app) {
+      installedApps[app.id] = app.version;
+    });
+    var models = this.repository.models || [];
+    for (var i = 0; i < models.length; i++) {
+      var model = models[i];
+      var appId = model.get('id');
+      var manifest = model.get('manifest');
+      var repoVersion = manifest ? manifest.version : null;
+      var installedVersion = installedApps[appId];
+      model.set('hasUpdate', !!(installedVersion && repoVersion && versionHigher(installedVersion, repoVersion)));
+    }
+  },
+
+  onListAppsError: function (sender, msg) {
+    console.warn('listApps failed:', msg);
   },
 
   events: {
