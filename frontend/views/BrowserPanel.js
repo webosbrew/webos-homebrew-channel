@@ -73,7 +73,7 @@ var AppListItem = kind({
     },
     {name: 'caption', classes: 'caption', kind: Marquee.Text},
     {name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text},
-    {name: 'updateBadge', style: 'position: absolute; top: 0.3rem; left: 0.3rem; width: 0.5rem; height: 0.5rem; background: #fff; border-radius: 50%;', showing: false},
+    {name: 'updateBadge', style: 'position: absolute; top: 0.15rem; left: 0.3rem; width: 0.5rem; height: 0.5rem; background: #fff; border-radius: 50%; box-shadow: 0px 0px 5px black;', showing: false},
   ],
   published: {
     caption: '',
