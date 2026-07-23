@@ -70,8 +70,13 @@ function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, arg
     srv.call(uri, args, ({ payload }) => {
       if (payload['returnValue']) {
         resolve(payload as T);
+        return;
+      }
+
+      if ('errorText' in payload) {
+        reject(new Error(`Luna Error: ${payload['errorText']}`));
       } else {
-        reject(payload);
+        reject(new Error(`Luna Error: ${JSON.stringify(payload, null, 2)}`));
       }
     });
   });
