@@ -25,26 +25,25 @@ touch "${once}"
 # Use default directory if SERVICE_DIR is not provided.
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
-if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
-    # In case a reboot occured during last startup - open an emergency telnet
-    # server and nag user to actually fix this. (since further reboots could
-    # lead to devmode removal, etc...)
+if [[ -e /dev/disk/by-label/RESCUE ]]; then
+    # If a removable drive with label "RESCUE" is present, launch an emergency
+    # root shell telnet server for recovery/maintenance.
 
     "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
     sleep 1
 
-    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Failsafe mode!</b><br/>A crash has occured during startup. Fix any causes and reboot."}'
-    sleep 15;
-    rm -rf /var/luna/preferences/webosbrew_failsafe
-    sync -f /var/luna/preferences
-    luna-send -a com.webos.service.secondscreen.gateway -f -n 1 luna://com.webos.notification/createAlert '{"sourceId":"webosbrew","message":"<b>Homebrew Channel</b> - Failsafe mode<br />A crash has occured during previous startup - root-related system customizations have been temporarily disabled.<br /><br /> System should go back to normal after a reboot.<br />Would you like to reboot now?","buttons":[{"label":"Reboot now","onclick":"luna://com.webos.service.sleep/shutdown/machineReboot","params":{"reason":"remoteKey"}},{"label":"Reboot later"}]}'
-else
-    # Set a failsafe flag and sync filesystem to make sure it actually gets
-    # tripped...
-    touch /var/luna/preferences/webosbrew_failsafe
-    sync -f /var/luna/preferences/webosbrew_failsafe
-    sleep 2
+    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Rescue mode!</b><br/>Fix any causes, remove USB disk and reboot."}'
+    sleep 15
 
+    luna-send -a com.webos.service.secondscreen.gateway -f -n 1 luna://com.webos.notification/createAlert '{"sourceId":"webosbrew","message":"<b>Homebrew Channel</b> - Rescue mode<br/><br/>A USB drive labeled <i>RESCUE</i> was detected.<br/>Emergency access over telnet is enabled for recovery.<br/>Unplug the USB key and reboot to disable rescue mode.","buttons":[{"label":"Reboot now","onclick":"luna://com.webos.service.sleep/shutdown/machineReboot","params":{"reason":"remoteKey"}},{"label":"Reboot later"}]}'
+elif [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
+    # Failsafe mode is kept for compatibility.
+    # The automatic trigger for entering failsafe on too quick reboots has been removed.
+    "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
+    sleep 1
+
+    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "Running in failsafe mode!"}'
+else
     # Close fds to avoid leaking Luna socket
     fds="$(ls -1 "/proc/$$/fd")"
     for fd in $fds; do
@@ -121,8 +120,8 @@ else
 
     # Deprecate old path
     if [[ -d /home/root/unwritable ]]; then
-      chattr -i /home/root/unwritable
-      rm -rf /home/root/unwritable
+        chattr -i /home/root/unwritable
+        rm -rf /home/root/unwritable
     fi
 
     # Automatically elevate Homebrew Channel service
@@ -134,9 +133,4 @@ else
     # Run user startup hooks
     mkdir -p /var/lib/webosbrew/init.d
     run-parts /var/lib/webosbrew/init.d 200>&-
-
-    # Reset failsafe flag after a while
-    sleep 10
-    rm -rf /var/luna/preferences/webosbrew_failsafe
-    sync -f /var/luna/preferences
 fi
