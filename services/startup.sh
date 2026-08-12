@@ -25,10 +25,23 @@ touch "${once}"
 # Use default directory if SERVICE_DIR is not provided.
 SERVICE_DIR="${SERVICE_DIR-/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service}"
 
-if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
-    # In case a reboot occured during last startup - open an emergency telnet
-    # server and nag user to actually fix this. (since further reboots could
-    # lead to devmode removal, etc...)
+# Rescue mode: an empty file named webosbrew_rescue in the root of any USB
+# drive. Partition letters move with what is plugged in, so walk the glob.
+rescue=
+for marker in /tmp/usb/*/*/webosbrew_rescue*; do
+    if [[ -e "${marker}" ]]; then
+        rescue=1
+        break
+    fi
+done
+
+if [[ -n "${rescue}" ]]; then
+    "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
+    sleep 1
+
+    luna-send -a webosbrew -f -n 1 luna://com.webos.notification/createToast '{"sourceId":"webosbrew","message": "<b>Rescue mode!</b><br/>Telnet is open. Fix any causes, remove the USB drive and reboot."}'
+elif [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
+    # Open an emergency telnet server and nag user to actually fix this.
 
     "${SERVICE_DIR}/bin/telnetd" -l /bin/sh
     sleep 1
@@ -39,10 +52,6 @@ if [[ -e /var/luna/preferences/webosbrew_failsafe ]]; then
     sync -f /var/luna/preferences
     luna-send -a com.webos.service.secondscreen.gateway -f -n 1 luna://com.webos.notification/createAlert '{"sourceId":"webosbrew","message":"<b>Homebrew Channel</b> - Failsafe mode<br />A crash has occured during previous startup - root-related system customizations have been temporarily disabled.<br /><br /> System should go back to normal after a reboot.<br />Would you like to reboot now?","buttons":[{"label":"Reboot now","onclick":"luna://com.webos.service.sleep/shutdown/machineReboot","params":{"reason":"remoteKey"}},{"label":"Reboot later"}]}'
 else
-    # Set a failsafe flag and sync filesystem to make sure it actually gets
-    # tripped...
-    touch /var/luna/preferences/webosbrew_failsafe
-    sync -f /var/luna/preferences/webosbrew_failsafe
     sleep 2
 
     # Close fds to avoid leaking Luna socket
@@ -134,9 +143,4 @@ else
     # Run user startup hooks
     mkdir -p /var/lib/webosbrew/init.d
     run-parts /var/lib/webosbrew/init.d 200>&-
-
-    # Reset failsafe flag after a while
-    sleep 10
-    rm -rf /var/luna/preferences/webosbrew_failsafe
-    sync -f /var/luna/preferences
 fi

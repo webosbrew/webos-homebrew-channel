@@ -19,10 +19,10 @@ Features
     * SSH - public key authenticated (with default `alpine` password until
       authorized keys are provisioned)
     * Telnet - unauthenticated, use sparingly
-* (root) Failsafe mode
-    * In case a device crashes on boot only an emergency shell will be exposed
-      via telnet. In order to disable it fix the original crash cause and remove
-      `/var/luna/preferences/webosbrew_failsafe` flag file.
+* (root) Rescue mode
+    * Put an empty file named `webosbrew_rescue` in the root of any USB drive and
+      reboot. Root-related system customizations are skipped and only an emergency
+      shell is exposed via telnet. Remove the drive and reboot to go back to normal.
 
 Installation
 ------------
