@@ -239,7 +239,8 @@ function main(argv: string[]) {
   for (const lunaRoot of [lunaRootDev, lunaRootNonDev]) {
     const serviceFile = `${lunaRoot}/services.d/${serviceName}.service`;
     const clientPermFile = `${lunaRoot}/client-permissions.d/${serviceName}.root.json`;
-    const apiPermFile = `${lunaRoot}/api-permissions.d/${serviceName}.api.public.json`;
+    const apiPermPublicFile = `${lunaRoot}/api-permissions.d/${serviceName}.api.public.json`;
+    const apiPermLunaBusFile = `${lunaRoot}/api-permissions.d/${serviceName}.api.lunabus.query.json`;
     const manifestFile = `${lunaRoot}/manifests.d/${appName}.json`;
     const roleFile = `${lunaRoot}/roles.d/${serviceName}.service.json`;
 
@@ -264,15 +265,20 @@ function main(argv: string[]) {
       configChanged = true;
     }
 
-    if (parentExists(apiPermFile) && !isFile(apiPermFile)) {
-      console.info(`[ ] Creating API permissions file: ${apiPermFile}`);
-      writeFileSync(
-        apiPermFile,
-        JSON.stringify({
-          public: [`${serviceName}/*`],
-        }),
-      );
-      configChanged = true;
+    for (const [path, group] of [
+      [apiPermPublicFile, 'public'],
+      [apiPermLunaBusFile, 'lunabus.query'],
+    ] as [string, string][]) {
+      if (parentExists(path) && !isFile(path)) {
+        console.info(`[ ] Creating API permissions file: ${path}`);
+        writeFileSync(
+          path,
+          JSON.stringify({
+            [group]: [`${serviceName}/*`],
+          }),
+        );
+        configChanged = true;
+      }
     }
 
     if (isFile(roleFile)) {
@@ -291,9 +297,11 @@ function main(argv: string[]) {
         manifest.clientPermissionFiles.push(clientPermFile);
       }
 
-      if (Array.isArray(manifest.apiPermissionFiles) && !manifest.apiPermissionFiles.includes(apiPermFile)) {
-        console.info('[ ] manifest - adding API permissions file...');
-        manifest.apiPermissionFiles.push(apiPermFile);
+      for (const path of [apiPermPublicFile, apiPermLunaBusFile]) {
+        if (Array.isArray(manifest.apiPermissionFiles) && !manifest.apiPermissionFiles.includes(path)) {
+          console.info('[ ] manifest - adding API permissions file...');
+          manifest.apiPermissionFiles.push(path);
+        }
       }
 
       const manifestFileNew = JSON.stringify(manifest);
