@@ -1,37 +1,10 @@
 Adds dynamic loading of crypt(), determination of paths at runtime based on
 location of executable, and host key paths.
 
-diff -Naur dropbear-2022.83.orig/auth.h dropbear-2022.83/auth.h
---- dropbear-2022.83.orig/auth.h	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/auth.h	2022-11-22 14:19:06.553706227 -0500
-@@ -32,6 +32,10 @@
- 
- void svr_authinitialise(void);
- 
-+/* >>> dynamic libcrypt patch >>> */
-+void svr_auth_load_libcrypt(void);
-+/* <<< dynamic libcrypt patch <<< */
-+
- /* Server functions */
- void recv_msg_userauth_request(void);
- void send_msg_userauth_failure(int partial, int incrfail);
-diff -Naur dropbear-2022.83.orig/config.h.in dropbear-2022.83/config.h.in
---- dropbear-2022.83.orig/config.h.in	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/config.h.in	2022-11-22 15:17:12.209591523 -0500
-@@ -60,6 +60,9 @@
- /* External Public Key Authentication */
- #undef DROPBEAR_PLUGIN
- 
-+/* Dynamically load crypt() */
-+#undef DYNAMIC_CRYPT
-+
- /* Define to 1 if you have the `basename' function. */
- #undef HAVE_BASENAME
- 
-diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
---- dropbear-2022.83.orig/configure	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/configure	2023-10-06 15:14:50.935096748 -0400
-@@ -728,6 +728,7 @@
+diff -Naur dropbear-2026.94.orig/configure dropbear-2026.94/configure
+--- dropbear-2026.94.orig/configure	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/configure	2026-09-25 18:02:56.135298255 +0300
+@@ -729,6 +729,7 @@
  enable_harden
  enable_werror
  enable_largefile
@@ -39,7 +12,7 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
  with_zlib
  enable_zlib
  with_pam
-@@ -1385,6 +1386,7 @@
+@@ -1386,6 +1387,7 @@
    --disable-harden        Don't set hardened build flags
    --enable-werror         Set -Werror when building
    --disable-largefile     omit support for large files
@@ -47,7 +20,7 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
    --disable-zlib          Don't include zlib support
    --enable-pam            Try to include PAM support
    --disable-openpty       Don't use openpty, use alternative method
-@@ -5389,13 +5391,79 @@
+@@ -5384,13 +5386,79 @@
  
  fi
  
@@ -128,10 +101,10 @@ diff -Naur dropbear-2022.83.orig/configure dropbear-2022.83/configure
  # Check if zlib is needed
  
  # Check whether --with-zlib was given.
-diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
---- dropbear-2022.83.orig/configure.ac	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/configure.ac	2023-10-06 15:14:04.615103635 -0400
-@@ -219,11 +219,27 @@
+diff -Naur dropbear-2026.94.orig/configure.ac dropbear-2026.94/configure.ac
+--- dropbear-2026.94.orig/configure.ac	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/configure.ac	2026-09-25 18:02:56.136588870 +0300
+@@ -212,11 +212,27 @@
  	CRYPTLIB="-lcrypt"
  	found_crypt_func=here
  	])
@@ -159,10 +132,10 @@ diff -Naur dropbear-2022.83.orig/configure.ac dropbear-2022.83/configure.ac
 +
  # Check if zlib is needed
  AC_ARG_WITH(zlib,
- 	[  --with-zlib=PATH        Use zlib in PATH],
-diff -Naur dropbear-2022.83.orig/localoptions.h dropbear-2022.83/localoptions.h
---- dropbear-2022.83.orig/localoptions.h	1969-12-31 19:00:00.000000000 -0500
-+++ dropbear-2022.83/localoptions.h	2023-10-06 15:08:16.055149973 -0400
+ 	[AS_HELP_STRING([--with-zlib=PATH], [Use zlib in PATH])],
+diff -Naur dropbear-2026.94.orig/localoptions.h dropbear-2026.94/localoptions.h
+--- dropbear-2026.94.orig/localoptions.h	1970-01-01 02:00:00.000000000 +0200
++++ dropbear-2026.94/localoptions.h	2026-09-25 18:02:56.136749705 +0300
 @@ -0,0 +1,18 @@
 +#define DSS_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_dss_host_key"
 +#define RSA_PRIV_FILENAME "/var/lib/webosbrew/sshd/dropbear_rsa_host_key"
@@ -182,9 +155,36 @@ diff -Naur dropbear-2022.83.orig/localoptions.h dropbear-2022.83/localoptions.h
 +/* %s replaced with directory containing dropbear */
 +#define SFTPSERVER_PATH_FMT "%s/sftp-server"
 +#define DEFAULT_WEBOS_BIN_PATH "/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/bin"
-diff -Naur dropbear-2022.83.orig/svr-authpasswd.c dropbear-2022.83/svr-authpasswd.c
---- dropbear-2022.83.orig/svr-authpasswd.c	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/svr-authpasswd.c	2022-11-22 15:11:00.193096063 -0500
+diff -Naur dropbear-2026.94.orig/src/auth.h dropbear-2026.94/src/auth.h
+--- dropbear-2026.94.orig/src/auth.h	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/src/auth.h	2026-09-25 18:02:56.134298250 +0300
+@@ -32,6 +32,10 @@
+ 
+ void svr_authinitialise(void);
+ 
++/* >>> dynamic libcrypt patch >>> */
++void svr_auth_load_libcrypt(void);
++/* <<< dynamic libcrypt patch <<< */
++
+ /* Server functions */
+ void recv_msg_userauth_request(void);
+ void send_msg_userauth_failure(int partial, int incrfail);
+diff -Naur dropbear-2026.94.orig/src/config.h.in dropbear-2026.94/src/config.h.in
+--- dropbear-2026.94.orig/src/config.h.in	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/src/config.h.in	2026-09-25 18:03:07.099801647 +0300
+@@ -60,6 +60,9 @@
+ /* External Public Key Authentication */
+ #undef DROPBEAR_PLUGIN
+ 
++/* Dynamically load crypt() */
++#undef DYNAMIC_CRYPT
++
+ /* Define to 1 if you have the `basename' function. */
+ #undef HAVE_BASENAME
+ 
+diff -Naur dropbear-2026.94.orig/src/svr-authpasswd.c dropbear-2026.94/src/svr-authpasswd.c
+--- dropbear-2026.94.orig/src/svr-authpasswd.c	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/src/svr-authpasswd.c	2026-09-25 18:02:56.136844282 +0300
 @@ -33,6 +33,70 @@
  
  #if DROPBEAR_SVR_PASSWORD_AUTH
@@ -267,10 +267,10 @@ diff -Naur dropbear-2022.83.orig/svr-authpasswd.c dropbear-2022.83/svr-authpassw
  	}
  	m_burn(password, passwordlen);
  	m_free(password);
-diff -Naur dropbear-2022.83.orig/svr-chansession.c dropbear-2022.83/svr-chansession.c
---- dropbear-2022.83.orig/svr-chansession.c	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/svr-chansession.c	2023-07-30 11:14:40.226544607 -0400
-@@ -685,7 +685,8 @@
+diff -Naur dropbear-2026.94.orig/src/svr-chansession.c dropbear-2026.94/src/svr-chansession.c
+--- dropbear-2026.94.orig/src/svr-chansession.c	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/src/svr-chansession.c	2026-09-25 18:02:56.136981086 +0300
+@@ -696,7 +696,8 @@
  		if (issubsys) {
  #if DROPBEAR_SFTPSERVER
  			if ((cmdlen == 4) && strncmp(chansess->cmd, "sftp", 4) == 0) {
@@ -280,7 +280,7 @@ diff -Naur dropbear-2022.83.orig/svr-chansession.c dropbear-2022.83/svr-chansess
  				m_free(chansess->cmd);
  				chansess->cmd = m_strdup(expand_path);
  				m_free(expand_path);
-@@ -1013,9 +1014,11 @@
+@@ -1008,9 +1009,11 @@
  	addnewvar("HOME", ses.authstate.pw_dir);
  	addnewvar("SHELL", get_user_shell());
  	if (getuid() == 0) {
@@ -294,9 +294,9 @@ diff -Naur dropbear-2022.83.orig/svr-chansession.c dropbear-2022.83/svr-chansess
  	}
  	if (cp != NULL) {
  		addnewvar("LANG", cp);
-diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
---- dropbear-2022.83.orig/svr-main.c	2022-11-14 09:30:00.000000000 -0500
-+++ dropbear-2022.83/svr-main.c	2023-10-06 15:20:49.195034204 -0400
+diff -Naur dropbear-2026.94.orig/src/svr-main.c dropbear-2026.94/src/svr-main.c
+--- dropbear-2026.94.orig/src/svr-main.c	2026-07-23 16:32:58.000000000 +0300
++++ dropbear-2026.94/src/svr-main.c	2026-09-25 18:02:56.137217321 +0300
 @@ -38,6 +38,7 @@
  static void main_inetd(void);
  static void main_noinetd(int argc, char ** argv, const char* multipath);
@@ -305,7 +305,7 @@ diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
  
  #if defined(DBMULTI_dropbear) || !DROPBEAR_MULTI
  #if defined(DBMULTI_dropbear) && DROPBEAR_MULTI
-@@ -466,6 +467,14 @@
+@@ -480,6 +481,14 @@
  	/* Now we can setup the hostkeys - needs to be after logging is on,
  	 * otherwise we might end up blatting error messages to the socket */
  	load_all_hostkeys();
@@ -320,7 +320,7 @@ diff -Naur dropbear-2022.83.orig/svr-main.c dropbear-2022.83/svr-main.c
  }
  
  /* Set up listening sockets for all the requested ports */
-@@ -506,3 +515,103 @@
+@@ -520,3 +529,103 @@
  	}
  	return sockpos;
  }

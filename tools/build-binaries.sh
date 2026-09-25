@@ -37,7 +37,7 @@ download() {
 
 build_dropbear() {
     cd "${BUILD_ROOT}/dropbear-src"
-    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2022.83-webos-v1.patch"
+    patch -N -p 1 -i "${PATCH_DIR}/dropbear-2026.94-webos-v1.patch"
     ./configure ${CONFIGURE_FLAGS} --disable-lastlog --enable-dynamic-crypt
     local programs='dropbear scp'
     make ${MAKEOPTS} -- PROGRAMS="${programs}"
@@ -85,7 +85,7 @@ EOF
 [ -d "${TARGET_DIR}" ] || mkdir -p -- "${TARGET_DIR}"
 
 install_ndk 'https://github.com/openlgtv/buildroot-nc4/releases/download/webos-2974f83/arm-webos-linux-gnueabi_sdk-buildroot.tar.gz' 'd7d7454390d366446c15797e1523e63a03e77cdb6391b8858a0e27d243ace34d' &
-download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2022.83.tar.gz' 'e02c5c36eb53bfcd3f417c6e40703a50ec790a1a772269ea156a2ccef14998d2' &
+download 'dropbear' 'https://github.com/mkj/dropbear/archive/refs/tags/DROPBEAR_2026.94.tar.gz' '827d3f6e510e7554ee18d5c6a00dfee1a6a555559495e65e2e8f8d41c79eed84' &
 download 'rsync'    'https://github.com/WayneD/rsync/archive/refs/tags/v3.2.7.tar.gz'           '4f2a350baa93dc666078b84bc300767a77789ca12f0dec3cb4b3024971f8ef47' &
 download 'openssh'  'https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.1p1.tar.gz' '19f85009c7e3e23787f0236fbb1578392ab4d4bf9f8ec5fe6bc1cd7e8bfdd288' &
 download 'busybox'  'https://busybox.net/downloads/busybox-1.36.1.tar.bz2'                      'b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314' &
