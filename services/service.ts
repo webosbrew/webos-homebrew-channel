@@ -583,6 +583,41 @@ function runService(): void {
   );
 
   /**
+   * Clears root's authorized SSH public keys.
+   *
+   * This endpoint intentionally accepts no path or shell command from the caller.
+   */
+  service.register(
+    'clearSSHKeys',
+    tryRespond(async () => {
+      if (!runningAsRoot) {
+        throw new Error('not running as root');
+      }
+
+      const authorizedKeysPath = '/home/root/.ssh/authorized_keys';
+      try {
+        const stats = await asyncStat(authorizedKeysPath);
+        if (!stats.isFile()) {
+          throw new Error(`SSH authorized keys path is not a regular file: ${authorizedKeysPath}`);
+        }
+      } catch (err: unknown) {
+        assertNodeError(err);
+        if (err.code === 'ENOENT') {
+          return { cleared: false, statusText: 'No SSH authorized_keys file found; nothing to clear.' };
+        }
+        throw err;
+      }
+
+      // Truncate the existing file rather than deleting it, preserving its ownership and permissions.
+      await asyncWriteFile(authorizedKeysPath, '');
+      return {
+        cleared: true,
+        statusText: 'SSH authorized keys cleared. Add your new public key to restore key-based login.',
+      };
+    }),
+  );
+
+  /**
    * Invokes a platform reboot.
    */
   service.register(
