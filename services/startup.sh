@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# This script does some early-boot initialization of rooted webOS devices. It's
-# meant to be copied over to suitable path (eg. start-devmode.sh) to keep it
-# safe from accidental homebrew channel app removal.
+# This script does some early-boot initialization of rooted webOS devices.
 
 # Ensure that startup script runs only once per boot
 once=/tmp/webosbrew_startup
