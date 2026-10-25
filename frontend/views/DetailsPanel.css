@@ -23,3 +23,9 @@
 .app-description img {
     max-width: 100%;
 }
+
+.app-description a[data-href] {
+    color: #7fc8f8;
+    cursor: pointer;
+    text-decoration: underline;
+}

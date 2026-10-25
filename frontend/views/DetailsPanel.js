@@ -23,28 +23,34 @@ var
   DOMPurify = require('dompurify/dist/purify.cjs.js'),
   resolveURL = require('../baseurl').resolveURL;
 
-DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-  if ('href' in node) {
-    console.info(node);
+function safeExternalURL(value) {
+  var parser;
 
-    node.setAttribute('data-href', node.href);
-    node.setAttribute('href', 'javascript:openLinkInBrowser(' + JSON.stringify(node.href)+ ')');
+  if (typeof value !== 'string' || !value.trim()) return null;
+
+  parser = document.createElement('a');
+  parser.href = value;
+  return parser.protocol === 'http:' || parser.protocol === 'https:' ? parser.href : null;
+}
+
+DOMPurify.addHook('afterSanitizeAttributes', function (node) {
+  var href;
+
+  if (!node.nodeName || node.nodeName.toLowerCase() !== 'a') return;
+
+  href = safeExternalURL(node.getAttribute('href'));
+  node.removeAttribute('href');
+  node.removeAttribute('target');
+  node.removeAttribute('rel');
+
+  if (href) {
+    node.setAttribute('data-href', href);
+    node.setAttribute('role', 'link');
+  } else {
+    node.removeAttribute('data-href');
+    node.removeAttribute('role');
   }
 });
-
-
-global.openLinkInBrowser = function (url) {
-  try {
-    webOS.service.request('luna://com.webos.applicationManager', {
-      method: 'launch',
-      parameters: {id: 'com.webos.app.browser', params: {target: url}},
-      onSuccess: function(res) { console.info(res); },
-      onFailure: function(res) { console.warn(res); },
-    });
-  } catch (err) {
-    console.warn(err);
-  }
-}
 
 function versionHigher(oldVer, newVer) {
   if (typeof oldVer !== 'string' || typeof newVer !== 'string') return false
@@ -150,6 +156,7 @@ module.exports = kind({
                 content: 'No description provided for this package',
                 allowHtml: true,
                 spotlight: true,
+                ontap: 'openDescriptionLink',
               },
               {
                 kind: LabeledTextItem,
@@ -332,6 +339,23 @@ module.exports = kind({
   openProjectPage: function () {
     if (this.packageInfo.get('sourceUrl')) {
       this.$.launchCall.send({id: 'com.webos.app.browser', params: {target: this.packageInfo.get('sourceUrl')}});
+    }
+  },
+  openDescriptionLink: function (sender, event) {
+    var node = event.target;
+    var root = this.$.appDescription.hasNode();
+    var target;
+
+    while (node && node !== root) {
+      if (node.nodeName && node.nodeName.toLowerCase() === 'a') {
+        target = safeExternalURL(node.getAttribute('data-href'));
+        if (target) {
+          this.$.launchCall.send({id: 'com.webos.app.browser', params: {target: target}});
+        }
+        event.preventDefault();
+        return true;
+      }
+      node = node.parentNode;
     }
   },
   installApp: function () {
