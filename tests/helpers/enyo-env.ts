@@ -53,7 +53,7 @@ export interface EnyoEnv {
   load: (request: string) => any;
   /** Flush Enyo's deferred work (jobs, async bindings). */
   flush: () => Promise<void>;
-  /** Poll until `predicate` is truthy (default 3s). */
+  /** Poll until `predicate` is truthy (default 15s). */
   waitFor: (predicate: () => boolean, what?: string, timeoutMs?: number) => Promise<void>;
   /** Fire an Enyo event (ontap, onchange, ...) on a control as the dispatcher would. */
   fire: (control: any, eventName: string, extra?: Record<string, any>) => void;
@@ -296,7 +296,8 @@ export function createEnyoEnv(): EnyoEnv {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     },
-    waitFor: async (predicate, what = 'condition', timeoutMs = 3000) => {
+    // Generous: the whole suite runs in parallel and bundle.test.ts builds with webpack meanwhile.
+    waitFor: async (predicate, what = 'condition', timeoutMs = 15000) => {
       const deadline = Date.now() + timeoutMs;
       while (!predicate()) {
         if (Date.now() > deadline) {

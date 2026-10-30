@@ -427,10 +427,13 @@ describe('DetailsPanel', () => {
     install.succeed({ statusText: 'Downloading…', progress: 40 });
     await env.flush();
     assert.ok(panel.$.installButton.get('progress') > 0, 'progress bar moved');
+    assert.equal(panel.$.installButton.$.progressAnimator.isAnimating(), true, 'still animating towards 40%');
 
+    // `finished` arrives mid-animation (as on a real download); the bar must end at 100.
     const appInfoCallsBefore = env.bus.callsTo(HBC, 'getAppInfo').length;
     install.succeed({ returnValue: true, statusText: 'Finished.', finished: true });
     await env.flush();
+    await new Promise((resolve) => setTimeout(resolve, 100)); // let any stray animation frame run
     assert.equal(panel.$.installButton.get('progress'), 100);
     assert.equal(panel.$.installButton.get('disabled'), false);
     assert.equal(install.cancelled, true, 'subscription cancelled after finishing');
@@ -555,7 +558,7 @@ describe('MainView', () => {
     const Settings = env.load('./views/SettingsPanel.js');
     env.window.location.hash = `#${encodeURIComponent(JSON.stringify({ launchMode: 'addRepository', url: 'https://via-launch.example/apps.json' }))}`;
     const main = env.render(Main);
-    await env.waitFor(() => main.$.panels.getPanels().length === 2, 'settings panel pushed', 3000);
+    await env.waitFor(() => main.$.panels.getPanels().length === 2, 'settings panel pushed');
     const settings = main.$.panels.getPanels()[1];
     assert.ok(settings instanceof Settings);
     assert.equal(settings.templateAddRepository, 'https://via-launch.example/apps.json');

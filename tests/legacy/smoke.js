@@ -9,8 +9,11 @@
  *
  * Usage: node tests/legacy/smoke.js [path/to/dist/services]
  *
- * MUST stay plain ES5 (var, function, callbacks, no Promise, no Buffer.from):
- * the point is to run it on Node.js 0.10 / 0.12 / 4 / 8.
+ * It is run against the built bundle under the build Node.js by
+ * tests/bundle.test.ts. It is kept strict ES5 (var, function, callbacks, no
+ * Promise, no Buffer.from) so it can also be run by hand on a TV or on an
+ * old Node.js binary when one is available. The per-version differences the
+ * bundle depends on are covered deterministically by tests/node-compat.test.ts.
  */
 
 'use strict';

@@ -362,6 +362,9 @@ module.exports = kind({
         break;
       case 'finished':
         console.info('Finishing!');
+        // A progress animation may still be running towards the last reported
+        // percentage; stop it or its next frame would overwrite the 100%.
+        this.$.installButton.$.progressAnimator.stop();
         this.$.installButton.set('progress', 100);
         this.$.installButton.set('disabled', false);
         this.$.installCall.cancel(this.installRequest);
@@ -383,6 +386,7 @@ module.exports = kind({
 
   onInstallError: function (sender, msg) {
     this.showError(msg, 'installation');
+    this.$.installButton.$.progressAnimator.stop();
     this.$.installButton.set('progress', 0);
     this.$.installButton.set('disabled', false);
     this.$.installCall.cancel(this.installRequest);

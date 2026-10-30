@@ -11,12 +11,25 @@ import childProcess from 'child_process';
 
 export type { ChildProcess, ExecException, ExecFileException, SpawnOptions } from 'child_process';
 
-const nodeVersion = (() => {
+export interface NodeVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+/**
+ * Parses "v0.12.2" / "22.1.0-pre" style version strings.
+ */
+export function parseNodeVersion(version: string): NodeVersion {
+  // Just in case there's a build/pre-release suffix.
+  const core = version.replace(/^v/, '').split(/[-+]/, 1)[0] as string;
+  const [major = 0, minor = 0, patch = 0] = core.split('.').map((x) => parseInt(x, 10) || 0);
+  return { major, minor, patch };
+}
+
+const nodeVersion: NodeVersion = (() => {
   try {
-    // Just in case there's a build/pre-release suffix.
-    const core = process.versions.node.split(/[-+]/, 1)[0] as string;
-    const [major = 0, minor = 0, patch = 0] = core.split('.').map((x) => parseInt(x, 10));
-    return { major, minor, patch };
+    return parseNodeVersion(process.versions.node);
   } catch (err) {
     console.warn('getting nodeVersion failed:', err);
     return { major: 0, minor: 0, patch: 0 };
@@ -24,6 +37,15 @@ const nodeVersion = (() => {
 })();
 
 export { nodeVersion };
+
+/**
+ * Node.js 0.10's child_process.exec() cannot return Buffers (`encoding:
+ * 'buffer'` arrived in 0.12), so output has to be requested as 'binary' and
+ * re-wrapped.
+ */
+export function execSupportsBufferEncoding(version: NodeVersion = nodeVersion): boolean {
+  return version.major !== 0 || version.minor >= 12;
+}
 
 export const runningAsRoot: boolean = (() => {
   if (typeof process.getuid === 'undefined') {
@@ -50,9 +72,9 @@ export interface ExecResult {
  * Runs a shell command and resolves with its output as raw bytes, whether or
  * not it succeeded. Never rejects for a failing command; check `error`.
  */
-export function exec(command: string, options: ExecOptions = {}): Promise<ExecResult> {
+export function exec(command: string, options: ExecOptions = {}, version: NodeVersion = nodeVersion): Promise<ExecResult> {
   return new Promise((resolve) => {
-    if (nodeVersion.major !== 0 || nodeVersion.minor >= 12) {
+    if (execSupportsBufferEncoding(version)) {
       childProcess.exec(command, { ...options, encoding: 'buffer' }, (error, stdout, stderr) => {
         resolve({ error, stdout, stderr });
       });

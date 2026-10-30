@@ -174,6 +174,12 @@ Lint, type-check and run the unit tests with:
 npm run lint && npm run typecheck && npm test
 ```
 
+The service bundle has to run on the TV's own Node.js (0.10 on the oldest
+supported webOS). Every place where the code depends on a Node.js version
+difference lives in `services/platform/` and is listed, with a test of its
+fallback path, in `tests/node-compat.test.ts`; the `n/no-unsupported-features`
+lint rule flags new uses of post-0.10 APIs.
+
 ### Technology stack
 Frontend is based on last development version of [enyo](https://github.com/enyojs).
 (dated january 2017) While this definitely is not the cool and jazzy latest

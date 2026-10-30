@@ -6,8 +6,9 @@
  * something the TV's Node.js 0.10+ can load: strict ES5, and the legacy smoke
  * harness (tests/legacy/smoke.js) passes against it.
  *
- * The same harness is run under real old Node.js versions by
- * .github/workflows/legacy-node.yml; here it runs under the current one.
+ * Node.js-version-specific behaviour (Buffer shim, exec encoding, stream
+ * destroy, ...) is covered by tests/node-compat.test.ts, which exercises each
+ * fallback on the current Node.js.
  */
 
 import { before, describe, it } from 'node:test';
