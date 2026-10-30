@@ -10,6 +10,7 @@
 
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { ChildProcess } from 'node:child_process';
 import nodeFs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -79,19 +80,25 @@ describe('webos-service-remote execbus (luna-send-pub child process)', () => {
     assert.match(String(payload['errorText']), /luna-send-pub exited with code 2 without a response: Unknown method/);
   });
 
-  it('each stdout line is a response; the child is killed on cancel()', async () => {
-    fakeLunaSend('echo \'{"returnValue":true,"statusValue":30,"details":{"packageId":"com.example.app"}}\'; sleep 30');
+  it('each stdout line is a response; cancel() terminates the child with SIGTERM', async () => {
+    // PATH holds only the fake, so `sleep` must be spelled out; `exec` makes
+    // the sleeping process the child itself, so the signal lands on it.
+    fakeLunaSend('echo \'{"returnValue":true,"statusValue":30,"details":{"packageId":"com.example.app"}}\'; exec /bin/sleep 30');
     const request = new Handle(true).subscribe('luna://x/y', '{}');
+    const child = (request as unknown as { proc: ChildProcess }).proc;
     const body = await waitFor<Body>((resolve) => request.on('response', resolve));
     assert.deepEqual(parsed(body), { returnValue: true, statusValue: 30, details: { packageId: 'com.example.app' } });
+    assert.equal(child.exitCode, null, 'the child is still running when we cancel');
     const cancels: Body[] = [];
     request.on('cancel', (b: Body) => cancels.push(b));
-    request.cancel();
-    await waitFor<null>((resolve) => {
-      (request as unknown as { proc: NodeJS.EventEmitter }).proc.on('close', () => {
-        resolve(null);
+    const closed = waitFor<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+      child.on('close', (code, signal) => {
+        resolve({ code, signal });
       });
     });
+    request.cancel();
+    const { code, signal } = await closed;
+    assert.equal(signal, 'SIGTERM', `cancel() did not terminate the child (exit ${code}, signal ${signal})`);
     assert.equal(cancels.length, 0, 'a cancel we asked for is not reported as a failure');
   });
 
