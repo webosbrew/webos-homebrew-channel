@@ -7,7 +7,8 @@ MANIFEST_URL="${MANIFEST_URL:-https://github.com/webosbrew/webos-homebrew-channe
 export MANIFEST_URL
 
 echo "[ ] Downloading manifest..."
-export MANIFEST_JSON="$(curl -L -- "$MANIFEST_URL")"
+MANIFEST_JSON="$(curl -L -- "$MANIFEST_URL")"
+export MANIFEST_JSON
 
 IPK_URL="$(node -e 'var m = JSON.parse(process.env.MANIFEST_JSON); process.stdout.write(require("url").resolve(process.env.MANIFEST_URL, m.ipkUrl));')"
 IPK_SHA256="$(node -e 'var m = JSON.parse(process.env.MANIFEST_JSON); process.stdout.write(m.ipkHash.sha256);')"

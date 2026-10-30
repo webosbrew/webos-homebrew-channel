@@ -2,11 +2,20 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "target": "es2020",
-        "lib": ["es2020"],
+        "lib": [
+            "es2020"
+        ],
         "module": "commonjs",
         "moduleResolution": "node10",
-        "noEmit": true
+        "noEmit": true,
+        "skipLibCheck": true
     },
-    "include": ["tests/**/*.ts"],
-    "exclude": ["dist", "node_modules", "lib"]
+    "include": [
+        "tests/**/*.ts"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules",
+        "lib"
+    ]
 }

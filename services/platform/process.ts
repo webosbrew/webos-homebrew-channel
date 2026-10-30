@@ -98,10 +98,28 @@ export function spawn(command: string, args: readonly string[] = [], options: ch
 }
 
 /**
- * Runs `command` through /bin/sh.
+ * Runs `command` through /bin/sh in its own process group, so that
+ * killTree() can take down the shell *and* whatever it started.
  */
 export function spawnShell(command: string, options: childProcess.SpawnOptions = {}): childProcess.ChildProcessWithoutNullStreams {
-  return childProcess.spawn('/bin/sh', ['-c', '--', command], { ...options, stdio: 'pipe' });
+  return childProcess.spawn('/bin/sh', ['-c', '--', command], { ...options, stdio: 'pipe', detached: true });
+}
+
+/**
+ * Signals a child started with spawnShell() together with all of its
+ * descendants (its process group). Falls back to the child alone.
+ */
+export function killTree(child: childProcess.ChildProcess, signal: NodeJS.Signals = 'SIGTERM'): void {
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    try {
+      child.kill(signal);
+    } catch {
+      // already gone
+    }
+  }
 }
 
 export function fork(modulePath: string, args: readonly string[] = []): childProcess.ChildProcess {

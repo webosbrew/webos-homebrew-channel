@@ -126,6 +126,16 @@ describe('proc', () => {
     await assert.rejects(proc.execFile('sh', ['-c', 'exit 2']));
   });
 
+  it('killTree kills the shell and its children', async () => {
+    const child = proc.spawnShell('sleep 30; echo never');
+    await new Promise((r) => setTimeout(r, 100));
+    const start = Date.now();
+    proc.killTree(child, 'SIGTERM');
+    const code = await new Promise<number | null>((resolve) => child.on('close', resolve));
+    assert.equal(code, null);
+    assert.ok(Date.now() - start < 2000, 'close must not wait for the orphaned sleep');
+  });
+
   it('spawnShell streams output', async () => {
     const child = proc.spawnShell('echo spawned');
     const chunks: Buffer[] = [];
