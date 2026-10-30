@@ -147,14 +147,27 @@ describe('legacy smoke harness', () => {
     parsesAsEs5(path.join(repoRoot, 'tests', 'legacy', 'stubs', 'webos-service', 'index.js'));
   });
 
-  it('passes against the freshly built bundle under the current Node.js', () => {
+  function runSmoke(forceNonRoot: boolean): void {
     const result = spawnSync(process.execPath, [path.join(repoRoot, 'tests', 'legacy', 'smoke.js'), distDir], {
       cwd: repoRoot,
       encoding: 'utf8',
       timeout: 60000,
+      env: { ...process.env, HBCHANNEL_SMOKE_NONROOT: forceNonRoot ? '1' : '0' },
     });
-    const summary = result.stdout.split('\n').filter((l) => l.startsWith('# node') || l.startsWith('not ok'));
+    // keep the "not ok" lines and their indented "# detail" lines, drop the chatter
+    const summary = result.stdout.split('\n').filter((l) => l.startsWith('# node') || l.startsWith('not ok') || l.startsWith('  # '));
     assert.equal(result.status, 0, `smoke harness failed:\n${summary.join('\n')}\n${result.stderr.slice(-2000)}`);
     assert.match(result.stdout, /# node v\d+.*: \d+ passed, 0 failed/);
+  }
+
+  it('passes against the freshly built bundle under the current Node.js', () => {
+    runSmoke(false);
+  });
+
+  // The install path differs by user: root talks to appInstallService over the
+  // bus, anyone else through a luna-send-pub child process. CI runners are not
+  // root; a root developer machine is made to take that path too.
+  it('passes with the non-root (luna-send-pub) install path forced', () => {
+    runSmoke(true);
   });
 });

@@ -3,14 +3,29 @@ import { proc } from '../platform';
 import Message from './message';
 
 class Request extends EventEmitter {
-  constructor(proc) {
+  constructor() {
     super();
-    this.proc = proc;
+    this.proc = null;
+    this.finished = false;
   }
 
   cancel() {
-    this.proc.kill();
+    this.finished = true;
+    if (this.proc) {
+      this.proc.kill();
+    }
   }
+}
+
+function errorBody(errorText) {
+  return Message.constructBody(
+    JSON.stringify({
+      returnValue: false,
+      errorCode: -1,
+      errorText,
+    }),
+    false,
+  );
 }
 
 export default class Handle {
@@ -35,61 +50,60 @@ export default class Handle {
     /* using -a with luna-send-pub causes an error */
     const args = [...(this.usePublic ? [] : ['-a', 'webosbrew']), '-i', uri, payload];
 
-    let process;
-    let request;
+    const request = new Request();
+    let responded = false;
+
+    /* Callers attach their listeners after subscribe() returns, so a failure
+     * must never be emitted synchronously from here. */
+    const fail = (errorText) => {
+      if (request.finished) return;
+      request.finished = true;
+      request.emit('cancel', errorBody(errorText));
+    };
+
+    let child;
     try {
-      process = proc.spawn(command, args);
-      request = new Request(process);
-      // spawn reports failures such as ENOENT asynchronously; try/catch cannot
-      // catch them. Forward the failure through the subscription contract.
-      process.on('error', (err) => {
-        request.emit(
-          'cancel',
-          Message.constructBody(
-            JSON.stringify({
-              returnValue: false,
-              errorCode: -1,
-              errorText: `Unable to exec ${command}: ${err}`,
-            }),
-            false,
-          ),
-        );
-      });
-      const stream = process.stdout;
-      let stdout = '';
-      stream.on('close', () => {});
-      stream.on('data', (data) => {
-        console.info('stdout:', data.toString());
-        stdout += data.toString();
-        let searchPos = 0;
-        let breakPos = 0;
-        while ((breakPos = stdout.indexOf('\n', searchPos)) > 0) {
-          const line = stdout.substring(searchPos, breakPos).trim();
-          request.emit('response', Message.constructBody(line, true));
-          searchPos = breakPos + 1;
-        }
-        if (searchPos) {
-          stdout = stdout.substring(searchPos);
-        }
-      });
+      child = proc.spawn(command, args);
     } catch (err) {
-      if (request) {
-        request.emit(
-          'cancel',
-          Message.constructBody(
-            JSON.stringify({
-              returnValue: false,
-              errorCode: -1,
-              errorText: `Unable to exec ${command}: ${err}`,
-            }),
-            false,
-          ),
-        );
-      }
-      if (process) {
-        process.kill();
-      }
+      setTimeout(() => fail(`Unable to exec ${command}: ${err}`), 0);
+      return request;
     }
+    request.proc = child;
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data) => {
+      console.info('stdout:', data.toString());
+      stdout += data.toString();
+      let searchPos = 0;
+      let breakPos = 0;
+      while ((breakPos = stdout.indexOf('\n', searchPos)) > 0) {
+        const line = stdout.substring(searchPos, breakPos).trim();
+        if (line && !request.finished) {
+          responded = true;
+          request.emit('response', Message.constructBody(line, true));
+        }
+        searchPos = breakPos + 1;
+      }
+      if (searchPos) {
+        stdout = stdout.substring(searchPos);
+      }
+    });
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    /* Without this listener a missing or non-executable luna-send(-pub) is an
+     * uncaught exception that takes the whole service down. */
+    child.on('error', (err) => {
+      fail(`Unable to exec ${command}: ${err.message || err}`);
+    });
+    child.on('close', (code, signal) => {
+      if (!responded) {
+        const why = signal ? `was killed by ${signal}` : `exited with code ${code}`;
+        fail(`${command} ${why} without a response${stderr.trim() ? `: ${stderr.trim()}` : ''}`);
+      }
+    });
     return request;
   }
 

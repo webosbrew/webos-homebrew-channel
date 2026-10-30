@@ -138,7 +138,15 @@ Module._load = function (request, parent, isMain) {
 var WebosService = require('webos-service');
 var bundlePath = path.join(distDir, 'service.js');
 
-log('# loading ' + bundlePath + ' under node ' + process.version);
+/* Root and non-root take different install paths (the bus vs a luna-send-pub
+ * child process). Let a root runner exercise the non-root one too. */
+if (process.env.HBCHANNEL_SMOKE_NONROOT === '1') {
+  process.getuid = function () {
+    return 1000;
+  };
+}
+
+log('# loading ' + bundlePath + ' under node ' + process.version + (process.getuid() === 0 ? ' as root' : ' as non-root'));
 require(bundlePath);
 
 var service = WebosService.instances[0];
