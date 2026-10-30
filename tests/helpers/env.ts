@@ -132,12 +132,13 @@ export function serveDir(dir: string): Promise<{ url: string; close: () => void 
     const server = http.createServer((req, res) => {
       const file = path.join(dir, decodeURIComponent((req.url ?? '/').replace(/^\//, '')));
       if (!file.startsWith(dir) || !nodeFs.existsSync(file)) {
-        res.writeHead(404);
+        res.writeHead(404, { 'access-control-allow-origin': '*' });
         res.end('not found');
         return;
       }
       const data = nodeFs.readFileSync(file);
-      res.writeHead(200, { 'content-length': data.length });
+      // jsdom enforces CORS; the frontend tests load from a different origin.
+      res.writeHead(200, { 'content-length': data.length, 'access-control-allow-origin': '*' });
       res.end(data);
     });
     server.listen(0, '127.0.0.1', () => {

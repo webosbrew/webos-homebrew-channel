@@ -76,6 +76,7 @@ module.exports = kind({
                 },
                 {
                   kind: LabeledTextItem,
+                  name: 'rebootItem',
                   label: 'System reboot',
                   text: 'Configuration changes require a system reboot to apply.',
                   ontap: 'reboot',
@@ -154,7 +155,7 @@ module.exports = kind({
     {from: "rootIsActive", to: '$.sshd.disabled', transform: not},
     {from: "rootIsActive", to: '$.blockUpdates.disabled', transform: not},
     {from: "rootIsActive", to: '$.failsafe.disabled', transform: not},
-    {from: "rootIsActive", to: '$.reboot.disabled', transform: not},
+    {from: "rootIsActive", to: '$.rebootItem.disabled', transform: not},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
     {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
@@ -206,9 +207,10 @@ module.exports = kind({
     this.saveRepositories();
   },
   saveRepositories: function (sender, evt) {
+    // Plain objects, not enyo Models - core/repository.js is framework-free.
     var repos = [];
     for (var i = 0; i < this.extraRepositories.models.length; i++) {
-      repos.push(this.extraRepositories.models[i]);
+      repos.push({url: this.extraRepositories.models[i].get('url')});
     }
 
     ConfigUtils.setConfig({

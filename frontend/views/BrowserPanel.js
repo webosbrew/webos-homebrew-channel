@@ -37,22 +37,28 @@ var NestedSource = kind({
   kind: Source,
   name: 'NestedSource',
   collection: null,
+  // Called with (url, errorCode) whenever this feed fails.
+  onFeedError: null,
   fetch: function (model, opts) {
     console.info('NestedSource.fetch()', model, opts, this.collection);
+    var self = this;
+    var fail = function (col, errorCode) {
+      col.errorCode = errorCode;
+      if (self.onFeedError) self.onFeedError(col.url, errorCode);
+      opts.error([], errorCode);
+    };
     this.collection.fetch({
       success: function(col, _, result) {
         console.info('nested success:', result, col);
         if (repository.isInvalidFeedResult(result.map(function (m) { return m.attributes; }))) {
-          col.errorCode = repository.INVALID_FEED_ERROR_CODE;
-          opts.error([], repository.INVALID_FEED_ERROR_CODE);
+          fail(col, repository.INVALID_FEED_ERROR_CODE);
         } else {
           opts.success(result);
         }
       },
       error: function(col, state, next, errorCode) {
         console.info('nested error:', arguments, this);
-        col.errorCode = errorCode;
-        opts.error([], errorCode);
+        fail(col, errorCode);
       },
     });
   },
@@ -121,12 +127,19 @@ module.exports = kind({
       }
     },
     {
-      from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
-        var feeds = this.repository.source ? this.repository.source.map(function (s) { return s.collection; }) : [];
+      // Updated per failed feed (not per status change) so every failure is listed.
+      from: 'failedFeeds', to: '$.errorPopup.content', transform: function (feeds) {
         return 'An error occured while downloading some repositories:\n' + repository.failedFeedsSummary(feeds);
       }
     },
   ],
+
+  // [{url, errorCode}] for the feeds that failed in the current refresh.
+  failedFeeds: [],
+
+  recordFeedError: function (url, errorCode) {
+    this.set('failedFeeds', this.failedFeeds.concat([{url: url, errorCode: errorCode}]));
+  },
   create: function () {
     this.inherited(arguments);
     this.refresh();
@@ -150,6 +163,8 @@ module.exports = kind({
 
   loadRepositories: function (repos) {
     console.info('Loading from:', repos);
+    var recordFeedError = this.bindSafely('recordFeedError');
+    this.set('failedFeeds', []);
     if (repos.length === 0) {
       this.set('repository', new Collection([]));
     } else {
@@ -157,6 +172,7 @@ module.exports = kind({
         model: RepoPackageModel,
         source: repos.map(function (url) {
           return new NestedSource({
+            onFeedError: recordFeedError,
             collection: new Collection({
               model: RepoPackageModel,
               url: url,
