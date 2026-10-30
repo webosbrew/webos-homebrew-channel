@@ -170,6 +170,11 @@ directory run:
 npm install
 ```
 
+Two build products are git-ignored and generated on demand:
+`frontend/vendor/purify.es5.js` (the ES5 build of DOMPurify) by `npm run build`
+through its `prebuild` step, and `dist/services/` by `npm run build-service`.
+`npm test` builds both first; `npm run clean` removes them.
+
 Lint, type-check and run the unit tests with:
 ```sh
 npm run lint && npm run typecheck && npm test
@@ -260,6 +265,18 @@ ssh root@10.0.0.2 /media/developer/apps/usr/palm/services/org.webosbrew.hbchanne
 cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /var/lib/webosbrew/startup.sh
 ```
 
+After changing `services/startup.sh` run `npm run startup-checksums`, which
+regenerates `services/startup-checksums.json` (the checksums of every version
+of the script ever committed; the service uses them to tell its own startup
+script on a TV from one the user has edited). CI runs the same tool with
+`--check` and fails if the file is stale.
+
+### CA bundle
+The service verifies HTTPS downloads against its own CA bundle in
+`services/certs/`, since the system store on older TVs is out of date. The
+`refresh-ca-bundle` workflow checks for a newer Mozilla bundle
+(https://curl.se/ca/cacert.pem) and opens a pull request when one is available.
+
 ### Release engineering
 ```sh
 npm version minor
@@ -299,6 +316,11 @@ Before every release following features should be verified:
     be *disabled*.
   * If an update is available for application "Version" should show eg. "0.1.2
     (installed: 0.1.0)"
+
+* Developer Mode (non-rooted) TV:
+  * Installing and uninstalling an application goes through `luna-send-pub`
+    rather than the service's own bus connection; both should finish with the
+    usual notifications and the service should keep running afterwards.
 
 * Homebrew Channel Self-update - reinstall/update can be force-enabled by
   pressing remote button 5 on Homebrew Channel app page.
