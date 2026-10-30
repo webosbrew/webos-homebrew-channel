@@ -155,6 +155,50 @@ Development
 -----------
 
 ### Environment
+For a containerized build, the host needs Git and Docker or Podman; Node.js,
+npm and the packaging tools run inside the image. Use a full recursive clone:
+```sh
+git clone --recursive https://github.com/volt317/webos-homebrew-channel.git
+cd webos-homebrew-channel
+sh tools/build-container.sh --engine docker
+# Or: sh tools/build-container.sh --engine podman
+```
+
+The image pins `node:22.23.4-bookworm-slim`, installs with `npm ci`, runs lint,
+type checking, tests and startup-checksum verification, then builds the
+production frontend, service, IPK and manifest as the unprivileged `node` user.
+It packages the native binaries already tracked in `services/bin/`; it does
+not rebuild those binaries or connect to a TV.
+
+Outputs are copied to `artifacts/container/`: the IPK, manifest,
+`build-info.json` (commit, dirty-state flag, tool versions and hashes), and
+`SHA256SUMS`. No host source directory is mounted into a running container.
+The wrapper removes its temporary stopped container and keeps the build image
+for inspection and caching. It overwrites matching output files without
+deleting other files in the destination.
+```sh
+cd artifacts/container
+sha256sum -c SHA256SUMS
+```
+
+Use `--output /path/to/output` for a different destination and `--no-cache`
+to rebuild image layers. `NODE_IMAGE` may override the base with an exact
+Node 22 image tag or digest; a tag pins the Node version but does not freeze
+Debian package repositories. Docker BuildKit can also export just the files:
+```sh
+docker build --output type=local,dest=artifacts/export .
+```
+
+Full `.git` history and initialized submodules are required: the container
+verifies historical startup-script hashes. Source ZIPs, shallow clones and
+linked Git worktrees with external Git metadata are not supported by this
+build context. Repair a shallow clone with `git fetch --unshallow`, and
+initialize submodules with `git submodule update --init --recursive`.
+Build contexts exclude host dependencies, generated files, and `.env` files.
+The first build needs network access for the base image, Debian packages and
+npm/Git dependencies. Run the wrapper as your regular user with an accessible
+Docker daemon or rootless Podman. Compose is not required.
+
 Some libraries used by this project are submodules of this repository. Use
 following command when cloning:
 ```sh
