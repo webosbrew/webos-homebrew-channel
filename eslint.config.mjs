@@ -4,6 +4,7 @@ import ts from 'typescript-eslint';
 import jsoncParser from 'jsonc-eslint-parser';
 
 import importPlugin from 'eslint-plugin-import';
+import nodePlugin from 'eslint-plugin-n';
 
 /* includes the plugin and enables the rules */
 import prettierRecommendedConfig from 'eslint-plugin-prettier/recommended';
@@ -221,6 +222,32 @@ export default ts.config(
     },
   },
   {
+    /*
+     * The service runs on the TV's Node.js, which is 0.10/0.12 on webOS 3.x.
+     * Syntax is handled by Babel and ES built-ins by core-js, but nothing can
+     * add Node.js APIs that did not exist yet - so gate those statically.
+     */
+    files: ['services/**/*.{js,ts}'],
+    /* the shim that *defines* the newer Buffer API on old Node */
+    ignores: ['services/platform/buffer-shim.js'],
+    plugins: { n: nodePlugin },
+    rules: {
+      'n/no-unsupported-features/node-builtins': [
+        'error',
+        {
+          version: '>=0.10.0',
+          ignores: [
+            /* provided by services/platform/buffer-shim.js */
+            'Buffer.from',
+            /* type-only usages */
+            'child_process.ChildProcess',
+            'URL',
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['services/**/*.{js,ts}'],
     rules: {
       /* logging to console is fine */
@@ -233,6 +260,33 @@ export default ts.config(
           packageDir: __dirname,
         },
       ],
+    },
+  },
+  {
+    /* legacy-Node smoke harness: deliberately plain ES5 CommonJS so it runs on Node.js 0.10 */
+    files: ['tests/legacy/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: 'script',
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],
+      'no-console': 'off',
+      'no-var': 'off',
+      'prefer-const': 'off',
+      'prefer-rest-params': 'off',
+      'prefer-spread': 'off',
+      'object-shorthand': 'off',
+      'func-names': 'off',
+      'prefer-arrow-callback': 'off',
+      'prefer-template': 'off',
+      'no-buffer-constructor': 'off',
+      'prettier/prettier': ['error', { trailingComma: 'none' }],
     },
   },
   {

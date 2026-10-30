@@ -406,6 +406,9 @@ export function registerHandlers(service: Service, installer: LunaClient, config
   }
   async function getAppInfo(appId: string): Promise<AppInfo> {
     const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
+    if (!Array.isArray(appList.apps)) {
+      throw new Error('listApps returned no "apps" array');
+    }
     const appInfo = appList.apps.find((app) => app.id === appId);
     if (!appInfo) throw new Error(`Invalid appId, or unsupported application type: ${appId}`);
     return appInfo;

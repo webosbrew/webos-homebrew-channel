@@ -576,9 +576,10 @@ describe('autostart / registerActivity', () => {
     assert.equal(ctx.bus.callsTo(AM_CREATE_URI).length, 1, 'activity registered for app-initiated call');
     assert.equal(ctx.bus.callsTo(AM_PAUSE_URI).length, 0);
 
-    // the detached script runs asynchronously
+    // the detached script runs asynchronously; allow generous time since the
+    // test runner may be building the bundle in parallel
     const log = path.join(ctx.env.root, 'startup-ran.log');
-    for (let i = 0; i < 50 && !nodeFs.existsSync(log); i += 1) await new Promise((r) => setTimeout(r, 20));
+    for (let i = 0; i < 250 && !nodeFs.existsSync(log); i += 1) await new Promise((r) => setTimeout(r, 20));
     assert.equal(nodeFs.readFileSync(log, 'utf8'), `ran true ${ctx.env.config.paths.serviceDir} ${ctx.env.config.paths.homeDir}\n`);
   });
 

@@ -75,7 +75,18 @@ export function createTestEnv(overrides: Partial<ServiceConfig> & { runningAsRoo
     config,
     selfUpdates,
     cleanup: () => {
-      nodeFs.rmSync(root, { recursive: true, force: true });
+      // A detached startup script may still be finishing; retry briefly.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          nodeFs.rmSync(root, { recursive: true, force: true });
+          return;
+        } catch {
+          const until = Date.now() + 50;
+          while (Date.now() < until) {
+            /* spin */
+          }
+        }
+      }
     },
   };
 }
