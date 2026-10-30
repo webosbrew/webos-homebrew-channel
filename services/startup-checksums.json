@@ -1,0 +1,140 @@
+[
+    {
+        "sha256": "9bc259bd253179783f8d6845191d586d4093ee7acabd0f0db251c4127ced4cb0",
+        "commit": "9f12301851d9",
+        "date": "2021-04-19",
+        "subject": "services: add startup.sh script"
+    },
+    {
+        "sha256": "9d73c888faa093d4128a2f7529d9774b3fd8ddc01fbd5a6b03462fbe56263aa0",
+        "commit": "957d29f33821",
+        "date": "2021-04-21",
+        "subject": "startup: sshd integration"
+    },
+    {
+        "sha256": "a26d22223e60915fc159c2d442e98afae847ac3f6a69266c5516fe906dd87b3e",
+        "commit": "32c8ecbd1d63",
+        "date": "2021-04-21",
+        "subject": "startup: run user hooks"
+    },
+    {
+        "sha256": "db2984ef00f63144a484abc2c45b73f4f31dfd85369a2c36e9b341bbb6db3ec2",
+        "commit": "4cf026565b2a",
+        "date": "2021-04-23",
+        "subject": "startup: add shadow overlay with a default password"
+    },
+    {
+        "sha256": "b6d4e14a38e075ffe29c84311c6888288830c706b9af96b20ef5983417bc1867",
+        "commit": "aa27fc50fd3f",
+        "date": "2021-04-23",
+        "subject": "startup: implement update blocking"
+    },
+    {
+        "sha256": "c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92",
+        "commit": "035595d1c690",
+        "date": "2021-04-27",
+        "subject": "Merge pull request #19 from webosbrew/feature/sshd-password"
+    },
+    {
+        "sha256": "448bf60367457c98ce838fca759731f12203ed9ee3762927d6706ee3134756bd",
+        "commit": "bf35166438ec",
+        "date": "2022-02-02",
+        "subject": "Fix root login on webOS 2.x (#79)"
+    },
+    {
+        "sha256": "6a2185234c7fc31f5c62bbd2b9b87d6a3a214bb140b737a7abe8987991205bfe",
+        "commit": "c8f9b2d5eef3",
+        "date": "2022-02-03",
+        "subject": "startup.sh: run only once (#80)"
+    },
+    {
+        "sha256": "3346aee47eda00b2828e5ffadfbe5bc8dd4b159ff21669c90555c5e28b28cddf",
+        "commit": "4cf88b535dc3",
+        "date": "2022-02-02",
+        "subject": "startup.sh: do not use immutable directory, more telemetry paths (#92)"
+    },
+    {
+        "sha256": "c8d4e069cbab0ceb5dd27257288b055656452e61f1203a33dfd8e4f8dbb8255a",
+        "commit": "68e2fa4c46df",
+        "date": "2022-02-02",
+        "subject": "startup.sh: fix authorized_keys permissions"
+    },
+    {
+        "sha256": "0bd437057c9e2295e79787d90170784e4841321bdd506c5847b89408d197e39e",
+        "commit": "86ecc7899c73",
+        "date": "2022-02-02",
+        "subject": "startup.sh: show apropriate message when lock is taken"
+    },
+    {
+        "sha256": "1be980462e3bc81ddec4274c523a9c7d8ca8599d3c0af50ef0352eb1a02b6ef4",
+        "commit": "678875e971a2",
+        "date": "2022-02-02",
+        "subject": "startup.sh: disable failsafe mode after 15 seconds..."
+    },
+    {
+        "sha256": "be14029258e51efe9a6aa67734f406cdd5df151d5b50c257ade7630acef2954a",
+        "commit": "01f49225986f",
+        "date": "2022-02-22",
+        "subject": "startup.sh: add reboot alert"
+    },
+    {
+        "sha256": "bcbe9f8cea451c40190334ee4819427b316c0dba889b502049fb99f7a4807c6b",
+        "commit": "4d3667ef4932",
+        "date": "2022-02-22",
+        "subject": "startup.sh: fix locking"
+    },
+    {
+        "sha256": "0c7963d77dcb0c6e47f8efc1a45bf368c7d7af7b991f0983128cece0711bd63a",
+        "commit": "3b3231ff3010",
+        "date": "2022-07-14",
+        "subject": "added warning message to motd"
+    },
+    {
+        "sha256": "15bd94b71c652b5d64ff79f2a88f965f9a61992ed3ce064617323d6a950d5d49",
+        "commit": "f7a459cfd8a1",
+        "date": "2022-07-15",
+        "subject": "startup.sh: Bind-mount /temp/motd -> /etc/motd unconditionally"
+    },
+    {
+        "sha256": "9c8529ae1edad998b82cc3819fa0cfbdd7f2358188ac62e8861c726ff1432130",
+        "commit": "79ca954a7cc5",
+        "date": "2023-01-30",
+        "subject": "avoid leaking startup.sh lock fd"
+    },
+    {
+        "sha256": "5caab3681cdd52cc9b59136a180cd0a1ffb98ec39bf571c38c0a4eb528ce13fb",
+        "commit": "66ce8e942d3c",
+        "date": "2023-01-30",
+        "subject": "close file descriptors in startup.sh"
+    },
+    {
+        "sha256": "befe927c6f62b87545aaefb4b2648a227b22695fa0f78a228dcacf1fbba11aeb",
+        "commit": "967c2eb74918",
+        "date": "2023-02-18",
+        "subject": "startup: create init.d, update checksums"
+    },
+    {
+        "sha256": "d914b3b444433bf49ff83c3c0ae0b729cf7544c074e72c23ec24e5f86aaaf4ac",
+        "commit": "54fae78f36be",
+        "date": "2023-07-18",
+        "subject": "startup: skip elevation if the script was called by the service itself"
+    },
+    {
+        "sha256": "6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f",
+        "commit": "c59c823033d3",
+        "date": "2023-07-30",
+        "subject": "startup.sh: allow service path to be overridden"
+    },
+    {
+        "sha256": "e04a3d61098c6f74d466da6fb457a52fb61a9cc86869059ae32b13bf43cd9d10",
+        "commit": "525edd3346c9",
+        "date": "2023-12-29",
+        "subject": "startup.sh: sync after clearing failsafe flag"
+    },
+    {
+        "sha256": "c8b5093eca9a78ef70b2742f60ab7b1a04e7c9331359f234bd40a0065238815b",
+        "commit": "943eeb59beec",
+        "date": "2025-06-21",
+        "subject": "Ships Telnetd (#213)"
+    }
+]

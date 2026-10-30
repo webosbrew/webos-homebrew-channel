@@ -155,16 +155,86 @@ Development
 -----------
 
 ### Environment
+For a containerized build, the host needs Git and Docker or Podman; Node.js,
+npm and the packaging tools run inside the image. Use a full recursive clone:
+```sh
+git clone --recursive https://github.com/volt317/webos-homebrew-channel.git
+cd webos-homebrew-channel
+sh tools/build-container.sh --engine docker
+# Or: sh tools/build-container.sh --engine podman
+```
+
+The image pins `node:22.23.4-bookworm-slim`, installs with `npm ci`, runs lint,
+type checking, tests and startup-checksum verification, then builds the
+production frontend, service, IPK and manifest as the unprivileged `node` user.
+It packages the native binaries already tracked in `services/bin/`; it does
+not rebuild those binaries or connect to a TV.
+
+Outputs are copied to `artifacts/container/`: the IPK, manifest,
+`build-info.json` (commit, dirty-state flag, tool versions and hashes), and
+`SHA256SUMS`. No host source directory is mounted into a running container.
+The wrapper removes its temporary stopped container and keeps the build image
+for inspection and caching. It overwrites matching output files without
+deleting other files in the destination.
+```sh
+cd artifacts/container
+sha256sum -c SHA256SUMS
+```
+
+Use `--output /path/to/output` for a different destination and `--no-cache`
+to rebuild image layers. `NODE_IMAGE` may override the base with an exact
+Node 22 image tag or digest; a tag pins the Node version but does not freeze
+Debian package repositories. Docker BuildKit can also export just the files:
+```sh
+docker build --output type=local,dest=artifacts/export .
+```
+
+Full `.git` history and initialized submodules are required: the container
+verifies historical startup-script hashes. Source ZIPs, shallow clones and
+linked Git worktrees with external Git metadata are not supported by this
+build context. Repair a shallow clone with `git fetch --unshallow`, and
+initialize submodules with `git submodule update --init --recursive`.
+Build contexts exclude host dependencies, generated files, and `.env` files.
+The first build needs network access for the base image, Debian packages and
+npm/Git dependencies. Run the wrapper as your regular user with an accessible
+Docker daemon or rootless Podman. Compose is not required.
+
 Some libraries used by this project are submodules of this repository. Use
 following command when cloning:
 ```sh
 git clone --recursive https://github.com/webosbrew/webos-homebrew-channel
 ```
 
-All required development packages are distributed via npm. In order to install
-them in a local directory run:
+All required development packages are distributed via npm. Node.js 22 is
+required for the build and test tooling (the service itself still targets the
+TV's Node.js, see below); the frontend build tool depends on `util.isRegExp`
+and friends, which Node.js 23+ removed. In order to install them in a local
+directory run:
 ```sh
 npm install
+```
+
+Two build products are git-ignored and generated on demand:
+`frontend/vendor/purify.es5.js` (the ES5 build of DOMPurify) by `npm run build`
+through its `prebuild` step, and `dist/services/` by `npm run build-service`.
+`npm test` builds both first; `npm run clean` removes them.
+
+Lint, type-check and run the unit tests with:
+```sh
+npm run lint && npm run typecheck && npm test
+```
+
+The service bundle has to run on the TV's own Node.js (0.10 on the oldest
+supported webOS). Every place where the code depends on a Node.js version
+difference lives in `services/platform/` and is listed, with a test of its
+fallback path, in `tests/node-compat.test.ts`; the `n/no-unsupported-features`
+lint rule flags new uses of post-0.10 APIs. Those tests run on the toolchain's
+Node.js. When an actual old runtime is at hand (a TV over SSH, or an old
+`node` binary), `tests/legacy/smoke.js` loads the built bundle on it and
+drives the service through a fake Luna bus:
+```sh
+npm run build-service   # produces dist/services/service.js
+/path/to/old/node tests/legacy/smoke.js dist/services
 ```
 
 ### Technology stack
@@ -239,6 +309,18 @@ ssh root@10.0.0.2 /media/developer/apps/usr/palm/services/org.webosbrew.hbchanne
 cp /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/startup.sh /var/lib/webosbrew/startup.sh
 ```
 
+After changing `services/startup.sh` run `npm run startup-checksums`, which
+regenerates `services/startup-checksums.json` (the checksums of every version
+of the script ever committed; the service uses them to tell its own startup
+script on a TV from one the user has edited). CI runs the same tool with
+`--check` and fails if the file is stale.
+
+### CA bundle
+The service verifies HTTPS downloads against its own CA bundle in
+`services/certs/`, since the system store on older TVs is out of date. The
+`refresh-ca-bundle` workflow checks for a newer Mozilla bundle
+(https://curl.se/ca/cacert.pem) and opens a pull request when one is available.
+
 ### Release engineering
 ```sh
 npm version minor
@@ -278,6 +360,11 @@ Before every release following features should be verified:
     be *disabled*.
   * If an update is available for application "Version" should show eg. "0.1.2
     (installed: 0.1.0)"
+
+* Developer Mode (non-rooted) TV:
+  * Installing and uninstalling an application goes through `luna-send-pub`
+    rather than the service's own bus connection; both should finish with the
+    usual notifications and the service should keep running afterwards.
 
 * Homebrew Channel Self-update - reinstall/update can be force-enabled by
   pressing remote button 5 on Homebrew Channel app page.

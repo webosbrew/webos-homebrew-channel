@@ -27,6 +27,12 @@
     "exclude": [
         "dist",
         "node_modules",
-        "lib"
+        "lib",
+        "tests"
+    ],
+    "include": [
+        "services/**/*",
+        "tools/**/*",
+        "webpack.config.js"
     ]
 }

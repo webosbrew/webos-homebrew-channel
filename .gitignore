@@ -111,3 +111,9 @@ services/bin/doas
 tools/doas/doas
 .enyocache
 dist/
+
+# Generated at build time by tools/build-dompurify.js
+frontend/vendor/
+
+# Exported container build artifacts
+artifacts/

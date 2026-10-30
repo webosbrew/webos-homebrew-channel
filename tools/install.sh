@@ -7,13 +7,12 @@ MANIFEST_URL="${MANIFEST_URL:-https://github.com/webosbrew/webos-homebrew-channe
 export MANIFEST_URL
 
 echo "[ ] Downloading manifest..."
-export MANIFEST_JSON="$(curl -L -- "$MANIFEST_URL")"
+MANIFEST_JSON="$(curl -L -- "$MANIFEST_URL")"
+export MANIFEST_JSON
 
-export $(node -e '
-var manifest = JSON.parse(process.env.MANIFEST_JSON);
-console.info("IPK_URL=" + require("url").resolve(process.env.MANIFEST_URL, manifest.ipkUrl));
-console.info("IPK_SHA256=" + manifest.ipkHash.sha256);
-')
+IPK_URL="$(node -e 'var m = JSON.parse(process.env.MANIFEST_JSON); process.stdout.write(require("url").resolve(process.env.MANIFEST_URL, m.ipkUrl));')"
+IPK_SHA256="$(node -e 'var m = JSON.parse(process.env.MANIFEST_JSON); process.stdout.write(m.ipkHash.sha256);')"
+export IPK_URL IPK_SHA256
 
 echo "[ ] Downloading $IPK_URL..."
 curl -L -o /tmp/hbchannel.ipk -- "$IPK_URL"
@@ -25,7 +24,7 @@ echo "[ ] Installing..."
 luna-send-pub -w 15000 -i 'luna://com.webos.appInstallService/dev/install' '{"id":"com.ares.defaultName","ipkUrl":"/tmp/hbchannel.ipk","subscribe":true}' >/tmp/luna-install &
 LUNA_PID=$!
 
-if ! result="$(fgrep -m 1 -e 'installed' -e 'failed' /tmp/luna-install)"; then
+if ! result="$(grep -F -m 1 -e 'installed' -e 'failed' /tmp/luna-install)"; then
     rm /tmp/luna-install
     echo "[!] Install timed out"
     exit 1
