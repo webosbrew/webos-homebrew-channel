@@ -40,6 +40,21 @@ export default class Handle {
     try {
       process = proc.spawn(command, args);
       request = new Request(process);
+      // spawn reports failures such as ENOENT asynchronously; try/catch cannot
+      // catch them. Forward the failure through the subscription contract.
+      process.on('error', (err) => {
+        request.emit(
+          'cancel',
+          Message.constructBody(
+            JSON.stringify({
+              returnValue: false,
+              errorCode: -1,
+              errorText: `Unable to exec ${command}: ${err}`,
+            }),
+            false,
+          ),
+        );
+      });
       const stream = process.stdout;
       let stdout = '';
       stream.on('close', () => {});
