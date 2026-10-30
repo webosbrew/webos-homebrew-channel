@@ -177,6 +177,34 @@ describe('manifest presentation logic', () => {
     assert.equal(manifest.projectPageEnabled(undefined), false);
   });
 
+  it('renderDescription uses the sanitizer when supported and escapes otherwise', () => {
+    const calls: string[] = [];
+    const supported = {
+      isSupported: true,
+      sanitize: (html: string, cfg?: object) => {
+        calls.push(JSON.stringify(cfg));
+        return html.replace(/<script>.*?<\/script>/g, '');
+      },
+    };
+    assert.equal(manifest.renderDescription(supported, '<p>hi</p><script>x</script>'), '<div class="rich-description"><p>hi</p></div>');
+    assert.deepEqual(calls, [JSON.stringify(manifest.DESCRIPTION_SANITIZE_CONFIG)]);
+
+    // DOMPurify on an engine it does not support returns input unchanged - we must not trust it then.
+    const unsupported = { isSupported: false, sanitize: (html: string) => html };
+    const out = manifest.renderDescription(unsupported, '<img src=x onerror=alert(1)>');
+    assert.equal(out, '<div class="rich-description"><p>&lt;img src=x onerror=alert(1)&gt;</p></div>');
+    assert.doesNotMatch(out, /<img/);
+
+    assert.equal(
+      manifest.renderDescription(undefined as unknown as typeof unsupported, '<b>x</b>'),
+      '<div class="rich-description"><p>&lt;b&gt;x&lt;/b&gt;</p></div>',
+    );
+  });
+
+  it('escapeHtml covers the five characters', () => {
+    assert.equal(manifest.escapeHtml(`<a href="x" title='y'>&</a>`), '&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;');
+  });
+
   it('subtitle and descriptions', () => {
     assert.equal(manifest.subtitleText('com.x', true, 'https://r'), 'com.x');
     assert.equal(manifest.subtitleText('com.x', false, 'https://r'), 'com.x (from https://r)');

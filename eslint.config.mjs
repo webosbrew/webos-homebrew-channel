@@ -238,8 +238,8 @@ export default ts.config(
      * add Node.js APIs that did not exist yet - so gate those statically.
      */
     files: ['services/**/*.{js,ts}'],
-    /* the shim that *defines* the newer Buffer API on old Node */
-    ignores: ['services/platform/buffer-shim.js'],
+    /* the shims that *define* newer APIs on old Node */
+    ignores: ['services/platform/buffer-shim.js', 'services/platform/string-shim.js'],
     plugins: { n: nodePlugin },
     rules: {
       'n/no-unsupported-features/node-builtins': [

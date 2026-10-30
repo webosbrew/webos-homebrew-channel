@@ -79,6 +79,33 @@ function wrapDescription(sanitizedHtml) {
   return '<div class="rich-description">' + sanitizedHtml + '</div>';
 }
 
+/** Escapes text for safe insertion as HTML. */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, function (ch) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+  });
+}
+
+/**
+ * Produces the HTML to show for a repository-provided description.
+ *
+ * Descriptions are untrusted. When the sanitizer reports that it cannot run
+ * on this engine (DOMPurify returns input UNCHANGED in that case), fall back
+ * to showing the raw text escaped, never unsanitized markup.
+ *
+ * @param {{isSupported: boolean, sanitize: function(string, object=): string}} sanitizer DOMPurify instance
+ * @param {string} description raw HTML from the repository
+ */
+function renderDescription(sanitizer, description) {
+  var html;
+  if (sanitizer && sanitizer.isSupported && typeof sanitizer.sanitize === 'function') {
+    html = String(sanitizer.sanitize(description, DESCRIPTION_SANITIZE_CONFIG));
+  } else {
+    html = '<p>' + escapeHtml(description) + '</p>';
+  }
+  return wrapDescription(html);
+}
+
 module.exports = {
   HOMEBREW_CHANNEL_ID: HOMEBREW_CHANNEL_ID,
   DESCRIPTION_SANITIZE_CONFIG: DESCRIPTION_SANITIZE_CONFIG,
@@ -95,4 +122,6 @@ module.exports = {
   fallbackDescription: fallbackDescription,
   fullDescription: fullDescription,
   wrapDescription: wrapDescription,
+  escapeHtml: escapeHtml,
+  renderDescription: renderDescription,
 };

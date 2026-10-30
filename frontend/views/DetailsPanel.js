@@ -189,7 +189,7 @@ module.exports = kind({
     {from: 'packageInfo.title', to: 'title'},
     {from: 'packageInfo.id', to: 'titleBelow', transform: 'subtitleID'},
     {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
-      return manifest.wrapDescription(DOMPurify.sanitize(description, manifest.DESCRIPTION_SANITIZE_CONFIG));
+      return manifest.renderDescription(DOMPurify, description);
     }},
 
     {from: 'packageInfo.version', to: '$.version.text', transform: 'version'},
@@ -380,7 +380,8 @@ module.exports = kind({
 
   showError: function(msg, operation) {
     console.info('install error:', msg);
-    this.$.errorPopup.setContent(DOMPurify.sanitize(contract.formatOperationError(msg, operation)));
+    var errorHtml = contract.formatOperationError(msg, operation);
+    this.$.errorPopup.setContent(DOMPurify.isSupported ? DOMPurify.sanitize(errorHtml) : manifest.escapeHtml(errorHtml));
     this.$.errorPopup.show();
   },
 

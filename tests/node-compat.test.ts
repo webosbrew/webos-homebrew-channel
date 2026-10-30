@@ -17,12 +17,14 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import nodeFs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { proc, stream } from '../services/platform';
 import { install as installBufferShim } from '../services/platform/buffer-shim';
+import { install as installStringShim } from '../services/platform/string-shim';
 
 const repoRoot = path.resolve(__dirname, '..');
 const read = (rel: string): string => nodeFs.readFileSync(path.join(repoRoot, rel), 'utf8');
@@ -49,6 +51,11 @@ const MATRIX = [
     shim: '@babel/preset-env targeting node 0.10, output verified ES5',
   },
   { feature: 'Buffer.from / alloc / allocUnsafe(Slow)', since: '4.5', shim: 'platform/buffer-shim.js' },
+  {
+    feature: 'String.prototype.normalize (used by node-fetch -> whatwg-url -> tr46 on every host name)',
+    since: '0.12',
+    shim: 'platform/string-shim.js (identity; host names are ASCII)',
+  },
   {
     feature: "child_process.exec(..., { encoding: 'buffer' })",
     since: '0.12',
@@ -127,6 +134,42 @@ describe('Buffer.from/alloc shim (Node < 4.5)', () => {
       .filter((l) => l.startsWith('import '))
       .slice(0, 3);
     assert.deepEqual(firstImports, ["import 'core-js/stable';", "import 'regenerator-runtime/runtime';", "import './buffer-shim';"]);
+  });
+});
+
+describe('String.prototype.normalize missing (Node 0.10)', () => {
+  it('installs an identity normalize() on a prototype that lacks it', () => {
+    const proto: { normalize?: (form?: string) => string } = {};
+    assert.equal(installStringShim(proto), true);
+    assert.equal(typeof proto.normalize, 'function');
+    // tr46 calls `domain.normalize('NFC')`; the TV only ever sees ASCII host names.
+    assert.equal(String.prototype.normalize.call('repo.webosbrew.org', 'NFC'), 'repo.webosbrew.org');
+    assert.equal(proto.normalize?.call('127.0.0.1', 'NFC'), '127.0.0.1');
+  });
+
+  it('leaves a native normalize() alone', () => {
+    assert.equal(installStringShim(String.prototype), false);
+    assert.equal('e\u0301'.normalize('NFC'), '\u00e9', 'native behaviour intact');
+  });
+
+  it('is loaded by the platform layer with the other shims', () => {
+    const promiseTs = read('services/platform/promise.ts');
+    assert.match(promiseTs, /^import '\.\/string-shim';$/m);
+  });
+
+  it('the service bundle actually contains a normalize() call site (so the shim is load-bearing)', () => {
+    const bundle = path.join(repoRoot, 'dist', 'services', 'service.js');
+    if (!nodeFs.existsSync(bundle)) {
+      // bundle.test.ts builds it; when run in isolation, build here
+      execFileSync('npx', ['webpack', '--env', 'production'], { cwd: repoRoot, stdio: 'pipe', timeout: 180000 });
+    }
+    const src = nodeFs.readFileSync(bundle, 'utf8');
+    assert.match(src, /\.normalize\(/, 'node-fetch/tr46 normalize() call expected in the bundle');
+    assert.match(
+      src,
+      /normalize=function normalize\(\)\{return String\(this\)\}|normalize=function\(\)\{return String\(this\)\}/,
+      'shim present in bundle',
+    );
   });
 });
 

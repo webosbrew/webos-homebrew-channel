@@ -11,6 +11,7 @@
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 import './buffer-shim';
+import './string-shim';
 
 import { errorMessage } from '../utils';
 

@@ -161,9 +161,10 @@ following command when cloning:
 git clone --recursive https://github.com/webosbrew/webos-homebrew-channel
 ```
 
-All required development packages are distributed via npm. Node.js 22 or
-newer is required for the build and test tooling (the service itself still
-targets the TV's Node.js, see below). In order to install them in a local
+All required development packages are distributed via npm. Node.js 22 is
+required for the build and test tooling (the service itself still targets the
+TV's Node.js, see below); the frontend build tool depends on `util.isRegExp`
+and friends, which Node.js 23+ removed. In order to install them in a local
 directory run:
 ```sh
 npm install
