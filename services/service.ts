@@ -1,26 +1,21 @@
-import 'core-js/stable';
-import 'regenerator-runtime/runtime';
-
-import fs from 'fs';
-import { createHash } from 'crypto';
 import path from 'path';
-import child_process from 'child_process';
 
-// @ts-expect-error
-import { Promise } from 'bluebird';
-import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 
-import { asyncStat, asyncExecFile, asyncPipeline, asyncUnlink, asyncWriteFile, asyncReadFile, asyncChmod, asyncMkdir } from './adapter';
-import { fetchWrapper } from './fetch-wrapper';
+import { crypto, fs, http, proc, stream } from './platform';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
 import startupChecksums from './startup-checksums.json';
 import { makeError, makeSuccess } from './protocol';
-import { errorMessage, isNodeError, parseControlFile } from './utils';
+import { errorMessage, parseControlFile } from './utils';
 import ServiceRemote from './webos-service-remote';
 import FakeActivityManager from './fake-activity-manager';
+
+const { runningAsRoot } = proc;
+
+// The CA bundle is packaged next to the service bundle.
+http.configure({ certsDir: path.join(__dirname, 'certs') });
 
 const homebrewChannelPackageId = rootAppInfo.id;
 const autostartActivityName = `${homebrewChannelPackageId}.service.autostart`;
@@ -40,18 +35,6 @@ const homebrewBaseDir = ((): string | null => {
   }
 })();
 
-const nodeVersion = (() => {
-  try {
-    // Just in case there's a build/pre-release suffix.
-    const core = process.versions.node.split(/[-+]/, 1)[0] as string;
-    const [major, minor = 0, patch = 0] = core.split('.').map((x) => parseInt(x, 10));
-    return { major, minor, patch };
-  } catch (err) {
-    console.warn('getting nodeVersion failed:', err);
-    return { major: 0, minor: 0, patch: 0 };
-  }
-})();
-
 // Maps internal setting field name with filesystem flag name.
 const availableFlags = {
   telnetDisabled: 'webosbrew_telnet_disabled',
@@ -61,13 +44,6 @@ const availableFlags = {
 } as const;
 type FlagName = keyof typeof availableFlags;
 type FlagFileName = (typeof availableFlags)[FlagName];
-
-const runningAsRoot: boolean = (() => {
-  if (typeof process.getuid === 'undefined') {
-    throw new Error('process.getuid() is missing');
-  }
-  return process.getuid() === 0;
-})();
 
 function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, args: Record<string, any>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -96,62 +72,15 @@ function createToast(message: string, service: Service, extras: Record<string, a
 }
 
 /**
- * Check whether a path is a valid file
- */
-async function isFile(targetPath: string): Promise<boolean> {
-  try {
-    return (await asyncStat(targetPath)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check whether a path exists
- */
-function exists(targetPath: string): Promise<boolean> {
-  return asyncStat(targetPath).then(
-    () => true,
-    () => false,
-  );
-}
-
-/**
- * Copies a file
+ * Copies a script and makes it executable.
  */
 async function copyScript(sourcePath: string, targetPath: string): Promise<void> {
-  if (!(await isFile(sourcePath))) {
+  if (!(await fs.isFile(sourcePath))) {
     throw new Error(`${sourcePath} is not a file`);
   }
 
-  await asyncPipeline(fs.createReadStream(sourcePath), fs.createWriteStream(targetPath));
-  await asyncChmod(targetPath, 0o755);
-}
-
-/**
- * Generates local file checksum.
- */
-async function hashFile(filePath: string, algorithm: string): Promise<string> {
-  const download = fs.createReadStream(filePath);
-  const hash = createHash(algorithm, { encoding: 'hex' });
-  await asyncPipeline(download, hash);
-  hash.end();
-  const ret: unknown = hash.read();
-
-  if (typeof ret !== 'string') {
-    throw new Error('reading result of hash failed');
-  }
-
-  return ret;
-}
-
-/**
- * Hashes a string with specified algorithm.
- *
- * Input should be UTF-8.
- */
-function hashString(data: string, algorithm: string): string {
-  return createHash(algorithm).update(data, 'utf-8').digest('hex');
+  await stream.pipeline(fs.createReadStream(sourcePath), fs.createWriteStream(targetPath));
+  await fs.chmod(targetPath, 0o755);
 }
 
 /**
@@ -164,7 +93,7 @@ async function elevateService(pkg: string): Promise<boolean> {
   }
 
   console.info('Elevating service...');
-  await asyncExecFile(path.join(__dirname, 'elevate-service'), [pkg]);
+  await proc.execFile(path.join(__dirname, 'elevate-service'), [pkg]);
   return true;
 }
 
@@ -179,7 +108,7 @@ function flagFilePath(flagFile: FlagFileName): string {
  * Returns whether a flag is set or not.
  */
 async function flagFileRead(flagFile: FlagFileName): Promise<boolean> {
-  return exists(flagFilePath(flagFile));
+  return fs.exists(flagFilePath(flagFile));
 }
 
 /**
@@ -188,13 +117,13 @@ async function flagFileRead(flagFile: FlagFileName): Promise<boolean> {
 async function flagFileSet(flagFile: FlagFileName, enabled: boolean): Promise<boolean> {
   if (enabled) {
     // The file content is ignored, file presence is what matters. Writing '1' acts as a hint.
-    await asyncWriteFile(flagFilePath(flagFile), '1');
+    await fs.writeFile(flagFilePath(flagFile), '1');
   } else {
     try {
-      await asyncUnlink(flagFilePath(flagFile));
+      await fs.unlink(flagFilePath(flagFile));
     } catch (err: unknown) {
       // Already deleted is not a fatal error.
-      if (!(isNodeError(err) && err.code === 'ENOENT')) throw err;
+      if (!fs.isNotFound(err)) throw err;
     }
   }
   return flagFileRead(flagFile);
@@ -205,7 +134,7 @@ async function flagFileSet(flagFile: FlagFileName, enabled: boolean): Promise<bo
  */
 async function packageInfo(filePath: string): Promise<Record<string, string>> {
   // Pass the path as a positional parameter rather than interpolating it into the script.
-  const control = await asyncExecFile('sh', ['-c', 'ar -p "$1" control.tar.gz | tar zxO', 'sh', filePath], { encoding: 'utf8' });
+  const control = await proc.execFile('sh', ['-c', 'ar -p "$1" control.tar.gz | tar zxO', 'sh', filePath]);
 
   const resp = parseControlFile(control);
   if (!resp['Package']) {
@@ -458,9 +387,9 @@ function runService(): void {
       const removeTargetFile = async (): Promise<void> => {
         if (keepTargetFile) return;
         try {
-          await asyncUnlink(targetPath);
+          await fs.unlink(targetPath);
         } catch (err: unknown) {
-          if (!(isNodeError(err) && err.code === 'ENOENT')) {
+          if (!fs.isNotFound(err)) {
             console.warn(`removing ${targetPath} failed:`, err);
           }
         }
@@ -469,47 +398,16 @@ function runService(): void {
       try {
         // Download
         message.respond({ statusText: 'Downloading…' });
-        const res = await fetchWrapper(payload.ipkUrl, { timeout: downloadTimeoutMs });
-        if (!res.ok) {
-          throw new Error(`${res.status} ${res.statusText}`);
-        }
-        const progressReporter = progress({
-          length: parseInt(res.headers.get('content-length') ?? '0', 10),
-          time: 300 /* ms */,
+        await http.downloadToFile(payload.ipkUrl, targetPath, {
+          timeout: downloadTimeoutMs,
+          onProgress: (percentage) => {
+            message.respond({ statusText: 'Downloading…', progress: percentage });
+          },
         });
-
-        // node-fetch's timeout only covers the wait for response headers; watch
-        // the body ourselves so a stalled transfer doesn't hang the install forever.
-        // (stream.destroy() only exists on Node.js >= 8; fall back to emitting the error.)
-        const body = res.body as NodeJS.ReadableStream & { destroy?: (error?: Error) => void };
-        let stallTimer: ReturnType<typeof setTimeout> | undefined;
-        const resetStallTimer = (): void => {
-          clearTimeout(stallTimer);
-          stallTimer = setTimeout(() => {
-            const err = new Error(`Download stalled (no data for ${downloadTimeoutMs / 1000}s)`);
-            if (typeof body.destroy === 'function') {
-              body.destroy(err);
-            } else {
-              body.emit('error', err);
-            }
-          }, downloadTimeoutMs);
-        };
-
-        progressReporter.on('progress', (p) => {
-          resetStallTimer();
-          message.respond({ statusText: 'Downloading…', progress: p.percentage });
-        });
-        const targetFile = fs.createWriteStream(targetPath);
-        resetStallTimer();
-        try {
-          await asyncPipeline(body, progressReporter, targetFile);
-        } finally {
-          clearTimeout(stallTimer);
-        }
 
         // Checksum
         message.respond({ statusText: 'Verifying…' });
-        const checksum = await hashFile(targetPath, 'sha256');
+        const checksum = await crypto.hashFile(targetPath, 'sha256');
         if (checksum !== payload.ipkHash) {
           throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum})`);
         }
@@ -540,7 +438,7 @@ function runService(): void {
           await createToast('Performing self-update...', service);
 
           keepTargetFile = true;
-          child_process.fork(__filename, ['self-update', targetPath]);
+          proc.fork(__filename, ['self-update', targetPath]);
           setTimeout(() => process.exit(0), 1000);
           return { statusText: 'Self-update' };
         }
@@ -629,7 +527,7 @@ function runService(): void {
   service.register(
     'reboot',
     simpleTryRespond(async (_message: Message) => {
-      await asyncExecFile('reboot');
+      await proc.execFile('reboot');
     }),
   );
 
@@ -656,8 +554,8 @@ function runService(): void {
 
         const webosbrewStartup = '/var/lib/webosbrew/startup.sh';
 
-        const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
-        const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
+        const bundledStartupChecksum = await crypto.hashFile(bundledStartup, 'sha256');
+        const bundledJumpstartChecksum = await crypto.hashFile(bundledJumpstart, 'sha256');
 
         // Checksums of every startup.sh we have ever shipped (plus a few
         // installer-provided variants). Generated from git history by
@@ -666,8 +564,8 @@ function runService(): void {
         const updatableChecksums: string[] = startupChecksums.map((entry) => entry.sha256);
 
         // RootMyTV v2
-        if (await isFile(webosbrewStartup)) {
-          const localChecksum = await hashFile(webosbrewStartup, 'sha256');
+        if (await fs.isFile(webosbrewStartup)) {
+          const localChecksum = await crypto.hashFile(webosbrewStartup, 'sha256');
           if (localChecksum !== bundledStartupChecksum) {
             if (updatableChecksums.includes(localChecksum)) {
               await copyScript(bundledStartup, webosbrewStartup);
@@ -682,8 +580,8 @@ function runService(): void {
           // https://gist.githubusercontent.com/stek29/761232c6f7e1ffbc36b98da2a3a0f4d9/raw/f56660ab3f293d8a53de664ac66d0503d398baf3/install.sh
           // and reinstall clean jumpstart.sh...
           if (
-            (await isFile(startDevmode)) &&
-            (await hashFile(startDevmode, 'sha256')) === '98bf599e3787cc4de949d2e7831308379b8f93a6deacf93887aeed15d5a0317e'
+            (await fs.isFile(startDevmode)) &&
+            (await crypto.hashFile(startDevmode, 'sha256')) === '98bf599e3787cc4de949d2e7831308379b8f93a6deacf93887aeed15d5a0317e'
           ) {
             await copyScript(bundledJumpstart, startDevmode);
             messages.push(`${startDevmode} updated!`);
@@ -691,14 +589,14 @@ function runService(): void {
         }
 
         // RootMyTV v1
-        if (await isFile(startDevmode)) {
+        if (await fs.isFile(startDevmode)) {
           // Warn and return empty string on read error
-          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err: unknown) => {
+          const startDevmodeContents = await fs.readFile(startDevmode, 'utf-8').catch((err: unknown) => {
             console.warn(`reading ${startDevmode} failed: ${errorMessage(err)}`);
             return '';
-          })) as string;
+          });
 
-          const localChecksum = hashString(startDevmodeContents, 'sha256');
+          const localChecksum = crypto.hashString(startDevmodeContents, 'sha256');
 
           if (localChecksum !== bundledStartupChecksum && updatableChecksums.includes(localChecksum)) {
             await copyScript(bundledStartup, startDevmode);
@@ -765,7 +663,7 @@ function runService(): void {
     const payload = message.payload as ExecPayload;
     const timeout = typeof payload.timeout === 'number' && payload.timeout >= 0 ? payload.timeout : execDefaultTimeoutMs;
 
-    function commonResponse(error: child_process.ExecException | null, stdout: Buffer, stderr: Buffer) {
+    void proc.exec(payload.command, { timeout, maxBuffer: execMaxBuffer }).then(({ error, stdout, stderr }) => {
       const response = {
         stdoutString: stdout.toString(),
         stdoutBytes: stdout.toString('base64'),
@@ -779,20 +677,7 @@ function runService(): void {
       } else {
         message.respond(makeSuccess(response));
       }
-    }
-
-    if (nodeVersion.major !== 0 && nodeVersion.minor >= 12) {
-      child_process.exec(payload.command, { encoding: 'buffer', timeout, maxBuffer: execMaxBuffer }, commonResponse);
-    } else {
-      /* Node.js v0.10.x doesn't provide callback with Buffers, so fake it */
-      child_process.exec(
-        payload.command,
-        { encoding: 'binary', timeout, maxBuffer: execMaxBuffer },
-        (error: child_process.ExecException | null, stdout: string, stderr: string) => {
-          commonResponse(error, Buffer.from(stdout, 'binary'), Buffer.from(stderr, 'binary'));
-        },
-      );
-    }
+    });
   });
 
   /**
@@ -800,7 +685,7 @@ function runService(): void {
    *
    * The process is killed if the subscription is cancelled (client went away).
    */
-  const spawnedProcesses = new Map<string, child_process.ChildProcess>();
+  const spawnedProcesses = new Map<string, proc.ChildProcess>();
   service.register(
     'spawn',
     (message) => {
@@ -814,10 +699,10 @@ function runService(): void {
 
       const payload = message.payload as ExecPayload;
       const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
-      const proc = child_process.spawn('/bin/sh', ['-c', '--', payload.command]);
-      spawnedProcesses.set(message.uniqueToken, proc);
+      const child = proc.spawnShell(payload.command);
+      spawnedProcesses.set(message.uniqueToken, child);
 
-      proc.stdout.on(
+      child.stdout.on(
         'data',
         (data: Buffer): void =>
           void respond('stdoutData', {
@@ -825,7 +710,7 @@ function runService(): void {
             stdoutBytes: data.toString('base64'),
           }),
       );
-      proc.stderr.on(
+      child.stderr.on(
         'data',
         (data: Buffer): void =>
           void respond('stderrData', {
@@ -833,23 +718,23 @@ function runService(): void {
             stderrBytes: data.toString('base64'),
           }),
       );
-      proc.on('error', (err): void => {
+      child.on('error', (err): void => {
         spawnedProcesses.delete(message.uniqueToken);
         respond('error', { errorText: errorMessage(err) });
       });
-      proc.on('close', (closeCode): void => {
+      child.on('close', (closeCode): void => {
         spawnedProcesses.delete(message.uniqueToken);
         respond('close', { closeCode });
       });
-      proc.on('exit', (exitCode): void => void respond('exit', { exitCode }));
+      child.on('exit', (exitCode): void => void respond('exit', { exitCode }));
     },
     (message) => {
-      const proc = spawnedProcesses.get(message.uniqueToken);
-      if (proc) {
-        console.info(`spawn: subscription cancelled, killing pid ${proc.pid}`);
+      const child = spawnedProcesses.get(message.uniqueToken);
+      if (child) {
+        console.info(`spawn: subscription cancelled, killing pid ${child.pid}`);
         spawnedProcesses.delete(message.uniqueToken);
         try {
-          proc.kill('SIGTERM');
+          child.kill('SIGTERM');
         } catch (err: unknown) {
           console.warn('spawn: kill failed:', err);
         }
@@ -881,22 +766,22 @@ function runService(): void {
       if (!runningAsRoot) {
         return { message: 'Not running as root.', returnValue: true };
       }
-      if (await exists('/tmp/webosbrew_startup')) {
+      if (await fs.exists('/tmp/webosbrew_startup')) {
         return { message: 'Startup script already executed.', returnValue: true };
       }
       // Copy startup.sh if doesn't exist
-      if (!(await exists('/var/lib/webosbrew/startup.sh'))) {
+      if (!(await fs.exists('/var/lib/webosbrew/startup.sh'))) {
         try {
-          await asyncMkdir('/var/lib/webosbrew/', 0o755);
+          await fs.mkdir('/var/lib/webosbrew/', 0o755);
         } catch {
           // Ignore
         }
         await copyScript(path.join(__dirname, 'startup.sh'), '/var/lib/webosbrew/startup.sh');
       }
       // Make startup.sh executable
-      await asyncChmod('/var/lib/webosbrew/startup.sh', 0o755);
+      await fs.chmod('/var/lib/webosbrew/startup.sh', 0o755);
 
-      child_process.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
+      proc.spawn('/bin/sh', ['-c', '/var/lib/webosbrew/startup.sh'], {
         cwd: '/home/root',
         env: {
           LD_PRELOAD: '',

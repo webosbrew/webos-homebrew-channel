@@ -17,35 +17,46 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* eslint-config-airbnb-typescript is not yet compatible with flat config */
-import airbnbBaseConfig from 'eslint-config-airbnb-typescript/base.js'; /* eslint-disable-line import/extensions */
-import { FlatCompat } from '@eslint/eslintrc';
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-/* convert eslintrc style to flat config */
-const airbnbCompat = compat.config(airbnbBaseConfig);
-
-/* tries to include a conflicting plugin by default and is missing this one */
-airbnbCompat[0].plugins = {
-  import: importPlugin,
+/*
+ * Rules formerly inherited from eslint-config-airbnb-typescript. That package
+ * is unmaintained (still peers on ESLint 8) and, via airbnb-typescript/base,
+ * only ever contributed these TypeScript re-mappings plus the import settings
+ * below - so they are spelled out here instead.
+ */
+const airbnbTypescriptRules = {
+  '@typescript-eslint/default-param-last': 'error',
+  '@typescript-eslint/dot-notation': ['error', { allowKeywords: true }],
+  '@typescript-eslint/naming-convention': [
+    'error',
+    { selector: 'variable', format: ['camelCase', 'PascalCase', 'UPPER_CASE'] },
+    { selector: 'function', format: ['camelCase', 'PascalCase'] },
+    { selector: 'typeLike', format: ['PascalCase'] },
+  ],
+  '@typescript-eslint/no-dupe-class-members': 'error',
+  '@typescript-eslint/no-empty-function': ['error', { allow: ['arrowFunctions', 'functions', 'methods'] }],
+  '@typescript-eslint/no-loop-func': 'error',
+  '@typescript-eslint/no-loss-of-precision': 'error',
+  '@typescript-eslint/no-redeclare': 'error',
+  '@typescript-eslint/no-shadow': 'error',
+  '@typescript-eslint/no-use-before-define': ['error', { functions: true, classes: true, variables: true }],
+  '@typescript-eslint/return-await': ['error', 'in-try-catch'],
+  'import/extensions': ['error', 'ignorePackages', { js: 'never', mjs: 'never', jsx: 'never', ts: 'never', tsx: 'never' }],
 };
 
-/*
- * eslint-config-airbnb-typescript still refers to the formatting rules that
- * typescript-eslint v8 removed (they moved to @stylistic). They are all turned
- * off by eslint-config-prettier anyway, so drop any rule the plugin no longer
- * defines instead of failing on startup.
- */
-const tsPrefix = '@typescript-eslint/';
-for (const config of airbnbCompat) {
-  if (!config.rules) continue;
-  config.rules = Object.fromEntries(
-    Object.entries(config.rules).filter(([name]) => !name.startsWith(tsPrefix) || name.slice(tsPrefix.length) in ts.plugin.rules),
-  );
-}
+const importSettings = {
+  'import/parsers': {
+    '@typescript-eslint/parser': ['.ts', '.tsx', '.d.ts'],
+  },
+  'import/resolver': {
+    node: {
+      extensions: ['.mjs', '.js', '.json', '.ts', '.d.ts'],
+    },
+    /* import doesn't seem to check .ts files without this */
+    typescript: {},
+  },
+  'import/extensions': ['.js', '.mjs', '.jsx', '.ts', '.tsx', '.d.ts'],
+  'import/external-module-folders': ['node_modules', 'node_modules/@types'],
+};
 
 export default ts.config(
   {
@@ -53,7 +64,6 @@ export default ts.config(
   },
   js.configs.recommended,
   ...ts.configs.strictTypeChecked,
-  ...airbnbCompat,
   prettierRecommendedConfig,
   {
     /* all JS/TS files */
@@ -106,15 +116,11 @@ export default ts.config(
     plugins: {
       '@typescript-eslint': ts.plugin,
     },
-    settings: {
-      'import/resolver': {
-        /* import doesn't seem to check .ts files without this */
-        typescript: {},
-      },
-    },
+    settings: importSettings,
     rules: {
       /* only enable these for TypeScript files */
       ...ts.configs.stylisticTypeChecked[0].rules,
+      ...airbnbTypescriptRules,
       '@typescript-eslint/ban-ts-comment': 'off',
       /* avoid spurious errors */
       '@typescript-eslint/no-base-to-string': [
@@ -182,6 +188,36 @@ export default ts.config(
       globals: {
         ...globals.node,
       },
+    },
+  },
+  {
+    /* platform boundary: only services/platform may touch Node built-ins and runtime packages */
+    files: ['services/**/*.{js,ts}'],
+    ignores: ['services/platform/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            'fs',
+            'child_process',
+            'stream',
+            'crypto',
+            'http',
+            'https',
+            'node-fetch',
+            'progress-stream',
+            'stream.pipeline-shim',
+            'bluebird',
+            'core-js/stable',
+            'regenerator-runtime/runtime',
+            '@throwaway96/node-load-cert-dir',
+          ].map((name) => ({
+            name,
+            message: `Import this through ./platform instead (see services/platform/index.ts).`,
+          })),
+        },
+      ],
     },
   },
   {

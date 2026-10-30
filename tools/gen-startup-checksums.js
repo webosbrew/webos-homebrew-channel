@@ -73,11 +73,18 @@ if (fs.existsSync(outputPath)) {
   }
 }
 
-const output = `${JSON.stringify([...entries, ...manual], null, 2)}\n`;
+// 4-space indent to match .editorconfig / prettier for JSON files in this repo.
+const output = `${JSON.stringify([...entries, ...manual], null, 4)}\n`;
 
 if (process.argv.includes('--check')) {
-  const current = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : '';
-  if (current !== output) {
+  // Compare content, not bytes, so a formatter touching the file is not a failure.
+  let current = null;
+  try {
+    current = JSON.stringify(JSON.parse(fs.readFileSync(outputPath, 'utf8')));
+  } catch {
+    // missing or unparsable -> out of date
+  }
+  if (current !== JSON.stringify([...entries, ...manual])) {
     console.error(`[!] ${path.relative(root, outputPath)} is out of date. Run: npm run startup-checksums`);
     process.exit(1);
   }

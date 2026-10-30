@@ -1,31 +1,20 @@
 #!/usr/bin/env node
 
-import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
-import { execFile } from 'child_process';
 import { dirname, resolve } from 'path';
 
+import { fs, proc } from './platform';
 import { patchManifestContents, patchRoleFileContents, patchServiceFileContents } from './elevate-lib';
 
 process.env['PATH'] = `/usr/sbin:${process.env['PATH']}`;
 
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-}
+const isFile = fs.isFileSync;
 
 function parentExists(path: string): boolean {
-  try {
-    return statSync(dirname(path)).isDirectory();
-  } catch {
-    return false;
-  }
+  return fs.isDirectorySync(dirname(path));
 }
 
 function patchServiceFile(serviceFile: string): boolean {
-  const serviceFileOriginal = readFileSync(serviceFile).toString();
+  const serviceFileOriginal = fs.readFileSync(serviceFile).toString();
 
   // run-js-service should be in the same directory as this script.
   const runJsServicePath = resolve(__dirname, 'run-js-service');
@@ -35,7 +24,7 @@ function patchServiceFile(serviceFile: string): boolean {
   switch (type) {
     case 'js':
       console.info(`[ ] ${serviceFile} is a JS service`);
-      if (!existsSync(runJsServicePath)) {
+      if (!fs.existsSync(runJsServicePath)) {
         console.error(`[!] run-js-service does not exist at ${runJsServicePath}`);
         return false;
       }
@@ -54,14 +43,14 @@ function patchServiceFile(serviceFile: string): boolean {
     console.info(`[ ] Updating service definition: ${serviceFile}`);
     console.info('-', serviceFileOriginal);
     console.info('+', serviceFileNew);
-    writeFileSync(serviceFile, serviceFileNew);
+    fs.writeFileSync(serviceFile, serviceFileNew);
     return true;
   }
   return false;
 }
 
 function patchRoleFile(path: string, legacy: boolean): boolean {
-  const roleOriginal = readFileSync(path).toString();
+  const roleOriginal = fs.readFileSync(path).toString();
   const { changed, contents, warnings, addedPermissions } = patchRoleFileContents(roleOriginal, legacy);
 
   for (const warning of warnings) {
@@ -75,7 +64,7 @@ function patchRoleFile(path: string, legacy: boolean): boolean {
     console.info(`[ ] Updating role definition: ${path}`);
     console.info('-', roleOriginal);
     console.info('+', contents);
-    writeFileSync(path, contents);
+    fs.writeFileSync(path, contents);
     return true;
   }
 
@@ -167,7 +156,7 @@ function main(argv: string[]) {
 
     if (parentExists(clientPermFile) && !isFile(clientPermFile)) {
       console.info(`[ ] Creating client permissions file: ${clientPermFile}`);
-      writeFileSync(
+      fs.writeFileSync(
         clientPermFile,
         JSON.stringify({
           [`${serviceName}*`]: ['all'],
@@ -182,7 +171,7 @@ function main(argv: string[]) {
     ] as [string, string][]) {
       if (parentExists(path) && !isFile(path)) {
         console.info(`[ ] Creating API permissions file: ${path}`);
-        writeFileSync(
+        fs.writeFileSync(
           path,
           JSON.stringify({
             [group]: [`${serviceName}/*`],
@@ -201,7 +190,7 @@ function main(argv: string[]) {
 
     if (isFile(manifestFile)) {
       console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
-      const manifestFileOriginal = readFileSync(manifestFile).toString();
+      const manifestFileOriginal = fs.readFileSync(manifestFile).toString();
       const { changed, contents, added } = patchManifestContents(manifestFileOriginal, clientPermFile, [
         apiPermPublicFile,
         apiPermLunaBusFile,
@@ -213,7 +202,7 @@ function main(argv: string[]) {
         console.info(`[~] Updating manifest file: ${manifestFile}`);
         console.info('-', manifestFileOriginal);
         console.info('+', contents);
-        writeFileSync(manifestFile, contents);
+        fs.writeFileSync(manifestFile, contents);
         configChanged = true;
       }
     }
@@ -221,7 +210,7 @@ function main(argv: string[]) {
 
   if (configChanged) {
     console.info('[+] Refreshing services...');
-    execFile('ls-control', ['scan-services'], { timeout: 10000 }, (err, stdout, stderr) => {
+    proc.execFileCallback('ls-control', ['scan-services'], { timeout: 10000 }, (err, stdout, stderr) => {
       if (err) {
         console.error(err);
         process.exit(1);

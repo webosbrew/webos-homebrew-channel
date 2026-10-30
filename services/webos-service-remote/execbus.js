@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
-import { spawn } from 'child_process';
-import { asyncExecFile } from '../adapter';
+import { proc } from '../platform';
 import Message from './message';
 
 class Request extends EventEmitter {
@@ -39,7 +38,7 @@ export default class Handle {
     let process;
     let request;
     try {
-      process = spawn(command, args);
+      process = proc.spawn(command, args);
       request = new Request(process);
       const stream = process.stdout;
       let stdout = '';
@@ -88,7 +87,7 @@ export default class Handle {
 
   async call(uri, payload) {
     const command = this.usePublic ? 'luna-send-pub' : 'luna-send';
-    const stdout = await asyncExecFile(command, [
+    const stdout = await proc.execFile(command, [
       // FIXME: Dirty hack... We likely want to accept appid in constructor
       /* using -a with luna-send-pub causes an error */
       ...(this.usePublic ? [] : ['-a', payload.sourceId ? payload.sourceId : 'webosbrew']),
