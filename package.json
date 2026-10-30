@@ -7,6 +7,9 @@
     "os": [
         "!win32"
     ],
+    "engines": {
+        "node": ">=22.22.0"
+    },
     "scripts": {
         "build": "enyo pack",
         "prebuild": "npm run build-dompurify",
