@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 
-/* Array.prototype.includes() only available from around Node.js v6. */
-import 'core-js/es/array/includes';
-
-/* String.prototype.includes() only available from around Node.js v4. */
-import 'core-js/es/string/includes';
-
 import { existsSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { execFile } from 'child_process';
 import { dirname, resolve } from 'path';
+
+import { patchManifestContents, patchRoleFileContents, patchServiceFileContents } from './elevate-lib';
 
 process.env['PATH'] = `/usr/sbin:${process.env['PATH']}`;
 
@@ -30,26 +26,28 @@ function parentExists(path: string): boolean {
 
 function patchServiceFile(serviceFile: string): boolean {
   const serviceFileOriginal = readFileSync(serviceFile).toString();
-  let serviceFileNew = serviceFileOriginal;
 
-  if (serviceFileNew.includes('/run-js-service')) {
-    console.info(`[ ] ${serviceFile} is a JS service`);
+  // run-js-service should be in the same directory as this script.
+  const runJsServicePath = resolve(__dirname, 'run-js-service');
 
-    // run-js-service should be in the same directory as this script.
-    const runJsServicePath = resolve(__dirname, 'run-js-service');
+  const { type, contents: serviceFileNew } = patchServiceFileContents(serviceFileOriginal, runJsServicePath);
 
-    if (!existsSync(runJsServicePath)) {
-      console.error(`[!] run-js-service does not exist at ${runJsServicePath}`);
-      return false;
-    }
-
-    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/run-js-service/gm, `Exec=${runJsServicePath}`);
-  } else if (serviceFileNew.includes('/jailer')) {
-    console.info(`[ ] ${serviceFile} is a native service`);
-    serviceFileNew = serviceFileNew.replace(/^Exec=\/usr\/bin\/jailer .* ([^ ]*)$/gm, (_, binaryPath) => `Exec=${binaryPath}`);
-  } else if (!serviceFileNew.includes('Exec=/media')) {
-    // Ignore elevated native services...
-    console.info(`[~] ${serviceFile}: unknown service type, this may cause some troubles`);
+  switch (type) {
+    case 'js':
+      console.info(`[ ] ${serviceFile} is a JS service`);
+      if (!existsSync(runJsServicePath)) {
+        console.error(`[!] run-js-service does not exist at ${runJsServicePath}`);
+        return false;
+      }
+      break;
+    case 'native':
+      console.info(`[ ] ${serviceFile} is a native service`);
+      break;
+    case 'elevated-native':
+      // Ignore elevated native services...
+      break;
+    default:
+      console.info(`[~] ${serviceFile}: unknown service type, this may cause some troubles`);
   }
 
   if (serviceFileNew !== serviceFileOriginal) {
@@ -62,114 +60,27 @@ function patchServiceFile(serviceFile: string): boolean {
   return false;
 }
 
-type Permission = {
-  service: string;
-  inbound?: string[];
-  outbound?: string[];
-};
-
-type Role = {
-  appId: string;
-  type: string;
-  allowedNames: string[];
-  trustLevel: string;
-  permissions: Permission[];
-};
-
-type LegacyRole = {
-  role: {
-    exeName: string;
-    type: string;
-    allowedNames: string[];
-  };
-  permissions: Permission[];
-};
-
-function isRecord(obj: unknown): obj is Record<string, any> {
-  return typeof obj === 'object' && !Array.isArray(obj);
-}
-
-function patchRoleFile(path: string, legacy: boolean, requiredNames: string[] = ['*', 'com.webos.service.capture.client*']) {
+function patchRoleFile(path: string, legacy: boolean): boolean {
   const roleOriginal = readFileSync(path).toString();
-  const roleNew = JSON.parse(roleOriginal) as Role | LegacyRole;
+  const { changed, contents, warnings, addedPermissions } = patchRoleFileContents(roleOriginal, legacy);
 
-  let allowedNames: string[] | null = null;
-
-  if (legacy) {
-    // webOS <4.x /var/palm/ls2-dev role file
-    const legacyRole = roleNew as LegacyRole;
-    if (isRecord(legacyRole.role) && Array.isArray(legacyRole.role.allowedNames)) {
-      allowedNames = legacyRole.role.allowedNames;
-    } else {
-      console.warn('[!] Legacy role file is missing allowedNames');
-    }
-  } else {
-    // webOS 4.x+ /var/luna-service2 role file
-    const newRole = roleNew as Role;
-    if (Array.isArray(newRole.allowedNames)) {
-      allowedNames = newRole.allowedNames;
-    } else {
-      console.warn('[!] Role file is missing allowedNames');
-    }
+  for (const warning of warnings) {
+    console.warn(`[!] ${warning}`);
+  }
+  for (const name of addedPermissions) {
+    console.info(`[ ] Adding permission for name: ${name}`);
   }
 
-  if (allowedNames !== null) {
-    for (const name of requiredNames) {
-      if (!allowedNames.includes(name)) {
-        allowedNames.push(name);
-      }
-    }
-  }
-
-  // permissions / allowedNames interactions are fairly odd. It seems like
-  // "service" field in permission is one of allowedNames that this executable
-  // can use, outbound are remote client names that our executable/name can use,
-  // and inbound are remote client names that can access our executable.
-  //
-  // Oddly, even though there seems to be some support for wildcards, some
-  // pieces of software verify explicit permission "service" key, thus we
-  // sometimes may need some extra allowedNames/permissions, even though we
-  // default to "*"
-  if (Array.isArray(roleNew.permissions)) {
-    const missingPermissionNames = requiredNames;
-    roleNew.permissions.forEach((perm: { outbound?: string[]; service?: string }) => {
-      if (perm.service && missingPermissionNames.includes(perm.service))
-        missingPermissionNames.splice(missingPermissionNames.indexOf(perm.service), 1);
-      if (perm.outbound && !perm.outbound.includes('*')) {
-        perm.outbound.push('*');
-      }
-    });
-
-    for (const name of missingPermissionNames) {
-      console.info(`[ ] Adding permission for name: ${name}`);
-      roleNew.permissions.push({
-        service: name,
-        inbound: ['*'],
-        outbound: ['*'],
-      });
-    }
-  }
-
-  const roleNewContents = JSON.stringify(roleNew);
-  if (roleNewContents !== JSON.stringify(JSON.parse(roleOriginal))) {
+  if (changed) {
     console.info(`[ ] Updating role definition: ${path}`);
     console.info('-', roleOriginal);
-    console.info('+', roleNewContents);
-    writeFileSync(path, roleNewContents);
+    console.info('+', contents);
+    writeFileSync(path, contents);
     return true;
   }
 
   return false;
 }
-
-type Manifest = {
-  version: string;
-  serviceFiles: string[];
-  apiPermissionFiles?: string[];
-  id: string;
-  roleFiles: string[];
-  clientPermissionFiles?: string[];
-};
 
 function main(argv: string[]) {
   let [serviceName = 'org.webosbrew.hbchannel.service', appName = serviceName.split('.').slice(0, -1).join('.')] = argv;
@@ -291,25 +202,18 @@ function main(argv: string[]) {
     if (isFile(manifestFile)) {
       console.info(`[~] Found webOS 4.x+ manifest file: ${manifestFile}`);
       const manifestFileOriginal = readFileSync(manifestFile).toString();
-      const manifest = JSON.parse(manifestFileOriginal) as Manifest;
-      if (Array.isArray(manifest.clientPermissionFiles) && !manifest.clientPermissionFiles.includes(clientPermFile)) {
-        console.info('[ ] manifest - adding client permissions file...');
-        manifest.clientPermissionFiles.push(clientPermFile);
+      const { changed, contents, added } = patchManifestContents(manifestFileOriginal, clientPermFile, [
+        apiPermPublicFile,
+        apiPermLunaBusFile,
+      ]);
+      for (const file of added) {
+        console.info(`[ ] manifest - adding permissions file: ${file}`);
       }
-
-      for (const path of [apiPermPublicFile, apiPermLunaBusFile]) {
-        if (Array.isArray(manifest.apiPermissionFiles) && !manifest.apiPermissionFiles.includes(path)) {
-          console.info('[ ] manifest - adding API permissions file...');
-          manifest.apiPermissionFiles.push(path);
-        }
-      }
-
-      const manifestFileNew = JSON.stringify(manifest);
-      if (manifestFileNew !== manifestFileOriginal) {
+      if (changed) {
         console.info(`[~] Updating manifest file: ${manifestFile}`);
         console.info('-', manifestFileOriginal);
-        console.info('+', manifestFileNew);
-        writeFileSync(manifestFile, manifestFileNew);
+        console.info('+', contents);
+        writeFileSync(manifestFile, contents);
         configChanged = true;
       }
     }
@@ -317,7 +221,7 @@ function main(argv: string[]) {
 
   if (configChanged) {
     console.info('[+] Refreshing services...');
-    execFile('ls-control', ['scan-services'], { timeout: 10000 }, (err, stderr, stdout) => {
+    execFile('ls-control', ['scan-services'], { timeout: 10000 }, (err, stdout, stderr) => {
       if (err) {
         console.error(err);
         process.exit(1);

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-const crypto = require('crypto');
+const { createHash } = require('crypto');
 const fs = require('fs');
 
 const outfile = process.argv[2];
 const appinfo = JSON.parse(fs.readFileSync('appinfo.json'));
 const ipkfile = `${appinfo.id}_${appinfo.version}_all.ipk`;
-const ipkhash = crypto.createHash('sha256').update(fs.readFileSync(ipkfile)).digest('hex');
+const ipkhash = createHash('sha256').update(fs.readFileSync(ipkfile)).digest('hex');
 
 fs.writeFileSync(
   outfile,

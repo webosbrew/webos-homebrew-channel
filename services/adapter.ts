@@ -9,7 +9,6 @@ import * as Bluebird from 'bluebird';
 // String.normalize is very large polyfill not included by default in core-js
 // and most likely we're not gonna need it
 if (typeof String.prototype.normalize !== 'function') {
-  // eslint-disable-next-line no-extend-native
   String.prototype.normalize = function normalize() {
     return String(this);
   };

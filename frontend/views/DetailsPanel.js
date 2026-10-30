@@ -20,44 +20,21 @@ var
   LabeledTextItem = require('moonstone/LabeledTextItem'),
   FittableRows = require('layout/FittableRows'),
   FittableColumns = require('layout/FittableColumns'),
-  DOMPurify = require('dompurify/dist/purify.cjs.js'),
+  // ES5 build generated from the dompurify package by tools/build-dompurify.js
+  DOMPurify = require('../vendor/purify.es5.js'),
   resolveURL = require('../baseurl').resolveURL;
 
-DOMPurify.addHook('afterSanitizeAttributes', function (node) {
-  if ('href' in node) {
-    console.info(node);
-
-    node.setAttribute('data-href', node.href);
-    node.setAttribute('href', 'javascript:openLinkInBrowser(' + JSON.stringify(node.href)+ ')');
+/**
+ * Finds the closest <a href> ancestor of a DOM node, stopping at `root`.
+ */
+function findLink(node, root) {
+  while (node && node !== root) {
+    if (node.tagName === 'A' && node.href) {
+      return node;
+    }
+    node = node.parentNode;
   }
-});
-
-
-global.openLinkInBrowser = function (url) {
-  try {
-    webOS.service.request('luna://com.webos.applicationManager', {
-      method: 'launch',
-      parameters: {id: 'com.webos.app.browser', params: {target: url}},
-      onSuccess: function(res) { console.info(res); },
-      onFailure: function(res) { console.warn(res); },
-    });
-  } catch (err) {
-    console.warn(err);
-  }
-}
-
-function versionHigher(oldVer, newVer) {
-  if (typeof oldVer !== 'string' || typeof newVer !== 'string') return false
-
-  var oldParts = oldVer.split('.')
-  var newParts = newVer.split('.')
-  for (var i = 0; i < newParts.length; i++) {
-    var a = ~~newParts[i] // parse int
-    var b = ~~oldParts[i] // parse int
-    if (a > b) return true
-    if (a < b) return false
-  }
-  return false
+  return null;
 }
 
 module.exports = kind({
@@ -150,6 +127,7 @@ module.exports = kind({
                 content: 'No description provided for this package',
                 allowHtml: true,
                 spotlight: true,
+                onclick: 'onDescriptionClick',
               },
               {
                 kind: LabeledTextItem,
@@ -219,7 +197,8 @@ module.exports = kind({
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
     {
       from: 'packageInfo.sourceUrl', to: '$.projectPage.disabled', transform: function (v) {
-        return v instanceof String && v.trim().length
+        // Enabled only when a non-empty URL is available.
+        return !(typeof v === 'string' && v.trim().length > 0);
       }
     },
     {
@@ -329,9 +308,24 @@ module.exports = kind({
     this.$.appInfoCall.send({id: this.model.get("id")});
     console.info('appinfo sent:', this.appInfoRequest);
   },
+  openInBrowser: function (url) {
+    if (typeof url === 'string' && url.length) {
+      this.$.launchCall.send({id: 'com.webos.app.browser', params: {target: url}});
+    }
+  },
   openProjectPage: function () {
-    if (this.packageInfo.get('sourceUrl')) {
-      this.$.launchCall.send({id: 'com.webos.app.browser', params: {target: this.packageInfo.get('sourceUrl')}});
+    this.openInBrowser(this.packageInfo.get('sourceUrl'));
+  },
+  /**
+   * Links in the (sanitized) description are opened in the system browser
+   * instead of navigating the app's webview away.
+   */
+  onDescriptionClick: function (sender, evt) {
+    var link = findLink(evt.target, sender.hasNode());
+    if (link) {
+      evt.preventDefault();
+      this.openInBrowser(link.href);
+      return true;
     }
   },
   installApp: function () {

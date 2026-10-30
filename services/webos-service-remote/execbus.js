@@ -1,4 +1,3 @@
-/* eslint-disable max-classes-per-file */
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { asyncExecFile } from '../adapter';
@@ -31,7 +30,7 @@ export default class Handle {
    * @param {string} payload
    * @returns EventEmitter of this session
    */
-  // eslint-disable-next-line class-methods-use-this
+
   subscribe(uri, payload) {
     const command = this.usePublic ? 'luna-send-pub' : 'luna-send';
     /* using -a with luna-send-pub causes an error */
@@ -86,7 +85,7 @@ export default class Handle {
    * @param {string} payload
    * @returns Promise to response message
    */
-  // eslint-disable-next-line class-methods-use-this
+
   async call(uri, payload) {
     const command = this.usePublic ? 'luna-send-pub' : 'luna-send';
     const stdout = await asyncExecFile(command, [

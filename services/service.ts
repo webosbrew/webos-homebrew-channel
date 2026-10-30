@@ -7,7 +7,7 @@ import path from 'path';
 import child_process from 'child_process';
 
 // @ts-expect-error
-import { Promise } from 'bluebird'; // eslint-disable-line @typescript-eslint/no-redeclare
+import { Promise } from 'bluebird';
 import progress from 'progress-stream';
 import Service, { Message } from 'webos-service';
 
@@ -16,13 +16,21 @@ import { fetchWrapper } from './fetch-wrapper';
 
 import rootAppInfo from '../appinfo.json';
 import serviceInfo from './services.json';
+import startupChecksums from './startup-checksums.json';
 import { makeError, makeSuccess } from './protocol';
+import { errorMessage, isNodeError, parseControlFile } from './utils';
 import ServiceRemote from './webos-service-remote';
 import FakeActivityManager from './fake-activity-manager';
 
 const homebrewChannelPackageId = rootAppInfo.id;
 const autostartActivityName = `${homebrewChannelPackageId}.service.autostart`;
 const startDevmode = '/media/cryptofs/apps/usr/palm/services/com.palmdts.devmode.service/start-devmode.sh';
+
+/** Give up on a download if no headers arrive, or no data flows, for this long. */
+const downloadTimeoutMs = 60 * 1000;
+/** Default limits for the `exec` endpoint. */
+const execDefaultTimeoutMs = 60 * 1000;
+const execMaxBuffer = 16 * 1024 * 1024;
 const homebrewBaseDir = ((): string | null => {
   try {
     return path.resolve(__dirname, '../../../../');
@@ -60,12 +68,6 @@ const runningAsRoot: boolean = (() => {
   }
   return process.getuid() === 0;
 })();
-
-function assertNodeError(error: unknown): asserts error is NodeJS.ErrnoException {
-  if (!(error instanceof Error)) {
-    throw error;
-  }
-}
 
 function asyncCall<T extends Record<string, any>>(srv: Service, uri: string, args: Record<string, any>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -191,9 +193,8 @@ async function flagFileSet(flagFile: FlagFileName, enabled: boolean): Promise<bo
     try {
       await asyncUnlink(flagFilePath(flagFile));
     } catch (err: unknown) {
-      assertNodeError(err);
       // Already deleted is not a fatal error.
-      if (err.code !== 'ENOENT') throw err;
+      if (!(isNodeError(err) && err.code === 'ENOENT')) throw err;
     }
   }
   return flagFileRead(flagFile);
@@ -203,14 +204,10 @@ async function flagFileSet(flagFile: FlagFileName, enabled: boolean): Promise<bo
  * Package info
  */
 async function packageInfo(filePath: string): Promise<Record<string, string>> {
-  const control = await asyncExecFile('sh', ['-c', `ar -p ${filePath} control.tar.gz | tar zxO`], { encoding: 'utf8' });
+  // Pass the path as a positional parameter rather than interpolating it into the script.
+  const control = await asyncExecFile('sh', ['-c', 'ar -p "$1" control.tar.gz | tar zxO', 'sh', filePath], { encoding: 'utf8' });
 
-  const resp = Object.fromEntries(
-    control
-      .split('\n')
-      .filter((m) => m.length)
-      .map((p) => [p.slice(0, p.indexOf(': ')), p.slice(p.indexOf(': ') + 2)]),
-  );
+  const resp = parseControlFile(control);
   if (!resp['Package']) {
     throw new Error(`Invalid package info: ${JSON.stringify(resp)}`);
   }
@@ -218,16 +215,18 @@ async function packageInfo(filePath: string): Promise<Record<string, string>> {
 }
 
 function isRecord(obj: unknown): obj is Record<string, any> {
-  return typeof obj === 'object' && !Array.isArray(obj);
+  return typeof obj === 'object' && obj !== null && !Array.isArray(obj);
 }
 
 /**
  * Performs appInstallService/dev/install request.
  */
-async function installPackage(filePath: string, service: Service): Promise<string> {
+async function installPackage(filePath: string, service: Service, id: string = homebrewChannelPackageId): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = service.subscribe('luna://com.webos.appInstallService/dev/install', {
-      id: 'testing',
+      // "id" is just a client-chosen label for this install request; it does not
+      // need to match the package being installed (ares-install uses a fixed string).
+      id,
       ipkUrl: filePath,
       subscribe: true,
     });
@@ -252,7 +251,7 @@ async function installPackage(filePath: string, service: Service): Promise<strin
         if (!isRecord(details)) {
           reject(new Error('"details" in response is not an object'));
         } else if (typeof details['packageId'] !== 'string') {
-          reject(new Error('"details.payloadId" in response is not a string'));
+          reject(new Error('"details.packageId" in response is not a string'));
         } else {
           resolve(details['packageId']);
         }
@@ -279,7 +278,7 @@ async function removePackage(packageId: string, service: Service): Promise<void>
     });
 
     req.on('response', (res: Message) => {
-      console.info('appInstallService remove response:', res);
+      console.info('appInstallService remove response:', res.payload);
 
       if (res.payload['returnValue'] === false) {
         reject(new Error(`${res.payload['errorCode']}: ${res.payload['errorText']}`));
@@ -365,15 +364,21 @@ async function pauseActivity(service: Service, activityName: string = autostartA
   await asyncCall(service, 'luna://com.palm.activitymanager/pause', { activityName });
 }
 
-function simpleTryRespond(runner: (message: Message) => Promise<void>) {
+/**
+ * Thin wrapper that responds with a successful message or an error in case of a JS exception.
+ *
+ * Any rejection value is turned into an error response (not only Error
+ * instances), so the caller always gets a reply.
+ */
+function tryRespond<T extends Record<string, any>>(runner: (message: Message) => Promise<T>) {
   return (message: Message): void => {
     runner(message)
-      .then((): void => {
-        message.respond(makeSuccess());
+      .then((reply: T): void => {
+        message.respond(makeSuccess(reply));
       })
       .catch((err: unknown): void => {
-        assertNodeError(err);
-        message.respond(makeError(err.message));
+        console.warn(`${message.method} failed:`, err);
+        message.respond(makeError(errorMessage(err)));
       })
       .finally(() => {
         message.cancel({});
@@ -381,23 +386,11 @@ function simpleTryRespond(runner: (message: Message) => Promise<void>) {
   };
 }
 
-/**
- * Thin wrapper that responds with a successful message or an error in case of a JS exception.
- */
-function tryRespond<T extends Record<string, any>>(runner: (message: Message) => Promise<T>) {
-  return (message: Message): void => {
-    runner(message)
-      .then((reply?: T): void => {
-        message.respond(makeSuccess(reply));
-      })
-      .catch((err: unknown): void => {
-        assertNodeError(err);
-        message.respond(makeError(err.message));
-      })
-      .finally(() => {
-        message.cancel({});
-      });
-  };
+function simpleTryRespond(runner: (message: Message) => Promise<void>) {
+  return tryRespond(async (message: Message): Promise<Record<string, never>> => {
+    await runner(message);
+    return {};
+  });
 }
 
 function runService(): void {
@@ -451,75 +444,123 @@ function runService(): void {
     'install',
     tryRespond(async (message: Message) => {
       const payload = message.payload as InstallPayload;
+      if (typeof payload.ipkUrl !== 'string' || !payload.ipkUrl) {
+        throw new Error('missing "ipkUrl" string field');
+      }
+      if (typeof payload.ipkHash !== 'string' || !payload.ipkHash) {
+        throw new Error('missing "ipkHash" string field');
+      }
       const targetPath = `/tmp/.hbchannel-incoming-${Date.now()}.ipk`;
 
-      // Download
-      message.respond({ statusText: 'Downloading…' });
-      const res = await fetchWrapper(payload.ipkUrl);
-      if (!res.ok) {
-        throw new Error(res.statusText);
-      }
-      const progressReporter = progress({
-        length: parseInt(res.headers.get('content-length') ?? '0', 10),
-        time: 300 /* ms */,
-      });
-      progressReporter.on('progress', (p) => {
-        message.respond({ statusText: 'Downloading…', progress: p.percentage });
-      });
-      const targetFile = fs.createWriteStream(targetPath);
-      await asyncPipeline(res.body, progressReporter, targetFile);
-
-      // Checksum
-      message.respond({ statusText: 'Verifying…' });
-      const checksum = await hashFile(targetPath, 'sha256');
-      if (checksum !== payload.ipkHash) {
-        throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum}`);
-      }
-
-      let pkginfo: Record<string, string | undefined> = { Package: payload.id };
+      // The downloaded package is removed again unless the self-update path
+      // hands it over to the forked installer process.
+      let keepTargetFile = false;
+      const removeTargetFile = async (): Promise<void> => {
+        if (keepTargetFile) return;
+        try {
+          await asyncUnlink(targetPath);
+        } catch (err: unknown) {
+          if (!(isNodeError(err) && err.code === 'ENOENT')) {
+            console.warn(`removing ${targetPath} failed:`, err);
+          }
+        }
+      };
 
       try {
-        pkginfo = await packageInfo(targetPath);
-      } catch (err: unknown) {
-        assertNodeError(err);
-        await createToast(`Package info fetch failed: ${err.message}`, service);
+        // Download
+        message.respond({ statusText: 'Downloading…' });
+        const res = await fetchWrapper(payload.ipkUrl, { timeout: downloadTimeoutMs });
+        if (!res.ok) {
+          throw new Error(`${res.status} ${res.statusText}`);
+        }
+        const progressReporter = progress({
+          length: parseInt(res.headers.get('content-length') ?? '0', 10),
+          time: 300 /* ms */,
+        });
+
+        // node-fetch's timeout only covers the wait for response headers; watch
+        // the body ourselves so a stalled transfer doesn't hang the install forever.
+        // (stream.destroy() only exists on Node.js >= 8; fall back to emitting the error.)
+        const body = res.body as NodeJS.ReadableStream & { destroy?: (error?: Error) => void };
+        let stallTimer: ReturnType<typeof setTimeout> | undefined;
+        const resetStallTimer = (): void => {
+          clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            const err = new Error(`Download stalled (no data for ${downloadTimeoutMs / 1000}s)`);
+            if (typeof body.destroy === 'function') {
+              body.destroy(err);
+            } else {
+              body.emit('error', err);
+            }
+          }, downloadTimeoutMs);
+        };
+
+        progressReporter.on('progress', (p) => {
+          resetStallTimer();
+          message.respond({ statusText: 'Downloading…', progress: p.percentage });
+        });
+        const targetFile = fs.createWriteStream(targetPath);
+        resetStallTimer();
+        try {
+          await asyncPipeline(body, progressReporter, targetFile);
+        } finally {
+          clearTimeout(stallTimer);
+        }
+
+        // Checksum
+        message.respond({ statusText: 'Verifying…' });
+        const checksum = await hashFile(targetPath, 'sha256');
+        if (checksum !== payload.ipkHash) {
+          throw new Error(`Invalid file checksum (${payload.ipkHash} expected, got ${checksum})`);
+        }
+
+        let pkginfo: Record<string, string | undefined> = { Package: payload.id };
+
+        try {
+          pkginfo = await packageInfo(targetPath);
+        } catch (err: unknown) {
+          await createToast(`Package info fetch failed: ${errorMessage(err)}`, service);
+        }
+
+        // If we are running as root we likely want to retain root
+        // execution/private bus permissions. During package install running app
+        // and its services (since webOS 4.x) are killed using SIGKILL (9) signal.
+        // In order to retain some part of our service still running as root
+        // during upgrade we fork off our process and do self-update installation
+        // in there. After a successful install we re-elevate the service and exit.
+        // Exiting cleanly is an important part, since forked process retains open
+        // luna bus socket, and thus a new service will not be able to launch
+        // until we do that.
+        //
+        // If re-elevation fails for some reason the service should still be
+        // re-elevated on reboot on devices with persistent autostart hooks (since
+        // we launch elevate-service in startup.sh script)
+        if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === homebrewChannelPackageId) {
+          message.respond({ statusText: 'Self-update…' });
+          await createToast('Performing self-update...', service);
+
+          keepTargetFile = true;
+          child_process.fork(__filename, ['self-update', targetPath]);
+          setTimeout(() => process.exit(0), 1000);
+          return { statusText: 'Self-update' };
+        }
+
+        // Install
+        message.respond({ statusText: 'Installing…' });
+        const installedPackageId = await installPackage(targetPath, getInstallerService(), pkginfo['Package'] ?? payload.id);
+
+        try {
+          const appInfo = await getAppInfo(installedPackageId);
+          await createToast(`Application installed: ${appInfo.title}`, service);
+        } catch (err: unknown) {
+          console.warn('appinfo fetch failed:', err);
+          await createToast(`Application installed: ${installedPackageId}`, service);
+        }
+
+        return { statusText: 'Finished.', finished: true };
+      } finally {
+        await removeTargetFile();
       }
-
-      // If we are running as root we likely want to retain root
-      // execution/private bus permissions. During package install running app
-      // and its services (since webOS 4.x) are killed using SIGKILL (9) signal.
-      // In order to retain some part of our service still running as root
-      // during upgrade we fork off our process and do self-update installation
-      // in there. After a successful install we re-elevate the service and exit.
-      // Exiting cleanly is an important part, since forked process retains open
-      // luna bus socket, and thus a new service will not be able to launch
-      // until we do that.
-      //
-      // If re-elevation fails for some reason the service should still be
-      // re-elevated on reboot on devices with persistent autostart hooks (since
-      // we launch elevate-service in startup.sh script)
-      if (runningAsRoot && isRecord(pkginfo) && pkginfo['Package'] === homebrewChannelPackageId) {
-        message.respond({ statusText: 'Self-update…' });
-        await createToast('Performing self-update...', service);
-
-        child_process.fork(__filename, ['self-update', targetPath]);
-        setTimeout(() => process.exit(0), 1000);
-        return { statusText: 'Self-update' };
-      }
-
-      // Install
-      message.respond({ statusText: 'Installing…' });
-      const installedPackageId = await installPackage(targetPath, getInstallerService());
-
-      try {
-        const appInfo = await getAppInfo(installedPackageId);
-        await createToast(`Application installed: ${appInfo.title}`, service);
-      } catch (err: unknown) {
-        console.warn('appinfo fetch failed:', err);
-        await createToast(`Application installed: ${installedPackageId}`, service);
-      }
-
-      return { statusText: 'Finished.', finished: true };
     }),
     () => {
       // TODO: support cancellation.
@@ -618,17 +659,11 @@ function runService(): void {
         const bundledStartupChecksum = await hashFile(bundledStartup, 'sha256');
         const bundledJumpstartChecksum = await hashFile(bundledJumpstart, 'sha256');
 
-        const updatableChecksums = [
-          'c5e69325c5327cff3643b87fd9c4c905e06b600304eae820361dcb41ff52db92',
-          'bcbe9f8cea451c40190334ee4819427b316c0dba889b502049fb99f7a4807c6b',
-          '15bd94b71c652b5d64ff79f2a88f965f9a61992ed3ce064617323d6a950d5d49',
-          '5caab3681cdd52cc9b59136a180cd0a1ffb98ec39bf571c38c0a4eb528ce13fb',
-          'befe927c6f62b87545aaefb4b2648a227b22695fa0f78a228dcacf1fbba11aeb',
-          'd914b3b444433bf49ff83c3c0ae0b729cf7544c074e72c23ec24e5f86aaaf4ac',
-          '6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f',
-          'e04a3d61098c6f74d466da6fb457a52fb61a9cc86869059ae32b13bf43cd9d10',
-          'c8b5093eca9a78ef70b2742f60ab7b1a04e7c9331359f234bd40a0065238815b',
-        ];
+        // Checksums of every startup.sh we have ever shipped (plus a few
+        // installer-provided variants). Generated from git history by
+        // tools/gen-startup-checksums.js - run `npm run startup-checksums`
+        // after changing startup.sh.
+        const updatableChecksums: string[] = startupChecksums.map((entry) => entry.sha256);
 
         // RootMyTV v2
         if (await isFile(webosbrewStartup)) {
@@ -658,8 +693,8 @@ function runService(): void {
         // RootMyTV v1
         if (await isFile(startDevmode)) {
           // Warn and return empty string on read error
-          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err: NodeJS.ErrnoException) => {
-            console.warn(`reading ${startDevmode} failed: ${err.toString()}`);
+          const startDevmodeContents = (await asyncReadFile(startDevmode, { encoding: 'utf-8' }).catch((err: unknown) => {
+            console.warn(`reading ${startDevmode} failed: ${errorMessage(err)}`);
             return '';
           })) as string;
 
@@ -676,11 +711,11 @@ function runService(): void {
           }
         }
       } catch (err: unknown) {
-        assertNodeError(err);
-        console.log(`Startup script update failed: ${err.stack}`);
-        messages = ['Startup script update failed!', ...messages, `Error: ${err.toString()}`];
+        const stack = err instanceof Error ? err.stack : undefined;
+        console.log(`Startup script update failed: ${stack ?? errorMessage(err)}`);
+        messages = ['Startup script update failed!', ...messages, `Error: ${errorMessage(err)}`];
         await createToast(messages.join('<br/>'), service);
-        return { returnValue: false, statusText: 'Startup script update failed.', stack: err.stack, messages };
+        return { returnValue: false, statusText: 'Startup script update failed.', stack, messages };
       }
 
       if (messages.length) {
@@ -715,6 +750,8 @@ function runService(): void {
    */
   interface ExecPayload {
     command: string;
+    /** Optional timeout in milliseconds (0 disables). Defaults to execDefaultTimeoutMs. */
+    timeout?: number;
   }
   service.register('exec', (message: Message) => {
     if (!('command' in message.payload)) {
@@ -726,6 +763,7 @@ function runService(): void {
     }
 
     const payload = message.payload as ExecPayload;
+    const timeout = typeof payload.timeout === 'number' && payload.timeout >= 0 ? payload.timeout : execDefaultTimeoutMs;
 
     function commonResponse(error: child_process.ExecException | null, stdout: Buffer, stderr: Buffer) {
       const response = {
@@ -735,19 +773,21 @@ function runService(): void {
         stderrBytes: stderr.toString('base64'),
       };
       if (error !== null) {
-        message.respond(makeError(error.message, response));
+        // A killed process (timeout) has no exit code but does have a signal.
+        const detail = error.killed ? ` (killed${error.signal ? ` by ${error.signal}` : ''}, timeout ${timeout}ms)` : '';
+        message.respond(makeError(`${error.message}${detail}`, response));
       } else {
         message.respond(makeSuccess(response));
       }
     }
 
     if (nodeVersion.major !== 0 && nodeVersion.minor >= 12) {
-      child_process.exec(payload.command, { encoding: 'buffer' }, commonResponse);
+      child_process.exec(payload.command, { encoding: 'buffer', timeout, maxBuffer: execMaxBuffer }, commonResponse);
     } else {
       /* Node.js v0.10.x doesn't provide callback with Buffers, so fake it */
       child_process.exec(
         payload.command,
-        { encoding: 'binary' },
+        { encoding: 'binary', timeout, maxBuffer: execMaxBuffer },
         (error: child_process.ExecException | null, stdout: string, stderr: string) => {
           commonResponse(error, Buffer.from(stdout, 'binary'), Buffer.from(stderr, 'binary'));
         },
@@ -757,38 +797,65 @@ function runService(): void {
 
   /**
    * Spawns a shell command and streams stdout & stderr bytes.
+   *
+   * The process is killed if the subscription is cancelled (client went away).
    */
-  service.register('spawn', (message) => {
-    if (!('command' in message.payload)) {
-      message.respond(makeError('missing "command"'));
-      return;
-    } else if (typeof message.payload['command'] !== 'string') {
-      message.respond(makeError('"command" is not a string'));
-      return;
-    }
+  const spawnedProcesses = new Map<string, child_process.ChildProcess>();
+  service.register(
+    'spawn',
+    (message) => {
+      if (!('command' in message.payload)) {
+        message.respond(makeError('missing "command"'));
+        return;
+      } else if (typeof message.payload['command'] !== 'string') {
+        message.respond(makeError('"command" is not a string'));
+        return;
+      }
 
-    const payload = message.payload as ExecPayload;
-    const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
-    const proc = child_process.spawn('/bin/sh', ['-c', '--', payload.command]);
-    proc.stdout.on(
-      'data',
-      (data: Buffer): void =>
-        void respond('stdoutData', {
-          stdoutString: data.toString(),
-          stdoutBytes: data.toString('base64'),
-        }),
-    );
-    proc.stderr.on(
-      'data',
-      (data: Buffer): void =>
-        void respond('stderrData', {
-          stderrString: data.toString(),
-          stderrBytes: data.toString('base64'),
-        }),
-    );
-    proc.on('close', (closeCode): void => void respond('close', { closeCode }));
-    proc.on('exit', (exitCode): void => void respond('exit', { exitCode }));
-  });
+      const payload = message.payload as ExecPayload;
+      const respond = (event: string, args: Record<string, any>) => message.respond({ event, ...args });
+      const proc = child_process.spawn('/bin/sh', ['-c', '--', payload.command]);
+      spawnedProcesses.set(message.uniqueToken, proc);
+
+      proc.stdout.on(
+        'data',
+        (data: Buffer): void =>
+          void respond('stdoutData', {
+            stdoutString: data.toString(),
+            stdoutBytes: data.toString('base64'),
+          }),
+      );
+      proc.stderr.on(
+        'data',
+        (data: Buffer): void =>
+          void respond('stderrData', {
+            stderrString: data.toString(),
+            stderrBytes: data.toString('base64'),
+          }),
+      );
+      proc.on('error', (err): void => {
+        spawnedProcesses.delete(message.uniqueToken);
+        respond('error', { errorText: errorMessage(err) });
+      });
+      proc.on('close', (closeCode): void => {
+        spawnedProcesses.delete(message.uniqueToken);
+        respond('close', { closeCode });
+      });
+      proc.on('exit', (exitCode): void => void respond('exit', { exitCode }));
+    },
+    (message) => {
+      const proc = spawnedProcesses.get(message.uniqueToken);
+      if (proc) {
+        console.info(`spawn: subscription cancelled, killing pid ${proc.pid}`);
+        spawnedProcesses.delete(message.uniqueToken);
+        try {
+          proc.kill('SIGTERM');
+        } catch (err: unknown) {
+          console.warn('spawn: kill failed:', err);
+        }
+      }
+    },
+  );
 
   service.register(
     'registerActivity',
@@ -805,7 +872,7 @@ function runService(): void {
       // to prevent the service from restarting over and over, manually pause the activity
       // it's done without await to avoid slowing down autostart
       if (calledByActivityManager) {
-        pauseActivity(service).catch((payload) => {
+        pauseActivity(service).catch((payload: unknown) => {
           // /pause will complain on modern webOS about invalid activity state transition
           // it's safe to ignore, activity is still persisted in db
           console.warn('failed to pause autostart activity', payload);
@@ -906,8 +973,7 @@ if (process.argv[2] === 'self-update') {
       process.exit(0);
     } catch (err: unknown) {
       console.error(err);
-      assertNodeError(err);
-      await createToast(`Self-update failed: ${err.message}`, service);
+      await createToast(`Self-update failed: ${errorMessage(err)}`, service);
       process.exit(1);
     }
   })();

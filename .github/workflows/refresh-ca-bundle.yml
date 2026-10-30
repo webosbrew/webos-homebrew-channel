@@ -1,0 +1,87 @@
+name: Refresh CA bundle
+
+# The service trusts *only* the Mozilla CA bundle shipped in services/certs/
+# (see services/fetch-wrapper.ts), so a stale bundle eventually breaks every
+# download. This checks curl.se for a newer bundle and opens a PR with it.
+
+on:
+  schedule:
+    # First day of every month, 06:17 UTC
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Download Mozilla CA bundle
+        id: download
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/cacert.pem https://curl.se/ca/cacert.pem
+          curl -fsSL -o /tmp/cacert.pem.sha256 https://curl.se/ca/cacert.pem.sha256
+          (cd /tmp && sha256sum -c cacert.pem.sha256)
+
+          # e.g. "## Certificate data from Mozilla as of: Mon Mar 11 15:25:27 2024 GMT"
+          as_of="$(sed -n 's/^## Certificate data from Mozilla as of: //p' /tmp/cacert.pem | head -n 1)"
+          [ -n "${as_of}" ] || { echo "::error::could not find bundle date"; exit 1; }
+          date="$(date -u -d "${as_of}" +%Y-%m-%d)"
+          echo "date=${date}" >> "${GITHUB_OUTPUT}"
+
+          target="services/certs/cacert-${date}.pem"
+          echo "target=${target}" >> "${GITHUB_OUTPUT}"
+
+          # Compare certificate contents only (ignore header comments).
+          norm() { grep -v '^#' "$1" | sed '/^$/d'; }
+          if [ -f "${target}" ] && diff -q <(norm "${target}") <(norm /tmp/cacert.pem) >/dev/null; then
+            echo "Bundle ${date} already present"
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git rm -q --ignore-unmatch services/certs/*.pem
+          cp /tmp/cacert.pem "${target}"
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Summarise root changes
+        if: steps.download.outputs.changed == 'true'
+        id: summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          labels() { grep -B1 '^=====' "$1" | grep -v '^==\|^--' | sort -u || true; }
+          old="$(git show HEAD:services/certs/ 2>/dev/null | grep '\.pem$' | head -n1 || true)"
+          {
+            echo 'body<<EOF'
+            echo "Updates the bundled Mozilla CA certificates to the ${{ steps.download.outputs.date }} release from https://curl.se/ca/cacert.pem."
+            echo
+            if [ -n "${old}" ]; then
+              git show "HEAD:services/certs/${old}" > /tmp/old.pem
+              echo "Roots added:"
+              comm -13 <(labels /tmp/old.pem) <(labels "${{ steps.download.outputs.target }}") | sed 's/^/- /'
+              echo
+              echo "Roots removed:"
+              comm -23 <(labels /tmp/old.pem) <(labels "${{ steps.download.outputs.target }}") | sed 's/^/- /'
+            fi
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create pull request
+        if: steps.download.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: ci/refresh-ca-bundle
+          delete-branch: true
+          commit-message: 'certs: update Mozilla CA bundle to ${{ steps.download.outputs.date }}'
+          title: 'certs: update Mozilla CA bundle to ${{ steps.download.outputs.date }}'
+          body: ${{ steps.summary.outputs.body }}
+          labels: dependencies

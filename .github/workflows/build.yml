@@ -19,6 +19,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        # Full history is needed to verify services/startup-checksums.json
+        fetch-depth: 0
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -32,6 +34,15 @@ jobs:
     - name: Run lint
       run: npm run lint
       continue-on-error: ${{ github.event_name != 'workflow_call' || inputs.fail-on-lint-error }}
+
+    - name: Type check
+      run: npm run typecheck
+
+    - name: Run tests
+      run: npm test
+
+    - name: Verify startup.sh checksum list is current
+      run: node tools/gen-startup-checksums.js --check
 
     - name: Build frontend
       run: npm run build -- --production

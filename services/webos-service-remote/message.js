@@ -1,5 +1,4 @@
 // message.js - a wrapper for the palmbus message type
-/* eslint-disable class-methods-use-this */
 
 export default class Message {
   /* Message constructor

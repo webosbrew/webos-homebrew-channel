@@ -1,4 +1,3 @@
-/* eslint-disable no-buffer-constructor */
 import { SlowBuffer } from 'buffer';
 
 function newBuffer(data, encoding, len) {

@@ -33,6 +33,20 @@ airbnbCompat[0].plugins = {
   import: importPlugin,
 };
 
+/*
+ * eslint-config-airbnb-typescript still refers to the formatting rules that
+ * typescript-eslint v8 removed (they moved to @stylistic). They are all turned
+ * off by eslint-config-prettier anyway, so drop any rule the plugin no longer
+ * defines instead of failing on startup.
+ */
+const tsPrefix = '@typescript-eslint/';
+for (const config of airbnbCompat) {
+  if (!config.rules) continue;
+  config.rules = Object.fromEntries(
+    Object.entries(config.rules).filter(([name]) => !name.startsWith(tsPrefix) || name.slice(tsPrefix.length) in ts.plugin.rules),
+  );
+}
+
 export default ts.config(
   {
     ignores: ['frontend/**', 'lib/**', 'node_modules/**', 'dist/**'],
@@ -113,6 +127,16 @@ export default ts.config(
       '@typescript-eslint/prefer-ts-expect-error': 'error',
       /* too many errors with this one */
       '@typescript-eslint/no-explicit-any': 'off',
+      /* Luna payloads are untyped and numbers in messages are fine */
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        {
+          allowAny: true,
+          allowBoolean: true,
+          allowNumber: true,
+          allowNullish: true,
+        },
+      ],
     },
   },
   {
@@ -123,7 +147,36 @@ export default ts.config(
     },
   },
   {
-    files: ['services/**/*.{js,ts}', 'tools/*.js', 'eslint.config.{js,mjs,cjs}', 'webpack.config.js'],
+    /* unit tests: type-checked against the test tsconfig, may use dev dependencies */
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.test.json',
+        tsconfigRootDir: __dirname,
+      },
+    },
+    rules: {
+      'import/no-extraneous-dependencies': [
+        'error',
+        {
+          devDependencies: true,
+          packageDir: __dirname,
+        },
+      ],
+      /* tests load the plain-JS frontend modules with require() */
+      '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      /* node:test's describe()/it() return promises that are not meant to be awaited */
+      '@typescript-eslint/no-floating-promises': 'off',
+      /* assertions on JSON.parse() output are the whole point here */
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
+  {
+    files: ['services/**/*.{js,ts}', 'tests/**/*.ts', 'tools/*.js', 'eslint.config.{js,mjs,cjs}', 'webpack.config.js'],
     /* all of these use node */
     languageOptions: {
       globals: {
@@ -156,6 +209,15 @@ export default ts.config(
     rules: {
       /* not sure how to tell it these aren't modules */
       '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      /* build scripts may use dev dependencies */
+      'import/no-extraneous-dependencies': [
+        'error',
+        {
+          devDependencies: true,
+          packageDir: __dirname,
+        },
+      ],
     },
   },
   {
@@ -182,10 +244,11 @@ export default ts.config(
     files: ['webpack.config.js'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {
-    files: ['babel.config.json', 'tsconfig.json'],
+    files: ['babel.config.json', 'tsconfig.json', 'tsconfig.test.json'],
     rules: {
       /* has various issues (e.g., forcing arrays/objects onto a single line) */
       'prettier/prettier': 'off',
