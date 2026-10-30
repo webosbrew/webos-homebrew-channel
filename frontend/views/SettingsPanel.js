@@ -26,7 +26,8 @@ var
   TooltipDecorator = require('moonstone/TooltipDecorator'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
   LunaService = require('enyo-webos/LunaService'),
-  ConfigUtils = require('../configutils.js');
+  ConfigUtils = require('../configutils.js'),
+  contract = require('../core/service-contract');
 
 var not = function (x) { return !x };
 
@@ -116,9 +117,9 @@ module.exports = kind({
       ]
     },
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
-    {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
-    {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
-    {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
+    {kind: LunaService, name: 'getConfiguration', service: contract.SERVICE_URI, method: contract.METHODS.getConfiguration, onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
+    {kind: LunaService, name: 'setConfiguration', service: contract.SERVICE_URI, method: contract.METHODS.setConfiguration, onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
+    {kind: LunaService, name: 'reboot', service: contract.SERVICE_URI, method: contract.METHODS.reboot},
     {
       name: 'repoAddDialog',
       kind: Dialog,
@@ -218,15 +219,14 @@ module.exports = kind({
   },
   onGetConfiguration: function (sender, response) {
     console.info(sender, response);
-    if (response.errorText) {
-      this.set('rootTextStatus', response.errorText);
-    } else {
-      this.set('rootIsActive', response.root);
-      this.set('rootTextStatus', response.root ? 'ok' : 'unelevated');
-      this.set('telnetEnabled', !response.telnetDisabled);
-      this.set('sshdEnabled', response.sshdEnabled);
-      this.set('blockUpdates', response.blockUpdates);
-      this.set('failsafe', response.failsafe);
+    var state = contract.parseConfigurationResponse(response);
+    this.set('rootTextStatus', state.rootStatusText);
+    if (state.error === null) {
+      this.set('rootIsActive', state.rootIsActive);
+      this.set('telnetEnabled', state.telnetEnabled);
+      this.set('sshdEnabled', state.sshdEnabled);
+      this.set('blockUpdates', state.blockUpdates);
+      this.set('failsafe', state.failsafe);
     }
   },
   onSetConfiguration: function (sender, response) {
@@ -237,15 +237,15 @@ module.exports = kind({
   },
   updateConfiguration: function () {
     this.set('rebootRequired', true);
-    this.$.setConfiguration.send({
-      telnetDisabled: !this.telnetEnabled,
+    this.$.setConfiguration.send(contract.buildSetConfigurationPayload({
+      telnetEnabled: this.telnetEnabled,
       sshdEnabled: this.sshdEnabled,
       blockUpdates: this.blockUpdates,
       failsafe: this.failsafe,
-    })
+    }));
   },
   reboot: function () {
-    this.$.reboot.send({reason: 'SwDownload'});
+    this.$.reboot.send(contract.buildRebootPayload());
     this.$.errorPopup.set('content', 'Rebooting...');
     this.$.errorPopup.set('allowBackKey', false);
     this.$.errorPopup.set('spotlightModal', true);

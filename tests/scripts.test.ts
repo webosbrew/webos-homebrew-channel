@@ -70,6 +70,21 @@ describe('shell scripts', () => {
   });
 });
 
+describe('frontend modules bundled for old WebKit are ES5', () => {
+  const acorn = require('acorn') as typeof import('acorn');
+  for (const file of [
+    'frontend/core/service-contract.js',
+    'frontend/core/manifest.js',
+    'frontend/core/repository.js',
+    'frontend/configutils.js',
+    'frontend/baseurl.js',
+  ]) {
+    it(`${file} parses as ES5`, () => {
+      assert.doesNotThrow(() => acorn.parse(nodeFs.readFileSync(rel(file), 'utf8'), { ecmaVersion: 5, sourceType: 'script' }));
+    });
+  }
+});
+
 describe('node tools', () => {
   for (const tool of ['tools/gen-manifest.js', 'tools/sync-version.js', 'tools/build-dompurify.js', 'tools/gen-startup-checksums.js']) {
     it(`${tool} parses`, () => {

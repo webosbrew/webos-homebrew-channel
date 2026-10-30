@@ -61,7 +61,16 @@ const importSettings = {
 
 export default ts.config(
   {
-    ignores: ['frontend/**', 'lib/**', 'node_modules/**', 'dist/**'],
+    /* the Enyo views stay unlinted for now; the framework-free core modules are covered */
+    ignores: [
+      'frontend/**',
+      '!frontend/core/**',
+      '!frontend/configutils.js',
+      '!frontend/baseurl.js',
+      'lib/**',
+      'node_modules/**',
+      'dist/**',
+    ],
   },
   js.configs.recommended,
   ...ts.configs.strictTypeChecked,
@@ -263,13 +272,18 @@ export default ts.config(
     },
   },
   {
-    /* legacy-Node smoke harness: deliberately plain ES5 CommonJS so it runs on Node.js 0.10 */
-    files: ['tests/legacy/**/*.js'],
+    /*
+     * Plain ES5 CommonJS, by design:
+     *  - tests/legacy: smoke harness that runs on Node.js 0.10
+     *  - frontend/core, configutils, baseurl: bundled by enyo-dev (uglify-js 2) for old webOS WebKit
+     */
+    files: ['tests/legacy/**/*.js', 'frontend/core/**/*.js', 'frontend/configutils.js', 'frontend/baseurl.js'],
     languageOptions: {
       ecmaVersion: 5,
       sourceType: 'script',
       globals: {
         ...globals.node,
+        ...globals.browser,
       },
     },
     rules: {

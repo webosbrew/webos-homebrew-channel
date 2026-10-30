@@ -22,7 +22,9 @@ var
   FittableColumns = require('layout/FittableColumns'),
   // ES5 build generated from the dompurify package by tools/build-dompurify.js
   DOMPurify = require('../vendor/purify.es5.js'),
-  resolveURL = require('../baseurl').resolveURL;
+  resolveURL = require('../baseurl').resolveURL,
+  contract = require('../core/service-contract'),
+  manifest = require('../core/manifest');
 
 /**
  * Finds the closest <a href> ancestor of a DOM node, stopping at `root`.
@@ -146,16 +148,16 @@ module.exports = kind({
     {
       kind: LunaService,
       name: 'appInfoCall',
-      service: 'luna://org.webosbrew.hbchannel.service',
-      method: 'getAppInfo',
+      service: contract.SERVICE_URI,
+      method: contract.METHODS.getAppInfo,
       onResponse: 'onAppInfoResponse',
       onError: 'onAppInfoError',
     },
     {
       kind: LunaService,
       name: 'installCall',
-      service: 'luna://org.webosbrew.hbchannel.service',
-      method: 'install',
+      service: contract.SERVICE_URI,
+      method: contract.METHODS.install,
       onResponse: 'onInstallResponse',
       onError: 'onInstallError',
       subscribe: true,
@@ -163,8 +165,8 @@ module.exports = kind({
     {
       kind: LunaService,
       name: 'uninstallCall',
-      service: 'luna://org.webosbrew.hbchannel.service',
-      method: 'uninstall',
+      service: contract.SERVICE_URI,
+      method: contract.METHODS.uninstall,
       onResponse: 'onUninstallResponse',
       onError: 'onUninstallError',
     },
@@ -187,8 +189,7 @@ module.exports = kind({
     {from: 'packageInfo.title', to: 'title'},
     {from: 'packageInfo.id', to: 'titleBelow', transform: 'subtitleID'},
     {from: 'descriptionModel.content', to: '$.appDescription.content', transform: function (description) {
-      var sanitized = DOMPurify.sanitize(description, {FORBID_TAGS: ['style', 'form', 'input', 'button']});
-      return '<div class="rich-description">' + sanitized + '</div>';
+      return manifest.wrapDescription(DOMPurify.sanitize(description, manifest.DESCRIPTION_SANITIZE_CONFIG));
     }},
 
     {from: 'packageInfo.version', to: '$.version.text', transform: 'version'},
@@ -197,15 +198,10 @@ module.exports = kind({
     {from: 'packageInfo.sourceUrl', to: '$.projectPage.text'},
     {
       from: 'packageInfo.sourceUrl', to: '$.projectPage.disabled', transform: function (v) {
-        // Enabled only when a non-empty URL is available.
-        return !(typeof v === 'string' && v.trim().length > 0);
+        return !manifest.projectPageEnabled(v);
       }
     },
-    {
-      from: 'packageInfo.rootRequired', to: '$.rootRequired.text', transform: function (value) {
-        return value === true ? 'yes' : value === false ? 'no' : value === 'optional' ? 'optional' : 'unknown';
-      }
-    },
+    {from: 'packageInfo.rootRequired', to: '$.rootRequired.text', transform: manifest.rootRequiredText},
 
     {
       from: 'packageInfo.status', to: '$.spinner.showing', transform: function (value) {
@@ -218,27 +214,19 @@ module.exports = kind({
       }
     },
 
-    {
-      from: 'appInfo', to: '$.installButton.content', transform: function (value) {
-        if (!value) {
-          return 'Install';
-        } else {
-          return 'Update';
-        }
-      },
-    },
+    {from: 'appInfo', to: '$.installButton.content', transform: manifest.installButtonLabel},
 
     {from: 'appInfo', to: '$.installButton.disabled', transform: 'installDisabled'},
     {from: 'packageInfo.status', to: '$.installButton.disabled', transform: 'installDisabled'},
 
     {
       from: 'appInfo', to: '$.launchButton.disabled', transform: function (value) {
-        return !value || this.model.get('id') == 'org.webosbrew.hbchannel';
+        return !manifest.canLaunch(value, this.model.get('id'));
       },
     },
     {
       from: 'appInfo', to: '$.uninstallButton.disabled', transform: function (value) {
-        return !value || this.model.get('id') == 'org.webosbrew.hbchannel';
+        return !manifest.canUninstall(value, this.model.get('id'));
       },
     },
   ],
@@ -254,17 +242,24 @@ module.exports = kind({
   },
 
   subtitleID: function (id) {
-    return id + (!this.model.get('official') ? ' (from ' + this.repositoryURL + ')' : '');
+    return manifest.subtitleText(id, this.model.get('official'), this.repositoryURL);
+  },
+
+  manifestState: function () {
+    var ready = !!(this.packageInfo && this.packageInfo.isReady());
+    return {
+      ready: ready,
+      error: !!(this.packageInfo && this.packageInfo.isError()),
+      version: ready ? this.packageInfo.get('version') : undefined,
+    };
   },
 
   version: function (v) {
-    var pkgver = (this.packageInfo && this.packageInfo.isReady()) ? this.packageInfo.get('version') : 'unknown';
-    var localver = (this.appInfo && this.appInfo.version) ? this.appInfo.version : undefined;
-    return pkgver + ((localver && localver != pkgver) ? ' (installed: ' + localver + ')' : '');
+    return manifest.versionText(this.manifestState().version, this.appInfo);
   },
 
   installDisabled: function () {
-    var disabled = this.appInfo === undefined || !this.packageInfo.isReady() || this.packageInfo.isError() || (this.appInfo !== null && this.appInfo.version === this.packageInfo.get('version'))
+    var disabled = manifest.installDisabled(this.appInfo, this.manifestState());
     console.info('installDisabled:', this.appInfo ? this.appInfo.version : undefined, this.packageInfo ? this.packageInfo.get('version') : undefined, disabled);
     return disabled;
   },
@@ -292,7 +287,7 @@ module.exports = kind({
         options: {parse: true},
         url: resolveURL(this.model.get('fullDescriptionUrl'), this.repositoryURL),
         parse: function (data) {
-          return {content: data || '<p>No description provided for this package</p>'};
+          return {content: manifest.fullDescription(data)};
         },
       }));
       this.descriptionModel.fetch({
@@ -301,11 +296,11 @@ module.exports = kind({
         error: function(t) {t.set('status', t.status);},
       });
     } else {
-      this.set('descriptionModel', new Model({content: this.model.get('shortDescription') || '<p>No description provided for this package</p>'}));
+      this.set('descriptionModel', new Model({content: manifest.fallbackDescription(this.model.get('shortDescription'))}));
       this.descriptionModel.set('status', States.READY);
     }
 
-    this.$.appInfoCall.send({id: this.model.get("id")});
+    this.$.appInfoCall.send(contract.buildGetAppInfoPayload(this.model.get('id')));
     console.info('appinfo sent:', this.appInfoRequest);
   },
   openInBrowser: function (url) {
@@ -330,42 +325,59 @@ module.exports = kind({
   },
   installApp: function () {
     console.info('installApp...');
-    this.installRequest = this.$.installCall.send({
-      ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl') || this.repositoryURL),
-      ipkHash: this.packageInfo.get('ipkHash').sha256,
-      id: this.model.get("id"),
-      subscribe: true,
-    });
+    var payload;
+    try {
+      payload = contract.buildInstallPayload(
+        {
+          ipkUrl: this.packageInfo.get('ipkUrl'),
+          ipkHash: this.packageInfo.get('ipkHash'),
+          id: this.model.get('id'),
+        },
+        this.model.get('manifestUrl'),
+        this.repositoryURL
+      );
+    } catch (err) {
+      this.showError({errorText: err.message}, 'installation');
+      return;
+    }
+    this.installRequest = this.$.installCall.send(payload);
     this.$.installButton.set('disabled', true);
   },
   launchApp: function () {
     this.$.launchCall.send({id: this.model.get("id")});
   },
   uninstallApp: function () {
-    this.$.uninstallCall.send({id: this.model.get("id")});
+    this.$.uninstallCall.send(contract.buildUninstallPayload(this.model.get('id')));
     this.$.uninstallButton.set('disabled', false);
   },
 
   onInstallResponse: function (sender, msg) {
     console.info('installResponse:', msg, msg.finished, msg.statusText);
-    if (msg.progress !== undefined && msg.progress < 99) {
-      this.$.installButton.animateProgressTo(msg.progress);
-    } else if (msg.finished) {
-      console.info('Finishing!');
-      this.$.installButton.set('progress', 100);
-      this.$.installButton.set('disabled', false);
-      this.$.installCall.cancel(this.installRequest);
-      this.appInfoRequest = this.$.appInfoCall.send({id: this.model.get("id")});
+    var event = contract.classifyInstallResponse(msg);
+    switch (event.type) {
+      case 'progress':
+        if (event.percent < 99) {
+          this.$.installButton.animateProgressTo(event.percent);
+        }
+        break;
+      case 'finished':
+        console.info('Finishing!');
+        this.$.installButton.set('progress', 100);
+        this.$.installButton.set('disabled', false);
+        this.$.installCall.cancel(this.installRequest);
+        this.appInfoRequest = this.$.appInfoCall.send(contract.buildGetAppInfoPayload(this.model.get('id')));
+        break;
+      case 'error':
+        // LunaService routes returnValue:false to onInstallError; nothing to do here.
+        break;
+      default:
+        break;
     }
   },
 
   showError: function(msg, operation) {
     console.info('install error:', msg);
-    var errorMessage = 'An error occured during ' + operation + ': ' + msg.errorText;
-    if (msg.errorText.indexOf('luna-send-pub') != -1 && msg.errorText.indexOf('ECONNREFUSED') != -1) {
-      errorMessage += '<br /><br />If you just updated Homebrew Channel app you may need to perform a reboot.';
-    }
-    this.$.errorPopup.setContent(DOMPurify.sanitize(errorMessage));
+    this.$.errorPopup.setContent(DOMPurify.sanitize(contract.formatOperationError(msg, operation)));
     this.$.errorPopup.show();
   },
 
@@ -377,21 +389,17 @@ module.exports = kind({
   },
 
   onUninstallResponse: function(sender, msg) {
-    this.$.appInfoCall.send({id: this.model.get("id")});
+    this.$.appInfoCall.send(contract.buildGetAppInfoPayload(this.model.get('id')));
   },
 
   onUninstallError: function (sender, msg) {
     this.showError(msg, 'removal');
-    this.$.appInfoCall.send({id: this.model.get("id")});
+    this.$.appInfoCall.send(contract.buildGetAppInfoPayload(this.model.get('id')));
   },
 
   onAppInfoResponse: function (sender, msg) {
     console.info('appInfo:', msg, sender);
-    if (msg.appInfo) {
-      this.set('appInfo', msg.appInfo);
-    } else {
-      this.set('appInfo', null);
-    }
+    this.set('appInfo', contract.parseAppInfoResponse(msg));
   },
   onAppInfoError: function (sender, msg) {
     console.warn('appInfo read failed:', msg, sender);

@@ -20,6 +20,8 @@ var
   Collection = require('enyo/Collection'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js'),
+  contract = require('../core/service-contract'),
+  repository = require('../core/repository'),
   SettingsPanel = require('./SettingsPanel.js');
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
@@ -40,9 +42,9 @@ var NestedSource = kind({
     this.collection.fetch({
       success: function(col, _, result) {
         console.info('nested success:', result, col);
-        if (result.length === 1 && result[0].attributes.repository === null) {
-          col.errorCode = '600';
-          opts.error([], '600');
+        if (repository.isInvalidFeedResult(result.map(function (m) { return m.attributes; }))) {
+          col.errorCode = repository.INVALID_FEED_ERROR_CODE;
+          opts.error([], repository.INVALID_FEED_ERROR_CODE);
         } else {
           opts.success(result);
         }
@@ -103,8 +105,8 @@ module.exports = kind({
         {kind: AppListItem}
       ], ontap: 'itemSelected',
     },
-    {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
-    {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
+    {kind: LunaService, name: 'updateStartupScript', service: contract.SERVICE_URI, method: contract.METHODS.updateStartupScript},
+    {kind: LunaService, name: 'autostart', service: contract.SERVICE_URI, method: contract.METHODS.autostart},
   ],
   bindings: [
     {from: 'repository', to: '$.appList.collection'},
@@ -120,8 +122,8 @@ module.exports = kind({
     },
     {
       from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
-        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' (' + s.collection.errorCode + ')'; }).filter(Boolean).join(', ') : '';
-        return 'An error occured while downloading some repositories:\n'+statusList;
+        var feeds = this.repository.source ? this.repository.source.map(function (s) { return s.collection; }) : [];
+        return 'An error occured while downloading some repositories:\n' + repository.failedFeedsSummary(feeds);
       }
     },
   ],
@@ -161,22 +163,18 @@ module.exports = kind({
               source: new AjaxSource(),
               options: {parse: true},
               parse: function (data) {
+                var packages = null;
                 try {
-                  if (data && data.packages) {
-                    data.packages.forEach(function (element) {
-                      element.uid = element.id + '|' + url;
-                      element.repository = url;
-                      element.official = url === ConfigUtils.repositoryBaseURL;
-                    });
-                    return data.packages;
-                  }
+                  packages = repository.parseRepositoryFeed(data, url);
                 } catch (err) { console.warn('parsing failed', err, arguments, this); }
+                if (packages !== null) {
+                  return packages;
+                }
 
-                // This is very dirty. We don't have a way of indicating an
-                // invalid repository to NestedResource. Since uid is generated
-                // by our code, let's just assume `null` uid is an indicator of
-                // a failed parse...
-                return [{repository: null}];
+                // We don't have a way of indicating an invalid repository to
+                // NestedSource other than through the parsed records, so hand
+                // it a marker it recognises (see isInvalidFeedResult).
+                return repository.invalidFeedMarker();
               },
             }),
           });

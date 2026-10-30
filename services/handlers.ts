@@ -101,7 +101,7 @@ export function defaultConfig(serviceDir: string, entryFile: string): ServiceCon
 }
 
 // Maps internal setting field name with filesystem flag name.
-const availableFlags = {
+export const availableFlags = {
   telnetDisabled: 'webosbrew_telnet_disabled',
   failsafe: 'webosbrew_failsafe',
   sshdEnabled: 'webosbrew_sshd_enabled',

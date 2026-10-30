@@ -1,54 +1,39 @@
-var repositoryBaseURL = 'https://repo.webosbrew.org/api/apps.json';
-var repositoryNonfreeBaseURL = 'https://repo.webosbrew.org/api/non-free/apps.json';
+/*
+ * Repository configuration persisted in localStorage.
+ * All logic lives in core/repository.js; this only supplies the storage.
+ */
+
+var repository = require('./core/repository');
+
+function storage() {
+  return window.localStorage;
+}
 
 function getConfig() {
-  var repositoriesConfig = {
-    repositories: [],
-    disableDefault: false,
-    enableNonfree: false,
-  };
-
-  var storedConfig = window.localStorage['repositoriesConfig'];
-
-  if (storedConfig === undefined) {
-    return repositoriesConfig;
-  }
-
   try {
-    var parsed = JSON.parse(storedConfig);
-    if (parsed.disableDefault !== undefined)
-      repositoriesConfig.disableDefault = parsed.disableDefault;
-    if (parsed.repositories !== undefined)
-      repositoriesConfig.repositories = parsed.repositories;
-    if (parsed.enableNonfree !== undefined)
-      repositoriesConfig.enableNonfree = parsed.enableNonfree;
+    return repository.readConfig(storage());
   } catch (err) {
     console.warn('Config load failed:', err);
+    return repository.defaultConfig();
   }
-
-  return repositoriesConfig;
 }
 
 function getRepositories() {
   try {
-    var repositoriesConfig = getConfig();
-    var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
-    if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
-    if (repositoriesConfig.enableNonfree) repos.push(repositoryNonfreeBaseURL);
-    return repos;
+    return repository.repositoryUrls(getConfig());
   } catch (err) {
     console.warn(err);
-    return [repositoryBaseURL];
+    return [repository.DEFAULT_REPOSITORY_URL];
   }
 }
 
 function setConfig(config) {
-  window.localStorage['repositoriesConfig'] = JSON.stringify(config);
-  console.info(window.localStorage['repositoriesConfig']);
+  repository.writeConfig(storage(), config);
+  console.info(storage()[repository.CONFIG_STORAGE_KEY]);
 }
 
 module.exports = {
-  repositoryBaseURL: repositoryBaseURL,
+  repositoryBaseURL: repository.DEFAULT_REPOSITORY_URL,
 
   getRepositories: getRepositories,
   getConfig: getConfig,
