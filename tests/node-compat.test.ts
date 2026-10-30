@@ -17,7 +17,6 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import nodeFs from 'node:fs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -25,6 +24,8 @@ import { PassThrough } from 'node:stream';
 import { proc, stream } from '../services/platform';
 import { install as installBufferShim } from '../services/platform/buffer-shim';
 import { install as installStringShim } from '../services/platform/string-shim';
+import { install as installEventsShim } from '../services/platform/events-shim';
+import { ensureServiceBundle } from './helpers/build';
 
 const repoRoot = path.resolve(__dirname, '..');
 const read = (rel: string): string => nodeFs.readFileSync(path.join(repoRoot, rel), 'utf8');
@@ -138,38 +139,80 @@ describe('Buffer.from/alloc shim (Node < 4.5)', () => {
 });
 
 describe('String.prototype.normalize missing (Node 0.10)', () => {
-  it('installs an identity normalize() on a prototype that lacks it', () => {
+  it('installs normalize() on a prototype that lacks it', () => {
     const proto: { normalize?: (form?: string) => string } = {};
     assert.equal(installStringShim(proto), true);
     assert.equal(typeof proto.normalize, 'function');
-    // tr46 calls `domain.normalize('NFC')`; the TV only ever sees ASCII host names.
-    assert.equal(String.prototype.normalize.call('repo.webosbrew.org', 'NFC'), 'repo.webosbrew.org');
-    assert.equal(proto.normalize?.call('127.0.0.1', 'NFC'), '127.0.0.1');
+  });
+
+  it('is the identity for ASCII (the only case where that is correct)', () => {
+    const proto: { normalize?: (form?: string) => string } = {};
+    installStringShim(proto);
+    const normalize = proto.normalize as (this: string, form?: string) => string;
+    // tr46 calls `domain.normalize('NFC')`
+    assert.equal(normalize.call('repo.webosbrew.org', 'NFC'), 'repo.webosbrew.org');
+    assert.equal(normalize.call('127.0.0.1', 'NFC'), '127.0.0.1');
+    assert.equal(normalize.call('', 'NFC'), '');
+    assert.equal(normalize.call('abc'), 'abc');
+  });
+
+  it('rejects non-ASCII instead of silently mis-normalizing it', () => {
+    const proto: { normalize?: (form?: string) => string } = {};
+    installStringShim(proto);
+    // NFC and NFD spellings of the same host must not be allowed to diverge into different punycode.
+    assert.throws(() => proto.normalize?.call('\u00e9xample.org', 'NFC'), /not available on this Node\.js/);
+    assert.throws(() => proto.normalize?.call('e\u0301xample.org', 'NFC'), /not available on this Node\.js/);
+  });
+
+  it('validates the form argument like the native method', () => {
+    const proto: { normalize?: (form?: string) => string } = {};
+    installStringShim(proto);
+    assert.throws(() => proto.normalize?.call('abc', 'NFX'), RangeError);
   });
 
   it('leaves a native normalize() alone', () => {
     assert.equal(installStringShim(String.prototype), false);
     assert.equal('e\u0301'.normalize('NFC'), '\u00e9', 'native behaviour intact');
   });
+});
 
-  it('is loaded by the platform layer with the other shims', () => {
-    const promiseTs = read('services/platform/promise.ts');
-    assert.match(promiseTs, /^import '\.\/string-shim';$/m);
+describe('EventEmitter.prototype.listenerCount missing (Node < 3.2)', () => {
+  it('installs an instance listenerCount() on a prototype that lacks it', () => {
+    const { EventEmitter } = require('node:events') as typeof import('node:events');
+    // A constructor as Node 0.10 had it: static listenerCount, no instance method.
+    class Legacy extends EventEmitter {}
+    Object.defineProperty(Legacy.prototype, 'listenerCount', { value: undefined, writable: true, configurable: true });
+    const LegacyCtor = Legacy as unknown as typeof EventEmitter;
+    assert.equal(installEventsShim(LegacyCtor), true);
+    const em = new Legacy();
+    assert.equal(em.listenerCount('data'), 0);
+    em.on('data', () => undefined);
+    em.on('data', () => undefined);
+    assert.equal(em.listenerCount('data'), 2, 'the exact call node-fetch makes: socket.listenerCount("data")');
+    assert.equal(em.listenerCount('end'), 0);
   });
 
-  it('the service bundle actually contains a normalize() call site (so the shim is load-bearing)', () => {
-    const bundle = path.join(repoRoot, 'dist', 'services', 'service.js');
-    if (!nodeFs.existsSync(bundle)) {
-      // bundle.test.ts builds it; when run in isolation, build here
-      execFileSync('npx', ['webpack', '--env', 'production'], { cwd: repoRoot, stdio: 'pipe', timeout: 180000 });
-    }
+  it('leaves a modern EventEmitter alone', () => {
+    const { EventEmitter } = require('node:events') as typeof import('node:events');
+    assert.equal(installEventsShim(EventEmitter), false);
+  });
+});
+
+describe('shims are present in the built bundle where their call sites are', () => {
+  it('normalize and listenerCount: call site and shim both in service.js', () => {
+    const bundle = path.join(ensureServiceBundle(), 'service.js');
     const src = nodeFs.readFileSync(bundle, 'utf8');
-    assert.match(src, /\.normalize\(/, 'node-fetch/tr46 normalize() call expected in the bundle');
-    assert.match(
-      src,
-      /normalize=function normalize\(\)\{return String\(this\)\}|normalize=function\(\)\{return String\(this\)\}/,
-      'shim present in bundle',
-    );
+    assert.match(src, /\.normalize\(/, 'tr46 normalize() call site');
+    assert.match(src, /normalize=function normalize\(|normalize=function\(/, 'string shim');
+    assert.match(src, /\.listenerCount\("data"\)/, 'node-fetch listenerCount() call site');
+    assert.match(src, /listenerCount=function listenerCount\(|listenerCount=function\(/, 'events shim');
+  });
+
+  it('every platform shim is imported by promise.ts before third-party code', () => {
+    const promiseTs = read('services/platform/promise.ts');
+    for (const shim of ['buffer-shim', 'string-shim', 'events-shim']) {
+      assert.match(promiseTs, new RegExp(`^import '\\./${shim}';$`, 'm'), `${shim} imported`);
+    }
   });
 });
 

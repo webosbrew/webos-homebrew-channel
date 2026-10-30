@@ -239,7 +239,7 @@ export default ts.config(
      */
     files: ['services/**/*.{js,ts}'],
     /* the shims that *define* newer APIs on old Node */
-    ignores: ['services/platform/buffer-shim.js', 'services/platform/string-shim.js'],
+    ignores: ['services/platform/buffer-shim.js', 'services/platform/string-shim.js', 'services/platform/events-shim.js'],
     plugins: { n: nodePlugin },
     rules: {
       'n/no-unsupported-features/node-builtins': [

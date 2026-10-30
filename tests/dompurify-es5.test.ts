@@ -14,7 +14,6 @@
 
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import nodeFs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -22,8 +21,9 @@ import vm from 'node:vm';
 import * as acorn from 'acorn';
 import { JSDOM } from 'jsdom';
 
+import { ensureDompurifyVendor } from './helpers/build';
+
 const repoRoot = path.resolve(__dirname, '..');
-const output = path.join(repoRoot, 'frontend', 'vendor', 'purify.es5.js');
 
 /** Built-ins a 2014-era TV webview may lack, as statements that remove them from a realm. */
 const ES2015_BUILTINS = [
@@ -91,8 +91,7 @@ describe('tools/build-dompurify.js', () => {
   let source: string;
 
   before(() => {
-    execFileSync('node', [path.join(repoRoot, 'tools', 'build-dompurify.js')], { stdio: 'pipe', timeout: 180000 });
-    source = nodeFs.readFileSync(output, 'utf8');
+    source = nodeFs.readFileSync(ensureDompurifyVendor(), 'utf8');
   });
 
   it('records the DOMPurify version it was built from', () => {

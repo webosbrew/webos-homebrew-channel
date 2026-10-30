@@ -246,6 +246,20 @@ function tmpLeftovers() {
 
 var steps = [];
 
+/* The bundle installs shims for APIs this Node.js may lack; third-party code
+ * inside it (tr46, node-fetch) calls them unguarded, so they must be there
+ * right after the bundle loaded, on every Node.js version. */
+steps.push(function platformShims(next) {
+  var EventEmitter = require('events').EventEmitter;
+  ok(typeof String.prototype.normalize === 'function', 'String.prototype.normalize available after bundle load');
+  ok(typeof EventEmitter.prototype.listenerCount === 'function', 'EventEmitter.prototype.listenerCount available after bundle load');
+  var em = new EventEmitter();
+  em.on('data', function () {});
+  ok(em.listenerCount('data') === 1 && em.listenerCount('end') === 0, 'listenerCount() counts instance listeners');
+  ok('abc'.normalize('NFC') === 'abc', 'normalize() is the identity on ASCII');
+  next();
+});
+
 steps.push(function checkRoot(next) {
   invoke('checkRoot', {}, { settleOn: 1 }, function (m) {
     ok(typeof last(m).returnValue === 'boolean', 'checkRoot answers with a boolean');

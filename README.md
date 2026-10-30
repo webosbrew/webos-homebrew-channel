@@ -179,7 +179,14 @@ The service bundle has to run on the TV's own Node.js (0.10 on the oldest
 supported webOS). Every place where the code depends on a Node.js version
 difference lives in `services/platform/` and is listed, with a test of its
 fallback path, in `tests/node-compat.test.ts`; the `n/no-unsupported-features`
-lint rule flags new uses of post-0.10 APIs.
+lint rule flags new uses of post-0.10 APIs. Those tests run on the toolchain's
+Node.js. When an actual old runtime is at hand (a TV over SSH, or an old
+`node` binary), `tests/legacy/smoke.js` loads the built bundle on it and
+drives the service through a fake Luna bus:
+```sh
+npm run build-service   # produces dist/services/service.js
+/path/to/old/node tests/legacy/smoke.js dist/services
+```
 
 ### Technology stack
 Frontend is based on last development version of [enyo](https://github.com/enyojs).

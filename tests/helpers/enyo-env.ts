@@ -9,12 +9,13 @@
  * - webOS.fetchAppInfo / applicationManager launches are faked too.
  */
 
-import { execFileSync } from 'node:child_process';
 import Module from 'node:module';
 import path from 'node:path';
 import nodeFs from 'node:fs';
 
 import { JSDOM } from 'jsdom';
+
+import { ensureDompurifyVendor } from './build';
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const libRoot = path.join(repoRoot, 'lib');
@@ -164,9 +165,7 @@ export function createEnyoEnv(): EnyoEnv {
   installResolver();
 
   // DetailsPanel requires the ES5 DOMPurify build that `npm run build` generates.
-  if (!nodeFs.existsSync(path.join(repoRoot, 'frontend', 'vendor', 'purify.es5.js'))) {
-    execFileSync('node', [path.join(repoRoot, 'tools', 'build-dompurify.js')], { stdio: 'pipe' });
-  }
+  ensureDompurifyVendor();
 
   const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
     // an http origin so localStorage works (file:// is opaque in jsdom)
