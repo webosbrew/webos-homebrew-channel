@@ -578,7 +578,18 @@ function runService(): void {
       const futureFlagSets = Object.entries(payload)
         .filter((pair: [string, boolean]): pair is [FlagName, boolean] => pair[0] in availableFlags)
         .map(async ([flagName, value]): Promise<[FlagName, boolean]> => [flagName, await flagFileSet(availableFlags[flagName], value)]);
-      return Object.fromEntries(await Promise.all(futureFlagSets));
+      const flags = Object.fromEntries(await Promise.all(futureFlagSets));
+      if (typeof payload['blockUpdates'] === 'boolean') {
+        try {
+          await asyncCall(service, 'luna://com.webos.settingsservice/setSystemSettings', {
+            category: 'support',
+            settings: { softwareUpdateEnable: payload['blockUpdates'] ? 'false' : 'true' },
+          });
+        } catch (err: unknown) {
+          console.warn('Failed to set support.softwareUpdateEnable:', err);
+        }
+      }
+      return flags;
     }),
   );
 
@@ -628,6 +639,7 @@ function runService(): void {
           '6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f',
           'e04a3d61098c6f74d466da6fb457a52fb61a9cc86869059ae32b13bf43cd9d10',
           'c8b5093eca9a78ef70b2742f60ab7b1a04e7c9331359f234bd40a0065238815b',
+          '4d9e140a3c1fc9608c6de08df205d6e333e951cff91c64d512081b0b2e1b4b10',
         ];
 
         // RootMyTV v2

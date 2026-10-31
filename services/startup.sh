@@ -56,8 +56,16 @@ else
     # Reset devmode reboot counter
     rm -f /var/luna/preferences/dc*
 
-    # Block software update servers
+    # Discard downloaded update metadata and block software update servers
     if [[ -e /var/luna/preferences/webosbrew_block_updates ]]; then
+        rm -f \
+            /mnt/lg/cmn_data/swupdate/Image_Update_Info.xml \
+            /mnt/lg/cmn_data/swupdate/Package_Update_Info.xml
+
+        luna-send -m org.webosbrew.hbchannel.service -n 1 \
+            luna://com.webos.settingsservice/setSystemSettings \
+            '{"category":"support","settings":{"softwareUpdateEnable":"false"}}'
+
         cp /etc/hosts /tmp/hosts
         mount --bind /tmp/hosts /etc/hosts
 
