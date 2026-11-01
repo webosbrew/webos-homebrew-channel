@@ -26,11 +26,8 @@ export default class FakeActivityManager implements PublicAM {
 
   private _idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(
-    private _service: Service | null = null,
-    private _ttlSeconds: number = 30,
-  ) {
-    this._idleTimer = setTimeout(this.quit.bind(this), this._ttlSeconds * 1000);
+  constructor(private _ttlSeconds: number = 30) {
+    this.resetIdleTimer();
   }
 
   create(_activity: any, callback?: (payload: any) => void) {
@@ -48,29 +45,34 @@ export default class FakeActivityManager implements PublicAM {
     callback?.({ returnValue: true });
   }
 
-  setService(service: Service) {
-    // types include many props that should not actually be public
-    this._service = service;
-  }
-
   cast() {
     return this as unknown as ActivityManager;
   }
 
   private acquire() {
     this._counter++;
-
-    if (this._idleTimer !== null) {
-      clearTimeout(this._idleTimer);
-    }
   }
 
   private release() {
     this._counter--;
 
     if (this._counter === 0) {
-      this._idleTimer = setTimeout(this.quit.bind(this), this._ttlSeconds * 1000);
+      this.resetIdleTimer();
     }
+  }
+
+  private resetIdleTimer() {
+    if (this._idleTimer !== null) {
+      clearTimeout(this._idleTimer);
+    }
+
+    this._idleTimer = setTimeout(() => {
+      if (this._counter === 0) {
+        this.quit();
+      } else {
+        this.resetIdleTimer();
+      }
+    }, this._ttlSeconds * 1000);
   }
 
   private quit() {
