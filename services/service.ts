@@ -104,6 +104,56 @@ async function isFile(targetPath: string): Promise<boolean> {
   }
 }
 
+async function readDeviceValue(filePath: string, label: string): Promise<string | null> {
+  try {
+    const rawValue: unknown = await asyncReadFile(filePath, { encoding: 'utf-8' });
+    if (typeof rawValue !== 'string') {
+      console.warn(`[compatibility] ${label} is not text: ${filePath}`);
+      return null;
+    }
+    const value = rawValue.trim();
+    if (value) {
+      return value;
+    }
+    console.warn(`[compatibility] ${label} is empty: ${filePath}`);
+  } catch (err) {
+    console.warn(`[compatibility] failed to read ${label} from ${filePath}:`, err);
+  }
+  return null;
+}
+
+async function readWebosRelease(systemInfoService: Service): Promise<string | null> {
+  try {
+    const systemInfo = await asyncCall<Record<string, unknown>>(
+      systemInfoService,
+      'luna://com.webos.service.tv.systemproperty/getSystemInfo',
+      {
+        keys: ['sdkVersion'],
+      },
+    );
+    const sdkVersion = systemInfo['sdkVersion'];
+    if (typeof sdkVersion === 'string' && /^\d+\.\d+\.\d+$/.test(sdkVersion.trim())) {
+      return sdkVersion.trim();
+    }
+    console.warn('[compatibility] system information returned an invalid sdkVersion');
+  } catch (err) {
+    console.warn('[compatibility] failed to read webOS release from system information:', err);
+  }
+
+  const releaseInfo = await readDeviceValue('/etc/starfish-release', 'webOS release');
+  if (!releaseInfo) {
+    return null;
+  }
+
+  const match = /release\s+(\d+\.\d+\.\d+)/i.exec(releaseInfo);
+  if (match) {
+    return match[1] as string;
+  }
+
+  console.warn('[compatibility] could not parse webOS release from /etc/starfish-release');
+  return null;
+}
+
 /**
  * Check whether a path exists
  */
@@ -561,6 +611,24 @@ function runService(): void {
         root: runningAsRoot,
         homebrewBaseDir,
         ...flags,
+      };
+    }),
+  );
+
+  /**
+   * Returns the local facts used for advisory app compatibility checks.
+   */
+  service.register(
+    'getCompatibilityContext',
+    tryRespond(async () => {
+      const [webosRelease, deviceSoC] = await Promise.all([
+        readWebosRelease(serviceRemote as Service),
+        readDeviceValue('/etc/prefs/properties/machineName', 'device SoC'),
+      ]);
+      return {
+        root: runningAsRoot,
+        webosRelease,
+        deviceSoC,
       };
     }),
   );

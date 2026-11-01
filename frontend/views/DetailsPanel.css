@@ -23,3 +23,18 @@
 .app-description img {
     max-width: 100%;
 }
+
+.compatibility-warnings {
+    margin-bottom: 16px;
+    min-height: 0;
+}
+
+.compatibility-warning-text {
+    font-size: 24px;
+    line-height: 30px;
+    white-space: pre-line;
+}
+
+.compatibility-warning-text {
+    color: #ffd27d;
+}
