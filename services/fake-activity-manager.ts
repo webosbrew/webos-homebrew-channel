@@ -1,12 +1,4 @@
-import type Service from 'webos-service';
 import type { ActivityManager } from 'webos-service';
-
-declare module 'webos-service/service' {
-  // eslint-disable-next-line @typescript-eslint/no-shadow
-  interface Service {
-    unregister(): void;
-  }
-}
 
 type PublicAM = Pick<ActivityManager, 'create' | 'adopt' | 'complete'>;
 
@@ -76,10 +68,8 @@ export default class FakeActivityManager implements PublicAM {
   }
 
   private quit() {
-    console.log('quitting on next tick');
+    console.log('[fake-am] quitting');
 
-    process.nextTick(() => process.exit(0));
-
-    this._service?.unregister();
+    process.exit(0);
   }
 }
