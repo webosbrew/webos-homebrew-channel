@@ -588,7 +588,12 @@ function runService(): void {
   service.register(
     'reboot',
     simpleTryRespond(async (_message: Message) => {
-      await asyncExecFile('reboot');
+      try {
+        await asyncCall(service, 'luna://com.webos.service.tvpower/power/reboot', { reason: 'cpuCommand' });
+      } catch (err) {
+        console.warn('failed to reboot using tvpower call:', err);
+        await asyncExecFile('reboot');
+      }
     }),
   );
 
