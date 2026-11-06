@@ -8,7 +8,7 @@
         "!win32"
     ],
     "scripts": {
-        "build": "enyo pack",
+        "build": "node tools/enyo-pack.js pack",
         "build-service": "webpack",
         "package": "ares-package dist/ -e enyo-ilib",
         "manifest": "tools/gen-manifest.js org.webosbrew.hbchannel.manifest.json",
@@ -77,6 +77,7 @@
         "jsonc-eslint-parser": "^2.4.0",
         "npm-run-all": "^4.1.5",
         "prettier": "^3.2.5",
+        "terser": "5.28.1",
         "typescript": "^5.3.3",
         "typescript-eslint": "^7.1.1",
         "webpack": "^5.90.3",
@@ -87,7 +88,7 @@
         "@throwaway96/node-load-cert-dir": "github:throwaway96/node-load-cert-dir#b1943cb64ccb5851c6c8885892716638d954b3f6",
         "bluebird": "^3.7.2",
         "core-js": "^3.36.0",
-        "dompurify": "=3.0.1",
+        "dompurify": "=3.4.17",
         "node-fetch": "=2.6.7",
         "progress-stream": "^2.0.0",
         "regenerator-runtime": "^0.14.1",
