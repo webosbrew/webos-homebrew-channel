@@ -75,7 +75,8 @@ else
     # Start sshd
     if [[ -e /var/luna/preferences/webosbrew_sshd_enabled ]]; then
         mkdir -p /var/lib/webosbrew/sshd
-        "${SERVICE_DIR}/bin/dropbear" -R 200>&-
+        # Use a 1 MiB receive window to improve uploads over higher-latency links.
+        "${SERVICE_DIR}/bin/dropbear" -R -W 1048576 200>&-
     fi
 
     printf "\033[1;91mNEVER EVER OVERWRITE SYSTEM PARTITIONS LIKE KERNEL, ROOTFS, TVSERVICE.\nYour TV will be bricked, guaranteed! See https://rootmy.tv/warning for more info.\033[0m\n" > /tmp/motd

@@ -633,6 +633,7 @@ function runService(): void {
           '6215795aed50c11bb7be716cf66326f3657a129143b5edc1b635dab8b8d2fc9f',
           'e04a3d61098c6f74d466da6fb457a52fb61a9cc86869059ae32b13bf43cd9d10',
           'c8b5093eca9a78ef70b2742f60ab7b1a04e7c9331359f234bd40a0065238815b',
+          '00177c4202a05ab51c91d953fa84714f7472230a92a9a14b90008d9882d0f057',
         ];
 
         // RootMyTV v2
