@@ -21,6 +21,7 @@
         "build-local:service": "webpack",
         "build-local:package": "ares-package dist/ -e enyo-ilib",
         "build-and-launch": "npm-run-all --serial build-local deploy launch",
+        "test:compatibility": "node tools/test-compatibility.js",
         "version": "node tools/sync-version.js && git add appinfo.json"
     },
     "assets": [
@@ -91,6 +92,7 @@
         "node-fetch": "=2.6.7",
         "progress-stream": "^2.0.0",
         "regenerator-runtime": "^0.14.1",
+        "semver": "5.7.2",
         "stream.pipeline-shim": "^1.1.0",
         "webos-service": "github:webosose/nodejs-module-webos-service#1dd2c9d6cd21eb5d84f7619432ed6d2784bb56f9"
     },
