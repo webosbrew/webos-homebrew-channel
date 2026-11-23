@@ -405,8 +405,6 @@ function runService(): void {
   const service = new Service(serviceInfo.id, fakeAM.cast());
   const serviceRemote = new ServiceRemote();
 
-  fakeAM.setService(service);
-
   // legacy webOS (pre-ACG) used two luna buses: private and public.
   // by default, public handle is used for outbound calls.
   // AM inherits bus from requests and attempts to call trigger on public bus,
