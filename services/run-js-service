@@ -1,6 +1,17 @@
 #!/bin/sh
 
+# Use COMMON_OPTIONS to pass additional options to Node.js.
+# Without the COMMON_OPTIONS sed script below, our options wouldn't be applied when -s was passed.
+# NOTE: Ignored when the Node.js fork server is used, but I don't think that's relevant to us.
+unset COMMON_OPTIONS
+
+# Since --max-http-header-size was added in Node.js v11.6.0/v10.15.0, this only applies on webOS 7+.
+case "$(cut -d ' ' -f 3 -s -- '/etc/starfish-release' 2>'/dev/null')" in
+    [7-9].*|[1-9][0-9]*) COMMON_OPTIONS='--max-http-header-size=32768' ;;
+esac
+
 # :^)
 eval "$(sed -e '/^thirdparty_jail=/s/=.*/=off/' \
             -e '\@/var/luna/preferences/devmode_enabled@s/if /&false \&\& /' \
+            -e '/\<COMMON_OPTIONS="--max_old_space_size=/s/\<COMMON_OPTIONS="/&${COMMON_OPTIONS:+${COMMON_OPTIONS} }/' \
             '/usr/bin/run-js-service')"
