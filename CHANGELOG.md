@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0]
+### Added
+- `elevate-service` now grants `lunabus.query` ACG to support webOS 11+
+  (@kitsuned; #233)
+- Added autostart quirks for webOS <4.0: now `init.d` scripts & SSH/Telnet
+  servers are started on boot on any device (@kitsuned; #230)
+- Added a new way to block system updates via `settingsd`.
+  No more annoying update nag. (@kitsuned; #264)
+- Service now tries to do graceful reboot using `tvpower` call (@kitsuned; #263)
+
+### Changed
+- Remove comment about copying startup.sh elsewhere (@throwaway96; #257)
+
+### Fixed
+- Properly wrap luna errors in `asyncCall` (@kitsuned; #222)
+- Fix service UID check in `webos-service-remote` (@kitsuned; #231)
+- Fix GitHub HTTP header overflow on webOS 7 & 8 (@throwaway96; #259)
+
+### Removed
+- Remove unused utils: `doas`, `sampatcher` & `remount-nosuids` (@kitsuned; #221)
+
+## [0.7.3] - 2026-01-11
+### Added
+- Ship `telnetd` binary, since it was removed from webOS 9 and later.
+  (@mariotaku, #213)
+
+#### Fixed
+- Fix icons on 720p devices (@mariotaku, #214)
+
+### Removed
+- Remove unused source (@mariotaku, #215)
+
 ## [0.7.2] - 2024-11-16
 ### Fixed
 - Fix Luna calls when service not elevated (@mariotaku; #200)
@@ -161,14 +193,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2021-05-06
 ### Added
 - Initial release
-
-[Unreleased]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.3.2...v0.4.0
-[0.3.2]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.2.1...v0.3.0
-[0.2.1]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/webosbrew/webos-homebrew-channel/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/webosbrew/webos-homebrew-channel/releases/tag/v0.1.0
