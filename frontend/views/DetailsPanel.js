@@ -4,6 +4,7 @@ var
   AjaxSource = require('enyo/AjaxSource'),
   Spinner = require('moonstone/Spinner'),
   Popup = require('moonstone/Popup'),
+  Dialog = require('moonstone/Dialog'),
   Icon = require('moonstone/Icon'),
   Divider = require('moonstone/Divider'),
   Item = require('moonstone/Item'),
@@ -21,7 +22,10 @@ var
   FittableRows = require('layout/FittableRows'),
   FittableColumns = require('layout/FittableColumns'),
   DOMPurify = require('dompurify/dist/purify.cjs.js'),
-  resolveURL = require('../baseurl').resolveURL;
+  resolveURL = require('../baseurl').resolveURL,
+  compatibility = require('../packageCompatibility'),
+  evaluateCompatibility = compatibility.evaluateCompatibility,
+  decideCompatibility = compatibility.decideCompatibility;
 
 DOMPurify.addHook('afterSanitizeAttributes', function (node) {
   if ('href' in node) {
@@ -81,6 +85,16 @@ module.exports = kind({
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while loading app info.', modal: false, autoDismiss: true, allowBackKey: true, allowHtml: true},
     {
+      kind: Dialog,
+      name: 'compatibilityDialog',
+      title: 'Compatibility warning',
+      message: '',
+      components: [
+        {kind: Button, name: 'compatibilityConfirmButton', content: 'Install', ontap: 'confirmInstall'},
+        {kind: Button, content: 'Cancel', ontap: 'cancelInstall'},
+      ],
+    },
+    {
       kind: FittableColumns,
       classes: 'enyo-fill',
       components: [
@@ -137,6 +151,15 @@ module.exports = kind({
         ]},
 
         {kind: FittableRows, fit: true, components: [
+          {
+            name: 'compatibilityWarnings',
+            classes: 'compatibility-warnings',
+            showing: false,
+            components: [
+              {kind: Divider, content: 'Compatibility warning'},
+              {kind: BodyText, name: 'compatibilityWarningText', classes: 'compatibility-warning-text'},
+            ],
+          },
           {kind: Divider, content: 'Description'},
           {fit: true,
             kind: Scroller,
@@ -172,6 +195,14 @@ module.exports = kind({
       method: 'getAppInfo',
       onResponse: 'onAppInfoResponse',
       onError: 'onAppInfoError',
+    },
+    {
+      kind: LunaService,
+      name: 'compatibilityContextCall',
+      service: 'luna://org.webosbrew.hbchannel.service',
+      method: 'getCompatibilityContext',
+      onResponse: 'onCompatibilityContextResponse',
+      onError: 'onCompatibilityContextError',
     },
     {
       kind: LunaService,
@@ -239,18 +270,12 @@ module.exports = kind({
       }
     },
 
-    {
-      from: 'appInfo', to: '$.installButton.content', transform: function (value) {
-        if (!value) {
-          return 'Install';
-        } else {
-          return 'Update';
-        }
-      },
-    },
+    {from: 'appInfo', to: '$.installButton.content', transform: 'installButtonContent'},
+    {from: 'reinstallRequested', to: '$.installButton.content', transform: 'installButtonContent'},
 
     {from: 'appInfo', to: '$.installButton.disabled', transform: 'installDisabled'},
     {from: 'packageInfo.status', to: '$.installButton.disabled', transform: 'installDisabled'},
+    {from: 'reinstallRequested', to: '$.installButton.disabled', transform: 'installDisabled'},
 
     {
       from: 'appInfo', to: '$.launchButton.disabled', transform: function (value) {
@@ -265,6 +290,11 @@ module.exports = kind({
   ],
 
   appInfo: undefined,
+  compatibilityContext: null,
+  compatibilityContextReady: false,
+  compatibilityReport: null,
+  pendingInstallAction: null,
+  reinstallRequested: false,
 
   transitionFinished: function (evt) {
     // We are launching a web request in post transition to fix a race condition
@@ -285,24 +315,43 @@ module.exports = kind({
   },
 
   installDisabled: function () {
-    var disabled = this.appInfo === undefined || !this.packageInfo.isReady() || this.packageInfo.isError() || (this.appInfo !== null && this.appInfo.version === this.packageInfo.get('version'))
+    var disabled = this.appInfo === undefined || !this.packageInfo || !this.packageInfo.isReady() ||
+      this.packageInfo.isError() ||
+      (!this.reinstallRequested && this.appInfo !== null && this.appInfo.version === this.packageInfo.get('version'))
     console.info('installDisabled:', this.appInfo ? this.appInfo.version : undefined, this.packageInfo ? this.packageInfo.get('version') : undefined, disabled);
     return disabled;
   },
 
+  installButtonContent: function () {
+    if (this.reinstallRequested) return 'Reinstall';
+    return this.appInfo ? 'Update' : 'Install';
+  },
+
   refresh: function () {
     console.info('refresh');
+    this.set('compatibilityContextReady', false);
+    this.set('compatibilityContext', {root: null, webosRelease: null, deviceSoC: null});
+    this.compatibilityReport = null;
+    this.pendingInstallAction = null;
+    this.set('reinstallRequested', false);
+    this.$.compatibilityWarnings.set('showing', false);
+    this.$.compatibilityDialog.hide();
+
     if (this.model.get('manifest')) {
       this.set('packageInfo', new Model(this.model.get('manifest')));
       this.packageInfo.set('status', States.READY);
     } else {
+      var panel = this;
       this.set('packageInfo', new Model(undefined, {
         source: new AjaxSource(),
         url: resolveURL(this.model.get('manifestUrl'), this.repositoryURL),
       }));
       this.packageInfo.fetch({
         // Why is model.status non-observable by default!?
-        success: function (t) {t.set('status', t.status);},
+        success: function (t) {
+          t.set('status', t.status);
+          panel.updateCompatibility();
+        },
         error: function (t) {t.set('status', t.status);},
       });
     }
@@ -327,6 +376,7 @@ module.exports = kind({
     }
 
     this.$.appInfoCall.send({id: this.model.get("id")});
+    this.$.compatibilityContextCall.send();
     console.info('appinfo sent:', this.appInfoRequest);
   },
   openProjectPage: function () {
@@ -336,6 +386,37 @@ module.exports = kind({
   },
   installApp: function () {
     console.info('installApp...');
+    this.updateCompatibility();
+    if (!this.compatibilityReport) {
+      console.warn('install ignored before compatibility check completed');
+      return;
+    }
+    var decision = decideCompatibility(this.compatibilityReport);
+    if (decision.disposition === 'confirm') {
+      var action = this.getInstallAction();
+      this.pendingInstallAction = action;
+      this.$.compatibilityDialog.set('message', decision.reasons.join('\n'));
+      this.$.compatibilityConfirmButton.set('content', action);
+      this.$.compatibilityDialog.show();
+      return;
+    }
+    this.performInstall();
+  },
+  getInstallAction: function () {
+    if (this.reinstallRequested) return 'Reinstall';
+    return this.appInfo ? 'Update' : 'Install';
+  },
+  confirmInstall: function () {
+    if (!this.pendingInstallAction) return;
+    this.pendingInstallAction = null;
+    this.$.compatibilityDialog.hide();
+    this.performInstall();
+  },
+  cancelInstall: function () {
+    this.pendingInstallAction = null;
+    this.$.compatibilityDialog.hide();
+  },
+  performInstall: function () {
     this.installRequest = this.$.installCall.send({
       ipkUrl: resolveURL(this.packageInfo.get('ipkUrl'), this.model.get('manifestUrl') || this.repositoryURL),
       ipkHash: this.packageInfo.get('ipkHash').sha256,
@@ -361,6 +442,7 @@ module.exports = kind({
       this.$.installButton.set('progress', 100);
       this.$.installButton.set('disabled', false);
       this.$.installCall.cancel(this.installRequest);
+      this.set('reinstallRequested', false);
       this.appInfoRequest = this.$.appInfoCall.send({id: this.model.get("id")});
     }
   },
@@ -404,6 +486,43 @@ module.exports = kind({
     this.set('appInfo', null);
   },
 
+  onCompatibilityContextResponse: function (sender, msg) {
+    this.set('compatibilityContext', {
+      root: typeof msg.root === 'boolean' ? msg.root : null,
+      webosRelease: typeof msg.webosRelease === 'string' ? msg.webosRelease : null,
+      deviceSoC: typeof msg.deviceSoC === 'string' ? msg.deviceSoC : null,
+    });
+    this.set('compatibilityContextReady', true);
+    this.updateCompatibility();
+  },
+
+  onCompatibilityContextError: function (sender, msg) {
+    console.warn('compatibility context read failed:', msg, sender);
+    this.set('compatibilityContext', {root: null, webosRelease: null, deviceSoC: null});
+    this.set('compatibilityContextReady', true);
+    this.updateCompatibility();
+  },
+
+  updateCompatibility: function () {
+    if (!this.packageInfo || !this.packageInfo.isReady()) {
+      return;
+    }
+
+    this.compatibilityReport = evaluateCompatibility({
+      requirements: this.model.get('requirements'),
+      rootRequired: this.packageInfo.get('rootRequired'),
+    }, this.compatibilityContext);
+
+    var warnings = this.compatibilityReport.checks.filter(function (item) {
+      return item.status !== 'pass';
+    }).map(function (item) {
+      return '- ' + item.message;
+    });
+
+    this.$.compatibilityWarningText.set('content', warnings.join('\n'));
+    this.$.compatibilityWarnings.set('showing', warnings.length > 0);
+  },
+
   onLaunchResponse: function (sender, msg) {
     console.info('launch response:', msg);
   },
@@ -414,9 +533,13 @@ module.exports = kind({
 
   onKeyUp: function (sender, evt) {
     // Remote button "5"
-    if (evt.keyCode == 53) {
-      this.$.installButton.set('disabled', false);
-      this.$.installButton.set('content', 'Reinstall');
+    if (
+      evt.keyCode == 53 &&
+      this.appInfo &&
+      this.packageInfo &&
+      this.packageInfo.isReady()
+    ) {
+      this.set('reinstallRequested', true);
     }
   }
 });
