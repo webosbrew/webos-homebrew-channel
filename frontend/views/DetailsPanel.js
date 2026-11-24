@@ -21,7 +21,8 @@ var
   FittableRows = require('layout/FittableRows'),
   FittableColumns = require('layout/FittableColumns'),
   DOMPurify = require('dompurify/dist/purify.cjs.js'),
-  resolveURL = require('../baseurl').resolveURL;
+  resolveURL = require('../baseurl').resolveURL,
+  versionHigher = require('../versionutils').versionHigher;
 
 DOMPurify.addHook('afterSanitizeAttributes', function (node) {
   if ('href' in node) {
@@ -46,19 +47,6 @@ global.openLinkInBrowser = function (url) {
   }
 }
 
-function versionHigher(oldVer, newVer) {
-  if (typeof oldVer !== 'string' || typeof newVer !== 'string') return false
-
-  var oldParts = oldVer.split('.')
-  var newParts = newVer.split('.')
-  for (var i = 0; i < newParts.length; i++) {
-    var a = ~~newParts[i] // parse int
-    var b = ~~oldParts[i] // parse int
-    if (a > b) return true
-    if (a < b) return false
-  }
-  return false
-}
 
 module.exports = kind({
   name: 'DetailsPanel',
