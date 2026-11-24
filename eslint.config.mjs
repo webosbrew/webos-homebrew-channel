@@ -156,6 +156,14 @@ export default ts.config(
     rules: {
       /* not sure how to tell it these aren't modules */
       '@typescript-eslint/no-var-requires': 'off',
+      /* build tools may use development-only dependencies */
+      'import/no-extraneous-dependencies': [
+        'error',
+        {
+          devDependencies: true,
+          packageDir: __dirname,
+        },
+      ],
     },
   },
   {
