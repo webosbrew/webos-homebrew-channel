@@ -58,6 +58,7 @@ module.exports = kind({
                     },
                   ], style: 'width: 100%',
                 },
+                {kind: Button, name: 'clearSshKeysButton', content: 'Clear SSH keys', disabled: true, ontap: 'showClearSshKeysDialog'},
                 {kind: Divider, content: 'System information'},
                 {
                   kind: LabeledTextItem,
@@ -118,7 +119,18 @@ module.exports = kind({
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading repository.', allowHtml: true, modal: true, allowBackKey: true},
     {kind: LunaService, name: 'getConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'getConfiguration', onResponse: 'onGetConfiguration', onError: 'onGetConfiguration'},
     {kind: LunaService, name: 'setConfiguration', service: 'luna://org.webosbrew.hbchannel.service', method: 'setConfiguration', onResponse: 'onSetConfiguration', onError: 'onSetConfiguration'},
+    {kind: LunaService, name: 'clearSshKeys', service: 'luna://org.webosbrew.hbchannel.service', method: 'clearSSHKeys', onResponse: 'onClearSshKeys', onError: 'onClearSshKeys'},
     {kind: LunaService, name: 'reboot', service: 'luna://org.webosbrew.hbchannel.service', method: 'reboot'},
+    {
+      name: 'clearSshKeysDialog',
+      kind: Dialog,
+      title: 'Clear SSH keys?',
+      message: 'This will empty /home/root/.ssh/authorized_keys. SSH key-based login will no longer work with the removed keys. You will need to add a new public key to use key-based login again.',
+      components: [
+        {kind: Button, content: 'Cancel', ontap: 'cancelClearSshKeys'},
+        {kind: Button, content: 'Clear keys', ontap: 'confirmClearSshKeys'},
+      ],
+    },
     {
       name: 'repoAddDialog',
       kind: Dialog,
@@ -153,6 +165,7 @@ module.exports = kind({
     {from: "rootIsActive", to: '$.sshd.disabled', transform: not},
     {from: "rootIsActive", to: '$.blockUpdates.disabled', transform: not},
     {from: "rootIsActive", to: '$.failsafe.disabled', transform: not},
+    {from: "rootIsActive", to: '$.clearSshKeysButton.disabled', transform: not},
     {from: "rootIsActive", to: '$.reboot.disabled', transform: not},
     {from: "telnetEnabled", to: '$.telnet.checked', oneWay: false},
     {from: "sshdEnabled", to: '$.sshd.checked', oneWay: false},
@@ -243,6 +256,30 @@ module.exports = kind({
       blockUpdates: this.blockUpdates,
       failsafe: this.failsafe,
     })
+  },
+  showClearSshKeysDialog: function () {
+    if (!this.rootIsActive) {
+      this.$.errorPopup.set('content', 'Root access is required to clear SSH keys.');
+      this.$.errorPopup.show();
+      return;
+    }
+    this.$.clearSshKeysDialog.show();
+  },
+  cancelClearSshKeys: function () {
+    this.$.clearSshKeysDialog.hide();
+  },
+  confirmClearSshKeys: function () {
+    this.$.clearSshKeysDialog.hide();
+    this.$.clearSshKeys.send({});
+  },
+  onClearSshKeys: function (sender, response) {
+    if (!response || response.errorText || response.returnValue === false) {
+      var error = response && response.errorText ? response.errorText : 'Unknown error';
+      this.$.errorPopup.set('content', 'Unable to clear SSH keys: ' + error);
+    } else {
+      this.$.errorPopup.set('content', response.statusText || (response.cleared ? 'SSH authorized keys cleared.' : 'No SSH authorized keys found; nothing to clear.'));
+    }
+    this.$.errorPopup.show();
   },
   reboot: function () {
     this.$.reboot.send({reason: 'SwDownload'});
