@@ -32,7 +32,9 @@ function getConfig() {
 function getRepositories() {
   try {
     var repositoriesConfig = getConfig();
-    var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
+    var repos = repositoriesConfig.repositories
+      .map(function (repo) { return (typeof repo === 'string') ? repo : (repo && repo.url); })
+      .filter(Boolean);
     if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
     if (repositoriesConfig.enableNonfree) repos.push(repositoryNonfreeBaseURL);
     return repos;
