@@ -5,16 +5,20 @@
 // Laid out like Limestone's TabLayout: a panel header (title and search), a full-height sidebar on the left with the
 // tabs at the top and Refresh and Settings at the foot, and the content on the right.
 //
-// Each tab and search results show the apps as a grid.
+// Discover shows the apps by category, one sliding row each; "See all" on a row shows that category as a grid, and
+// Back returns to the rows. The other tabs and search results are grids.
 
 var
   kind = require('enyo/kind'),
   Control = require('enyo/Control'),
   EnyoImage = require('enyo/Image'),
+  EnyoHistory = require('enyo/History'),
   Input = require('enyo/Input'),
   Spotlight = require('spotlight'),
   Button = require('../components/Button.js'),
   AppCard = require('../components/AppCard.js'),
+  CategoryRow = require('../components/CategoryRow.js'),
+  categories = require('../categories.js'),
   Scroller = require('../components/Scroller.js'),
   ConfigUtils = require('../configutils.js'),
   repository = require('../repository.js'),
@@ -139,6 +143,7 @@ module.exports = kind({
 
   handlers: {
     onSpotlightFocused: 'focusChanged',
+    onSpotlightDown: 'downFromHero',
   },
 
   components: [
@@ -183,6 +188,8 @@ module.exports = kind({
           ]},
         ]},
 
+        {name: 'rows', showing: false},
+
         {name: 'sectionHead', classes: 'hb-heading', components: [
           {name: 'sectionTitle', tag: 'h2', classes: 'hb-heading-title', content: 'All apps'},
           {name: 'sectionHint', classes: 'hb-heading-hint', content: 'A–Z · press OK to open'},
@@ -197,6 +204,7 @@ module.exports = kind({
   create: function () {
     this.inherited(arguments);
     this.tab = 'discover';
+    this.category = null;
     this.query = '';
     this.installed = {};
     this.updateTabs();
@@ -208,6 +216,10 @@ module.exports = kind({
 
   initialFocus: function () {
     if (this.$.hero.showing) return this.$.heroAction;
+    if (this.showingRows()) {
+      var rows = this.$.rows.getClientControls();
+      if (rows.length && rows[0].cards.length) return rows[0].cards[0];
+    }
     var first = this.visibleCards()[0];
     return first || this.$.tabDiscover;
   },
@@ -223,6 +235,16 @@ module.exports = kind({
       // Only that app can have been installed, updated or removed meanwhile; asking about every app again is slow.
       this.checkInstalled([closed.app.id]);
     }
+  },
+
+  // Down from the featured app's buttons goes to the first row's cards, not to that row's "See all" button.
+  downFromHero: function (sender, event) {
+    var fromHero = event.originator === this.$.heroAction || event.originator === this.$.heroDetails;
+    if (!fromHero || !this.showingRows()) return false;
+    var first = this.$.rows.getClientControls()[0];
+    if (!first) return false;
+    Spotlight.spot(first.$.track);
+    return true;
   },
 
   // Moving focus out of the list (to the sidebar or the header) shows the top of the list again, so that what is on
@@ -279,6 +301,7 @@ module.exports = kind({
       }, {owner: this}));
     }
     this.$.grid.render();
+    this.buildRows();
 
     var repos = ConfigUtils.getRepositories();
     var host = repos.length === 1 ? repository.repositoryHost(repos[0]) : repos.length + ' repositories';
@@ -293,14 +316,45 @@ module.exports = kind({
     }
   },
 
-  focusedAppUid: function () {
-    var current = Spotlight.getCurrent();
-    return current && (this.cards || []).indexOf(current) !== -1 ? current.app.uid : null;
+  // One row per category that has apps, in the categories' order, apps A–Z as in the repository list. Repositories
+  // that give no categories get no rows; Discover then lists all apps.
+  buildRows: function () {
+    var groups = {};
+    this.$.rows.destroyClientControls();
+    this.rowCards = [];
+    if (!categories.anyCategorized(this.packages)) return;
+    (this.packages || []).forEach(function (pkg) {
+      var id = categories.categoryOf(pkg).id;
+      (groups[id] = groups[id] || []).push(pkg);
+    });
+    var self = this;
+    categories.all().forEach(function (category) {
+      if (!groups[category.id]) return;
+      var row = self.$.rows.createComponent({
+        kind: CategoryRow,
+        category: category,
+        apps: groups[category.id],
+        installed: self.installed,
+        onSeeAll: 'showCategory',
+        onOpenApp: 'rowAppOpened',
+      }, {owner: self});
+      self.rowCards = self.rowCards.concat(row.cards);
+    });
+    this.$.rows.render();
   },
 
-  // The card for an app in the grid.
+  allCards: function () {
+    return (this.cards || []).concat(this.rowCards || []);
+  },
+
+  focusedAppUid: function () {
+    var current = Spotlight.getCurrent();
+    return current && this.allCards().indexOf(current) !== -1 ? current.app.uid : null;
+  },
+
+  // The card for an app in what is on screen now: the rows, or the grid.
   cardForUid: function (uid) {
-    var cards = this.cards || [];
+    var cards = this.showingRows() ? this.rowCards || [] : this.cards || [];
     for (var i = 0; i < cards.length; i++) {
       if (cards[i].app.uid === uid) return cards[i];
     }
@@ -345,7 +399,7 @@ module.exports = kind({
   setInstalledVersion: function (id, version) {
     if (this.installed[id] === version) return;
     this.installed[id] = version;
-    (this.cards || []).forEach(function (card) {
+    this.allCards().forEach(function (card) {
       if (card.app.id === id) card.setInstalledVersion(version);
     });
     this.updateTabs();
@@ -360,11 +414,17 @@ module.exports = kind({
   matches: function (pkg) {
     if (this.tab === 'installed' && !this.installed[pkg.id]) return false;
     if (this.tab === 'updates' && !this.hasUpdate(pkg)) return false;
+    if (this.tab === 'discover' && this.category && categories.categoryOf(pkg) !== this.category) return false;
     if (this.query) {
       var haystack = ((pkg.title || '') + ' ' + pkg.id + ' ' + (pkg.shortDescription || '')).toLowerCase();
       if (haystack.indexOf(this.query) === -1) return false;
     }
     return true;
+  },
+
+  // Discover without a search or a chosen category shows the category rows instead of the grid.
+  showingRows: function () {
+    return this.tab === 'discover' && !this.query && !this.category && !!this.rowCards && this.rowCards.length > 0;
   },
 
   visibleCards: function () {
@@ -380,12 +440,18 @@ module.exports = kind({
       if (show) count++;
     });
 
-    var titles = {discover: 'All apps', installed: 'Installed', updates: 'Updates'};
-    var title = this.query ? 'Results for “' + this.query + '”' : titles[this.tab];
-    this.$.sectionTitle.set('content', title);
-    this.$.sectionHint.set('content', count + (count === 1 ? ' app' : ' apps') + ' · press OK to open');
+    var rows = this.showingRows();
+    this.$.rows.set('showing', rows);
+    this.$.grid.set('showing', !rows);
+    this.$.sectionHead.set('showing', !rows);
 
-    var empty = !this.$.spinner.showing && count === 0;
+    var titles = {discover: 'All apps', installed: 'Installed', updates: 'Updates'};
+    var title = this.query ? 'Results for “' + this.query + '”' : this.category && this.tab === 'discover' ? this.category.title : titles[this.tab];
+    this.$.sectionTitle.set('content', title);
+    this.$.sectionHint.set('content', count + (count === 1 ? ' app' : ' apps') +
+      (this.category && this.tab === 'discover' && !this.query ? ' · Back for all categories' : ' · press OK to open'));
+
+    var empty = !rows && !this.$.spinner.showing && count === 0;
     this.$.empty.set('showing', empty);
     if (empty) {
       this.$.empty.set('content',
@@ -398,7 +464,7 @@ module.exports = kind({
   },
 
   heroVisible: function () {
-    return this.tab === 'discover' && !this.query && !!this.heroApp;
+    return this.tab === 'discover' && !this.query && !this.category && !!this.heroApp;
   },
 
   updateTabs: function () {
@@ -420,6 +486,7 @@ module.exports = kind({
   },
 
   selectTab: function (sender) {
+    this.leaveCategory();
     this.tab = sender.tab;
     this.updateTabs();
     this.applyFilter();
@@ -431,6 +498,50 @@ module.exports = kind({
     this.query = String(event.query || '').trim().toLowerCase();
     this.applyFilter();
     this.$.scroller.scrollToTop();
+    return true;
+  },
+
+  // ---- Categories ----
+
+  // "See all" on a row: that category as a grid, until Back.
+  showCategory: function (sender, event) {
+    this.leaveCategory();
+    this.category = event.category;
+    this.categoryRow = event.row;
+    EnyoHistory.push({context: this, handler: this.categoryBack});
+    this.inCategoryHistory = true;
+    this.applyFilter();
+    this.$.scroller.scrollToTop();
+    var first = this.visibleCards()[0];
+    if (first) Spotlight.spot(first);
+    return true;
+  },
+
+  categoryBack: function () {
+    this.inCategoryHistory = false;
+    var row = this.categoryRow;
+    this.category = null;
+    this.categoryRow = null;
+    this.applyFilter();
+    // Back on the row's "See all" button.
+    var target = row && !row.destroyed ? row.$.seeAll : null;
+    Spotlight.spot(target || this.initialFocus());
+    return true;
+  },
+
+  // Quietly forgets a shown category, e.g. when another tab is chosen.
+  leaveCategory: function () {
+    if (!this.category) return;
+    this.category = null;
+    this.categoryRow = null;
+    if (this.inCategoryHistory) {
+      this.inCategoryHistory = false;
+      EnyoHistory.drop();
+    }
+  },
+
+  rowAppOpened: function (sender, event) {
+    this.openDetails(event.app, false);
     return true;
   },
 

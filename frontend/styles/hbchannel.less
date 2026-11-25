@@ -289,7 +289,7 @@ html, body {
   color: rgba(38, 38, 38, 0.4);
 }
 
-// Small button.
+// Small button (e.g. "See all" beside a heading).
 .hb-button-small {
   height: 54px;
   min-width: 132px;
@@ -644,6 +644,20 @@ html, body {
 }
 .hb-card.spotlight .hb-chip-amber {
   background-color: @lime-yellow;
+}
+
+// A category: heading, then one sliding row of items.
+.hb-category {
+  margin-bottom: 24px;
+}
+.hb-track {
+  overflow: hidden;
+  // Room for the focused tile, which grows, and its shadow.
+  margin: 0 -24px;
+  padding: 9px 12px 12px;
+}
+.hb-strip {
+  .flex();
 }
 
 .hb-empty {
