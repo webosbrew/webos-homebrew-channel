@@ -6,6 +6,7 @@ function getConfig() {
     repositories: [],
     disableDefault: false,
     enableNonfree: false,
+    autoCheckUpdates: true,
   };
 
   var storedConfig = window.localStorage['repositoriesConfig'];
@@ -22,6 +23,8 @@ function getConfig() {
       repositoriesConfig.repositories = parsed.repositories;
     if (parsed.enableNonfree !== undefined)
       repositoriesConfig.enableNonfree = parsed.enableNonfree;
+    if (parsed.autoCheckUpdates !== undefined)
+      repositoriesConfig.autoCheckUpdates = parsed.autoCheckUpdates;
   } catch (err) {
     console.warn('Config load failed:', err);
   }

@@ -426,6 +426,7 @@ function runService(): void {
     title: string;
     type: string;
     folderPath: string;
+    version?: string;
   }
   interface AppsList {
     apps: AppInfo[];
@@ -722,6 +723,35 @@ function runService(): void {
       if (!appId) throw new Error('missing `id` string field');
       const appInfo = await getAppInfo(appId);
       return { appId, appInfo };
+    }),
+  );
+
+  /**
+   * Lists all installed apps in an environment-independent way (non-root vs root).
+   */
+  service.register(
+    'listApps',
+    tryRespond(async () => {
+      const appList = await asyncCall<AppsList>(getInstallerService(), 'luna://com.webos.applicationManager/dev/listApps', {});
+      return { apps: appList.apps };
+    }),
+  );
+
+  /**
+   * Displays a native webOS toast notification from the Homebrew Channel service.
+   */
+  interface NotifyPayload {
+    message: string;
+  }
+  service.register(
+    'notify',
+    tryRespond(async (message: Message) => {
+      const payload = message.payload as NotifyPayload;
+      if (!payload.message || typeof payload.message !== 'string') {
+        throw new Error('missing `message` string field');
+      }
+      await createToast(payload.message, service);
+      return { returnValue: true };
     }),
   );
 
