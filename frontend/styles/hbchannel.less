@@ -770,6 +770,70 @@ html, body {
   color: @lime-yellow;
 }
 
+// Screenshots (see Gallery.js): a frame with the picture fitted inside it, arrows on its sides and the position in
+// its corner.
+.hb-gallery {
+  .no-shrink();
+  margin-bottom: 24px;
+}
+.hb-gallery-frame {
+  position: relative;
+  height: 360px;
+  border-radius: @lime-radius-container;
+  background-color: @lime-surface-faint;
+  overflow: hidden;
+}
+// Centered and fitted without object-fit, which old TVs lack.
+.hb-gallery-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+.hb-gallery-loading {
+  visibility: hidden;
+}
+.hb-gallery-note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin-top: -18px;
+  text-align: center;
+  font-size: 27px;
+  line-height: 36px;
+  color: @lime-text-sub;
+}
+.hb-gallery-arrow {
+  position: absolute;
+  top: 50%;
+  margin-top: -33px;
+  background-color: rgba(38, 40, 43, 0.85);
+}
+.hb-gallery-previous {
+  left: 18px;
+}
+.hb-gallery-next {
+  right: 18px;
+}
+.hb-gallery-position {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  height: 36px;
+  padding: 0 15px;
+  border-radius: 18px;
+  background-color: rgba(38, 40, 43, 0.85);
+  font-size: 21px;
+  font-weight: @lime-weight;
+  line-height: 36px;
+  color: @lime-text;
+}
+
 // Body text that the remote can scroll (see TextBlock.js).
 .hb-textblock {
   .flex-grow();

@@ -1,6 +1,6 @@
 // One app, as a Limestone panel: a header with the app's name, then on the left its icon, install/update/launch/
-// uninstall and facts (versions, sizes), and on the right its description. An action guide at the bottom says when
-// the description goes on below.
+// uninstall, facts (versions, sizes) and a link to its project page, and on the right its screenshots, if it has any,
+// and its description. An action guide at the bottom says when the description goes on below.
 
 var
   kind = require('enyo/kind'),
@@ -13,6 +13,7 @@ var
   Button = require('../components/Button.js'),
   Dialog = require('../components/Dialog.js'),
   TextBlock = require('../components/TextBlock.js'),
+  Gallery = require('../components/Gallery.js'),
   repository = require('../repository.js'),
   icons = require('../icons.js'),
   util = require('../util.js'),
@@ -98,13 +99,6 @@ module.exports = kind({
           {name: 'downloadTile', kind: Fact, label: 'Download'},
           {name: 'sizeTile', kind: Fact, label: 'Installed size'},
         ]},
-      ]},
-
-      {classes: 'hb-column-main', components: [
-        {classes: 'hb-heading', components: [
-          {tag: 'h2', classes: 'hb-heading-title', content: 'About'},
-        ]},
-        {name: 'description', kind: TextBlock, content: '<p>Loading…</p>'},
         {name: 'projectLink', classes: 'hb-link', spotlight: true, showing: false, ontap: 'openProjectPage', attributes: {role: 'link'}, components: [
           {classes: 'hb-link-text', components: [
             {classes: 'hb-link-label', content: 'Project page'},
@@ -112,6 +106,14 @@ module.exports = kind({
           ]},
           {tag: 'span', allowHtml: true, content: icons.external},
         ]},
+      ]},
+
+      {classes: 'hb-column-main', components: [
+        {name: 'gallery', kind: Gallery},
+        {classes: 'hb-heading', components: [
+          {tag: 'h2', classes: 'hb-heading-title', content: 'About'},
+        ]},
+        {name: 'description', kind: TextBlock, content: '<p>Loading…</p>'},
       ]},
     ]},
 
@@ -139,6 +141,7 @@ module.exports = kind({
     this.$.icon.set('src', app.iconUri || 'assets/icon160.png');
     this.$.title.set('content', this.title);
     this.$.appId.set('content', app.id);
+    this.$.gallery.set('screenshots', app.screenshots || null);
     this.renderState();
     this.refresh();
   },
