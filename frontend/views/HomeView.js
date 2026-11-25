@@ -128,6 +128,7 @@ module.exports = kind({
 
   handlers: {
     onSpotlightFocused: 'focusChanged',
+    onSpotlightDown: 'downFromHero',
   },
 
   components: [
@@ -206,14 +207,25 @@ module.exports = kind({
   },
 
   /**
-   * Called when this page is shown again after a page on top of it was closed.
+   * Called when this page is shown again after a page on top of it was closed; `closed.app` is the app whose details
+   * page that was.
    */
-  pageShown: function () {
+  pageShown: function (closed) {
     if (JSON.stringify(ConfigUtils.getRepositories()) !== this.loadedRepositories) {
       this.reload();
-    } else {
-      this.checkInstalled();
+    } else if (closed && closed.app) {
+      // Only that app can have been installed, updated or removed meanwhile; asking about every app again is slow.
+      this.checkInstalled([closed.app.id]);
     }
+  },
+
+  // Down from the featured app's lower button goes to the first row's cards, not to that row's "See all" button.
+  downFromHero: function (sender, event) {
+    if (event.originator !== this.$.heroDetails || !this.showingRows()) return false;
+    var first = this.$.rows.getClientControls()[0];
+    if (!first) return false;
+    Spotlight.spot(first.$.track);
+    return true;
   },
 
   // Moving focus up into the header shows the top of the list again, so that what is on screen matches the focus.
@@ -326,20 +338,23 @@ module.exports = kind({
   },
 
   /**
-   * Asks the service which of the listed apps are installed, a few at a time, and updates the cards as answers come.
+   * Asks the service which of the listed apps (or of `only`, a list of app ids) are installed, a few at a time, and
+   * updates the cards as answers come.
    */
-  checkInstalled: function () {
+  checkInstalled: function (only) {
     var ids = [];
     var seen = {};
     (this.packages || []).forEach(function (pkg) {
-      if (!seen[pkg.id]) {
+      if (!seen[pkg.id] && (!only || only.indexOf(pkg.id) !== -1)) {
         seen[pkg.id] = true;
         ids.push(pkg.id);
       }
     });
 
     var self = this;
-    var generation = this.checkGeneration = (this.checkGeneration || 0) + 1;
+    // A full check replaces any earlier one; a check of a few apps runs alongside, so that it does not cut short a full
+    // check still in progress.
+    var generation = only ? this.checkGeneration : (this.checkGeneration = (this.checkGeneration || 0) + 1);
     util.forEachLimited(ids, 4, function (id, done) {
       util.lunaCall(SERVICE + 'getAppInfo', {id: id}, function (response) {
         if (generation === self.checkGeneration && !self.destroyed) {

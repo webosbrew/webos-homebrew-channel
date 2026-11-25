@@ -94,7 +94,7 @@ module.exports = kind({
     var below = this.stack[this.stack.length - 1];
     if (below) {
       below.lastFocus = Spotlight.getCurrent();
-      below.set('showing', false);
+      this.setPageHidden(below, true);
     }
 
     var page = this.$.pages.createComponent(definition, {owner: this});
@@ -118,17 +118,26 @@ module.exports = kind({
   popPage: function () {
     if (this.stack.length <= 1) return;
     var page = this.stack.pop();
+    var closed = {app: page.app || null};
     page.destroy();
 
     var below = this.stack[this.stack.length - 1];
-    below.set('showing', true);
+    this.setPageHidden(below, false);
     document.title = below.title || 'Homebrew Channel';
-    if (below.pageShown) below.pageShown();
+    if (below.pageShown) below.pageShown(closed);
     if (below.lastFocus && !below.lastFocus.destroyed && Spotlight.isSpottable(below.lastFocus)) {
       Spotlight.spot(below.lastFocus);
     } else {
       this.focusPage(below);
     }
+  },
+
+  // A page under another one keeps its layout (visibility, not display), so that coming back to it does not lay out
+  // all of it again, which is slow on TVs with long app lists. It is not painted, and the remote cannot focus it.
+  setPageHidden: function (page, hidden) {
+    page.addRemoveClass('hb-page-hidden', hidden);
+    page.spotlightDisabled = hidden;
+    page.setAttribute('aria-hidden', hidden ? 'true' : null);
   },
 
   focusPage: function (page) {
