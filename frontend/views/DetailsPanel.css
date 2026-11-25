@@ -23,3 +23,28 @@
 .app-description img {
     max-width: 100%;
 }
+
+.hb-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: bold;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    margin-top: 0.2rem;
+    letter-spacing: 0.03em;
+}
+
+.hb-badge-update {
+    background-color: #cf0652;
+    color: #ffffff;
+}
+
+.hb-badge-installed {
+    background-color: rgba(255, 255, 255, 0.16);
+    color: #dddddd;
+}
+
+.hb-update-all-btn {
+    background-color: #cf0652 !important;
+    color: #ffffff !important;
+}

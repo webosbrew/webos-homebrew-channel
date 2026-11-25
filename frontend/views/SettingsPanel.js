@@ -87,6 +87,7 @@ module.exports = kind({
                 {kind: Divider, content: 'Repositories'},
                 {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
                 {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
+                {kind: ToggleItem, content: 'Check for app updates automatically', checked: true, name: 'autoCheckUpdates', ontap: 'saveRepositories'},
                 {
                   kind: DataRepeater, name: 'extraRepositories',
                   components: [
@@ -170,6 +171,7 @@ module.exports = kind({
     this.set('extraRepositories', new Collection(repositoriesConfig.repositories));
     this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
     this.$.enableNonfree.set('checked', repositoriesConfig.enableNonfree);
+    this.$.autoCheckUpdates.set('checked', repositoriesConfig.autoCheckUpdates !== false);
 
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
@@ -214,6 +216,7 @@ module.exports = kind({
       repositories: repos,
       disableDefault: !this.$.enableDefault.get('checked'),
       enableNonfree: this.$.enableNonfree.get('checked'),
+      autoCheckUpdates: this.$.autoCheckUpdates.get('checked'),
     });
   },
   onGetConfiguration: function (sender, response) {
