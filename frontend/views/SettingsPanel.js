@@ -25,6 +25,7 @@ var
   Popup = require('moonstone/Popup'),
   TooltipDecorator = require('moonstone/TooltipDecorator'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
+  FittableColumns = require('layout/FittableColumns'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js');
 
@@ -85,25 +86,35 @@ module.exports = kind({
             {
               components: [
                 {kind: Divider, content: 'Repositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
+                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', onchange: 'saveRepositories'},
+                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', onchange: 'saveRepositories'},
                 {
                   kind: DataRepeater, name: 'extraRepositories',
                   components: [
                     {
+                      kind: FittableColumns,
+                      style: 'align-items: center;',
                       components: [
                         {
-                          kind: Item, mixins: [ItemOverlaySupport], components: [
-                            {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/', name: 'repoURL'}
-                          ], endingComponents: [
-                            {kind: Icon, icon: 'trash', small: true}
-                          ],
+                          kind: ToggleItem,
+                          name: 'repoToggle',
+                          fit: true,
+                          content: 'https://repo.webosbrew.org/api/',
+                          onchange: 'repoToggled',
+                        },
+                        {
+                          kind: IconButton,
+                          name: 'repoDeleteButton',
+                          icon: 'trash',
+                          small: true,
+                          style: 'margin-left: 0.5rem;',
+                          ontap: 'repoDeleteClicked',
                         },
                       ],
                       bindings: [
-                        {from: 'model.url', to: '$.repoURL.content'},
+                        {from: 'model.url', to: '$.repoToggle.content'},
+                        {from: 'model.enabled', to: '$.repoToggle.checked', transform: function (v) { return v !== false; }},
                       ],
-                      ontap: 'repoClicked',
                     },
                   ],
                 },
@@ -135,6 +146,7 @@ module.exports = kind({
     }
   ],
 
+  _initialized: false,
   // This is set when processing addRepository launchMode
   templateAddRepository: null,
   extraRepositories: null, //  new Collection([{url: 'test1'}, {url: 'test2'}]),
@@ -170,6 +182,7 @@ module.exports = kind({
     this.set('extraRepositories', new Collection(repositoriesConfig.repositories));
     this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
     this.$.enableNonfree.set('checked', repositoriesConfig.enableNonfree);
+    this._initialized = true;
 
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
@@ -184,30 +197,81 @@ module.exports = kind({
       }
     }
   },
-  repoClicked: function (sender, evt) {
-    console.info(evt, evt.model);
-    this.extraRepositories.remove(evt.model);
-    this.saveRepositories();
+  resolveRowModel: function (sender, evt) {
+    if (evt && evt.model) {
+      return evt.model;
+    }
+    var cur = sender;
+    while (cur && cur !== this) {
+      if (cur.model) {
+        return cur.model;
+      }
+      cur = cur.parent || cur.owner;
+    }
+    return null;
+  },
+  repoToggled: function (sender, evt) {
+    if (!this._initialized) {
+      return true;
+    }
+    var rowModel = this.resolveRowModel(sender, evt);
+    if (rowModel) {
+      var isChecked = Boolean(sender.get('checked'));
+      if (rowModel.get('enabled') !== isChecked) {
+        rowModel.set('enabled', isChecked);
+      }
+      this.saveRepositories();
+    }
+    return true;
+  },
+  repoDeleteClicked: function (sender, evt) {
+    var rowModel = this.resolveRowModel(sender, evt);
+    console.info('Removing repository:', rowModel);
+    if (rowModel) {
+      this.extraRepositories.remove(rowModel);
+      this.saveRepositories();
+    }
+    return true;
   },
   showRepoAddDialog: function (sender, evt) {
     this.$.repoAddDialog.show();
   },
   addRepositorySubmit: function (sender, evt) {
-    console.info(this.$);
     var input = this.$.repoAddDialog.$.message.$.repositoryDialogURL;
-    var url = input.getValue();
-    console.info('Adding', url);
-    this.extraRepositories.add([{
-      url: url,
-    }]);
+    var url = (input.getValue() || '').trim();
+    if (!url) {
+      return;
+    }
+    var exists = false;
+    for (var i = 0; i < this.extraRepositories.models.length; i++) {
+      if (this.extraRepositories.models[i].get('url') === url) {
+        exists = true;
+        this.extraRepositories.models[i].set('enabled', true);
+        break;
+      }
+    }
+    if (!exists) {
+      console.info('Adding', url);
+      this.extraRepositories.add([{
+        url: url,
+        enabled: true,
+      }]);
+    }
     input.set('value', '');
     this.$.repoAddDialog.hide();
     this.saveRepositories();
   },
   saveRepositories: function (sender, evt) {
+    if (!this._initialized) {
+      return;
+    }
     var repos = [];
     for (var i = 0; i < this.extraRepositories.models.length; i++) {
-      repos.push(this.extraRepositories.models[i]);
+      var m = this.extraRepositories.models[i];
+      repos.push({
+        url: m.get('url'),
+        enabled: m.get('enabled') !== false,
+      });
     }
 
     ConfigUtils.setConfig({

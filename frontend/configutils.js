@@ -18,8 +18,16 @@ function getConfig() {
     var parsed = JSON.parse(storedConfig);
     if (parsed.disableDefault !== undefined)
       repositoriesConfig.disableDefault = parsed.disableDefault;
-    if (parsed.repositories !== undefined)
-      repositoriesConfig.repositories = parsed.repositories;
+    if (parsed.repositories !== undefined && Array.isArray(parsed.repositories)) {
+      repositoriesConfig.repositories = parsed.repositories
+        .filter(function (repo) { return repo && typeof repo.url === 'string' && repo.url.trim().length > 0; })
+        .map(function (repo) {
+          return {
+            url: repo.url.trim(),
+            enabled: repo.enabled !== false,
+          };
+        });
+    }
     if (parsed.enableNonfree !== undefined)
       repositoriesConfig.enableNonfree = parsed.enableNonfree;
   } catch (err) {
@@ -32,7 +40,9 @@ function getConfig() {
 function getRepositories() {
   try {
     var repositoriesConfig = getConfig();
-    var repos = repositoriesConfig.repositories.map(function (repo) { return repo.url; });
+    var repos = repositoriesConfig.repositories
+      .filter(function (repo) { return repo && repo.url && repo.enabled !== false; })
+      .map(function (repo) { return repo.url; });
     if (!repositoriesConfig.disableDefault) repos.push(repositoryBaseURL);
     if (repositoriesConfig.enableNonfree) repos.push(repositoryNonfreeBaseURL);
     return repos;
