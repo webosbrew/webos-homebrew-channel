@@ -18,6 +18,7 @@ var
   AjaxSource = require('enyo/AjaxSource'),
   Ajax = require('enyo/Ajax'),
   Collection = require('enyo/Collection'),
+  Spotlight = require('spotlight'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js'),
   SettingsPanel = require('./SettingsPanel.js');
@@ -125,6 +126,10 @@ module.exports = kind({
       }
     },
   ],
+  loadedReposKey: null,
+  savedScrollTop: null,
+  savedIndex: null,
+
   create: function () {
     this.inherited(arguments);
     this.refresh();
@@ -136,14 +141,34 @@ module.exports = kind({
   transitionFinished: function (evt) {
     if (!evt.isOffscreen) {
       console.info('transitionFinished:', evt);
-      this.refresh();
+      var currentReposKey = JSON.stringify(ConfigUtils.getRepositories());
+      if (this.loadedReposKey !== currentReposKey) {
+        this.refresh();
+      } else {
+        this.restorePosition();
+      }
+    }
+  },
+
+  restorePosition: function () {
+    if (this.savedScrollTop !== null && this.$.appList && this.$.appList.$.scroller) {
+      this.$.appList.$.scroller.setScrollTop(this.savedScrollTop);
+    }
+    if (this.savedIndex !== null && this.$.appList && this.$.appList.childForIndex) {
+      var child = this.$.appList.childForIndex(this.savedIndex);
+      if (child) {
+        Spotlight.spot(child);
+      }
     }
   },
 
   refresh: function () {
     console.info('refresh');
-
-    this.loadRepositories(ConfigUtils.getRepositories());
+    this.savedScrollTop = null;
+    this.savedIndex = null;
+    var repos = ConfigUtils.getRepositories();
+    this.loadedReposKey = JSON.stringify(repos);
+    this.loadRepositories(repos);
   },
 
   loadRepositories: function (repos) {
@@ -191,6 +216,8 @@ module.exports = kind({
   },
   itemSelected: function (sender, ev) {
     if (ev.model) {
+      this.savedScrollTop = (this.$.appList && this.$.appList.$.scroller) ? this.$.appList.$.scroller.getScrollTop() : null;
+      this.savedIndex = typeof ev.index === 'number' ? ev.index : null;
       this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
     }
   },
