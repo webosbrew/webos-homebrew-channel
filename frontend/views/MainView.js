@@ -13,6 +13,7 @@ module.exports = kind({
       kind: Panels,
       pattern: 'activity',
       hasCloseButton: false,
+      animate: false,
       wrap: true,
       popOnBack: true,
       components: [
