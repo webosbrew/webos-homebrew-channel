@@ -62,6 +62,7 @@ module.exports = kind({
 
   handlers: {
     onSpotlightKeyUp: 'keyUp',
+    onSpotlightFocused: 'focusMoved',
   },
 
   components: [
@@ -136,8 +137,15 @@ module.exports = kind({
     this.refresh();
   },
 
+  // Until the service says whether the app is installed, Install is disabled and the description gets focus; it then
+  // moves to Install when that is ready, unless the remote has moved it meanwhile.
   initialFocus: function () {
-    return this.$.installButton.disabled ? this.$.description : this.$.installButton;
+    this.waitingForInstall = this.$.installButton.disabled;
+    return this.waitingForInstall ? this.$.description : this.$.installButton;
+  },
+
+  focusMoved: function (sender, event) {
+    if (event.originator !== this.$.description) this.waitingForInstall = false;
   },
 
   goBack: function () {
@@ -268,6 +276,10 @@ module.exports = kind({
     var ownButtons = [this.$.installButton, this.$.launchButton, this.$.uninstallButton];
     if (current && current.disabled && ownButtons.indexOf(current) !== -1 && this.hasNode()) {
       Spotlight.spot(this.initialFocus());
+    } else if (this.waitingForInstall && current === this.$.description && !this.$.installButton.disabled &&
+        !Spotlight.getPointerMode()) {
+      this.waitingForInstall = false;
+      Spotlight.spot(this.$.installButton);
     }
   },
 
