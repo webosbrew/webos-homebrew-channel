@@ -47,10 +47,77 @@ function setConfig(config) {
   console.info(window.localStorage['repositoriesConfig']);
 }
 
+function getHiddenApps() {
+  var stored = window.localStorage['hiddenApps'];
+  if (!stored) {
+    return [];
+  }
+  try {
+    var parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(function (item) {
+      return item && typeof item.id === 'string' && item.id.length > 0;
+    });
+  } catch (err) {
+    console.warn('Hidden apps load failed:', err);
+    return [];
+  }
+}
+
+function setHiddenApps(apps) {
+  window.localStorage['hiddenApps'] = JSON.stringify(apps || []);
+}
+
+function getHiddenAppIdMap() {
+  var map = {};
+  var apps = getHiddenApps();
+  for (var i = 0; i < apps.length; i++) {
+    map[apps[i].id] = true;
+  }
+  return map;
+}
+
+function hideApp(app) {
+  if (!app || !app.id) {
+    return;
+  }
+  var apps = getHiddenApps();
+  for (var i = 0; i < apps.length; i++) {
+    if (apps[i].id === app.id) {
+      return;
+    }
+  }
+  apps.push({
+    id: app.id,
+    title: app.title || app.id,
+    iconUri: app.iconUri || '',
+  });
+  setHiddenApps(apps);
+}
+
+function unhideApp(id) {
+  var apps = getHiddenApps().filter(function (item) {
+    return item.id !== id;
+  });
+  setHiddenApps(apps);
+}
+
+function clearHiddenApps() {
+  setHiddenApps([]);
+}
+
 module.exports = {
   repositoryBaseURL: repositoryBaseURL,
 
   getRepositories: getRepositories,
   getConfig: getConfig,
   setConfig: setConfig,
+  getHiddenApps: getHiddenApps,
+  setHiddenApps: setHiddenApps,
+  getHiddenAppIdMap: getHiddenAppIdMap,
+  hideApp: hideApp,
+  unhideApp: unhideApp,
+  clearHiddenApps: clearHiddenApps,
 };

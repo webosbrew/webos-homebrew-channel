@@ -25,6 +25,7 @@ var
   Popup = require('moonstone/Popup'),
   TooltipDecorator = require('moonstone/TooltipDecorator'),
   LabeledTextItem = require('moonstone/LabeledTextItem'),
+  FittableColumns = require('layout/FittableColumns'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js');
 
@@ -84,30 +85,94 @@ module.exports = kind({
             },
             {
               components: [
-                {kind: Divider, content: 'Repositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
-                {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
                 {
-                  kind: DataRepeater, name: 'extraRepositories',
+                  style: 'margin-bottom: 1.5rem;',
                   components: [
+                    {kind: Button, name: 'tabRepos', content: 'Repositories', small: true, ontap: 'showReposTab'},
+                    {kind: Button, name: 'tabHidden', content: 'Hidden listings', small: true, ontap: 'showHiddenTab'},
+                  ],
+                },
+                {
+                  name: 'reposSection',
+                  components: [
+                    {kind: Divider, content: 'Repositories'},
+                    {kind: ToggleItem, content: 'https://repo.webosbrew.org - Default repository', checked: true, name: 'enableDefault', ontap: 'saveRepositories'},
+                    {kind: ToggleItem, content: 'https://repo.webosbrew.org - Extra non-free software', checked: false, name: 'enableNonfree', ontap: 'saveRepositories'},
                     {
+                      kind: DataRepeater, name: 'extraRepositories',
                       components: [
                         {
-                          kind: Item, mixins: [ItemOverlaySupport], components: [
-                            {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/', name: 'repoURL'}
-                          ], endingComponents: [
-                            {kind: Icon, icon: 'trash', small: true}
+                          components: [
+                            {
+                              kind: Item, mixins: [ItemOverlaySupport], components: [
+                                {kind: MarqueeText, content: 'https://repo.webosbrew.org/api/', name: 'repoURL'}
+                              ], endingComponents: [
+                                {kind: Icon, icon: 'trash', small: true}
+                              ],
+                            },
+                          ],
+                          bindings: [
+                            {from: 'model.url', to: '$.repoURL.content'},
+                          ],
+                          ontap: 'repoClicked',
+                        },
+                      ],
+                    },
+                    {kind: Item, content: 'Add repository', centered: true, style: 'margin-top: 3rem', ontap: 'showRepoAddDialog'},
+                  ],
+                },
+                {
+                  name: 'hiddenSection',
+                  showing: false,
+                  components: [
+                    {kind: Divider, content: 'Hidden listings'},
+                    {
+                      name: 'hiddenEmptyMsg',
+                      content: 'No hidden listings. Hold OK on any app in the catalog to hide it.',
+                      style: 'padding: 1rem 0; opacity: 0.7;',
+                    },
+                    {
+                      kind: DataRepeater,
+                      name: 'hiddenAppsList',
+                      components: [
+                        {
+                          kind: FittableColumns,
+                          style: 'align-items: center;',
+                          components: [
+                            {
+                              kind: Item,
+                              fit: true,
+                              disabled: true,
+                              components: [
+                                {kind: MarqueeText, name: 'hiddenTitle'},
+                                {kind: MarqueeText, name: 'hiddenId', style: 'font-size: 75%; opacity: 0.65;'},
+                              ],
+                            },
+                            {
+                              kind: Button,
+                              content: 'Restore',
+                              small: true,
+                              ontap: 'restoreHiddenApp',
+                            },
+                          ],
+                          bindings: [
+                            {from: 'model.title', to: '$.hiddenTitle.content'},
+                            {from: 'model.id', to: '$.hiddenId.content'},
                           ],
                         },
                       ],
-                      bindings: [
-                        {from: 'model.url', to: '$.repoURL.content'},
-                      ],
-                      ontap: 'repoClicked',
+                    },
+                    {
+                      kind: Button,
+                      name: 'restoreAllButton',
+                      content: 'Restore all hidden listings',
+                      small: true,
+                      showing: false,
+                      style: 'margin-top: 1.5rem;',
+                      ontap: 'restoreAllHiddenApps',
                     },
                   ],
                 },
-                {kind: Item, content: 'Add repository', centered: true, style: 'margin-top: 3rem', ontap: 'showRepoAddDialog'},
               ],
               classes: 'moon-16h',
             }
@@ -138,6 +203,8 @@ module.exports = kind({
   // This is set when processing addRepository launchMode
   templateAddRepository: null,
   extraRepositories: null, //  new Collection([{url: 'test1'}, {url: 'test2'}]),
+  hiddenApps: null,
+  activeTab: 'repos',
 
   rootTextStatus: 'pending...',
   rootIsActive: false,
@@ -159,6 +226,7 @@ module.exports = kind({
     {from: "blockUpdates", to: '$.blockUpdates.checked', oneWay: false},
     {from: "failsafe", to: "$.failsafe.checked", oneWay: false},
     {from: "extraRepositories", to: "$.extraRepositories.collection"},
+    {from: "hiddenApps", to: "$.hiddenAppsList.collection"},
   ],
 
   create: function () {
@@ -170,10 +238,61 @@ module.exports = kind({
     this.set('extraRepositories', new Collection(repositoriesConfig.repositories));
     this.$.enableDefault.set('checked', !repositoriesConfig.disableDefault);
     this.$.enableNonfree.set('checked', repositoriesConfig.enableNonfree);
+    this.refreshHiddenApps();
+    this.updateTabVisibility();
 
     global.webOS.fetchAppInfo((function (info) {
       this.$.version.set('text', info.version);
     }).bind(this));
+  },
+  showReposTab: function () {
+    this.activeTab = 'repos';
+    this.updateTabVisibility();
+  },
+  showHiddenTab: function () {
+    this.activeTab = 'hidden';
+    this.refreshHiddenApps();
+    this.updateTabVisibility();
+  },
+  updateTabVisibility: function () {
+    var isRepos = this.activeTab === 'repos';
+    this.$.reposSection.set('showing', isRepos);
+    this.$.hiddenSection.set('showing', !isRepos);
+    this.$.tabRepos.set('selected', isRepos);
+    this.$.tabHidden.set('selected', !isRepos);
+  },
+  refreshHiddenApps: function () {
+    var hidden = ConfigUtils.getHiddenApps();
+    this.set('hiddenApps', new Collection(hidden));
+    this.$.tabHidden.set('content', 'Hidden listings (' + hidden.length + ')');
+    this.$.hiddenEmptyMsg.set('showing', hidden.length === 0);
+    this.$.restoreAllButton.set('showing', hidden.length > 1);
+  },
+  resolveRowModel: function (sender, evt) {
+    if (evt && evt.model) {
+      return evt.model;
+    }
+    var cur = sender;
+    while (cur && cur !== this) {
+      if (cur.model) {
+        return cur.model;
+      }
+      cur = cur.parent || cur.owner;
+    }
+    return null;
+  },
+  restoreHiddenApp: function (sender, evt) {
+    var rowModel = this.resolveRowModel(sender, evt);
+    if (rowModel) {
+      ConfigUtils.unhideApp(rowModel.get('id'));
+      this.refreshHiddenApps();
+    }
+    return true;
+  },
+  restoreAllHiddenApps: function () {
+    ConfigUtils.clearHiddenApps();
+    this.refreshHiddenApps();
+    return true;
   },
   transitionFinished: function (evt) {
     if (!evt.isOffscreen) {

@@ -12,6 +12,8 @@ var
   Panel = require('moonstone/Panel'),
   Source = require('enyo/Source'),
   Popup = require('moonstone/Popup'),
+  Dialog = require('moonstone/Dialog'),
+  Button = require('moonstone/Button'),
   Spinner = require('moonstone/Spinner'),
   DataGridList = require('moonstone/DataGridList'),
   GridListImageItem = require('moonstone/GridListImageItem'), // FIXME: we use styles from that :/
@@ -99,15 +101,30 @@ module.exports = kind({
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading some repositories.', modal: false, autoDismiss: true, allowBackKey: true},
     {
+      name: 'listingMenuDialog',
+      kind: Dialog,
+      animate: false,
+      autoDismiss: true,
+      allowBackKey: true,
+      title: '',
+      subTitle: '',
+      message: 'Choose an action for this listing:',
+      components: [
+        {kind: Button, content: 'Open Details', ontap: 'contextOpenDetails'},
+        {kind: Button, content: 'Hide Listing', ontap: 'contextHideListing'},
+        {kind: Button, content: 'Cancel', ontap: 'contextCancel'},
+      ],
+    },
+    {
       name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
         {kind: AppListItem}
-      ], ontap: 'itemSelected',
+      ], ontap: 'itemSelected', onhold: 'itemHold', onSpotlightKeyDown: 'itemKeyDown', onSpotlightKeyUp: 'itemKeyUp',
     },
     {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
     {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
   ],
   bindings: [
-    {from: 'repository', to: '$.appList.collection'},
+    {from: 'visibleRepository', to: '$.appList.collection'},
     {
       from: 'repository.status', to: '$.spinner.showing', transform: function (value) {
         return this.repository.isBusy() && !this.repository.isError();
@@ -125,12 +142,44 @@ module.exports = kind({
       }
     },
   ],
+  contextModel: null,
+  _holdTimer: null,
+  _suppressNextTapUntil: 0,
+
   create: function () {
     this.inherited(arguments);
+    this.set('visibleRepository', new Collection([], {model: RepoPackageModel}));
     this.refresh();
 
     this.$.updateStartupScript.send({});
     this.$.autostart.send({});
+  },
+
+  destroy: function () {
+    this.clearHoldTimer();
+    this.inherited(arguments);
+  },
+
+  clearHoldTimer: function () {
+    if (this._holdTimer) {
+      clearTimeout(this._holdTimer);
+      this._holdTimer = null;
+    }
+  },
+
+  applyHiddenFilter: function () {
+    var hiddenMap = ConfigUtils.getHiddenAppIdMap();
+    var filtered = [];
+    if (this.repository && this.repository.models) {
+      for (var i = 0; i < this.repository.models.length; i++) {
+        var m = this.repository.models[i];
+        if (!hiddenMap[m.get('id')]) {
+          filtered.push(m);
+        }
+      }
+    }
+    this.visibleRepository.empty();
+    this.visibleRepository.add(filtered);
   },
 
   transitionFinished: function (evt) {
@@ -150,8 +199,10 @@ module.exports = kind({
     console.info('Loading from:', repos);
     if (repos.length === 0) {
       this.set('repository', new Collection([]));
+      this.applyHiddenFilter();
     } else {
-      this.set('repository', new Collection({
+      var self = this;
+      var col = new Collection({
         model: RepoPackageModel,
         source: repos.map(function (url) {
           return new NestedSource({
@@ -181,15 +232,94 @@ module.exports = kind({
             }),
           });
         }),
-      }));
-      this.repository.fetch();
+      });
+      col.on('add', function () { self.applyHiddenFilter(); });
+      col.on('reset', function () { self.applyHiddenFilter(); });
+      this.set('repository', col);
+      this.repository.fetch({
+        success: function () { self.applyHiddenFilter(); },
+      });
     }
   },
 
   events: {
     onRequestPushPanel: ''
   },
+  openListingMenu: function (model) {
+    if (!model) {
+      return;
+    }
+    this.contextModel = model;
+    this.$.listingMenuDialog.set('title', model.get('title') || model.get('id'));
+    this.$.listingMenuDialog.set('subTitle', model.get('id') || '');
+    this.$.listingMenuDialog.show();
+  },
+  itemHold: function (sender, ev) {
+    if (ev && ev.model) {
+      this._suppressNextTapUntil = Date.now() + 400;
+      this.openListingMenu(ev.model);
+      return true;
+    }
+  },
+  itemKeyDown: function (sender, ev) {
+    if (ev && ev.keyCode === 13 && ev.model) {
+      if (ev.repeat) {
+        if (!this.$.listingMenuDialog.get('showing')) {
+          this.clearHoldTimer();
+          this._suppressNextTapUntil = Date.now() + 400;
+          this.openListingMenu(ev.model);
+        }
+        return true;
+      }
+      if (!this._holdTimer) {
+        var self = this;
+        var model = ev.model;
+        this._holdTimer = setTimeout(function () {
+          self._holdTimer = null;
+          self._suppressNextTapUntil = Date.now() + 400;
+          self.openListingMenu(model);
+        }, 500);
+      }
+    }
+  },
+  itemKeyUp: function (sender, ev) {
+    if (ev && ev.keyCode === 13) {
+      this.clearHoldTimer();
+    }
+  },
+  contextOpenDetails: function () {
+    var model = this.contextModel;
+    this.contextModel = null;
+    this.$.listingMenuDialog.hide();
+    if (model) {
+      this.doRequestPushPanel({panel: {kind: DetailsPanel, model: model, repositoryURL: model.get('repository')}});
+    }
+    return true;
+  },
+  contextHideListing: function () {
+    var model = this.contextModel;
+    this.contextModel = null;
+    this.$.listingMenuDialog.hide();
+    if (model) {
+      ConfigUtils.hideApp({
+        id: model.get('id'),
+        title: model.get('title'),
+        iconUri: model.get('iconUri'),
+      });
+      this.applyHiddenFilter();
+    }
+    return true;
+  },
+  contextCancel: function () {
+    this.contextModel = null;
+    this.$.listingMenuDialog.hide();
+    return true;
+  },
   itemSelected: function (sender, ev) {
+    if (this._suppressNextTapUntil && Date.now() < this._suppressNextTapUntil) {
+      this._suppressNextTapUntil = 0;
+      return true;
+    }
     if (ev.model) {
       this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
     }
