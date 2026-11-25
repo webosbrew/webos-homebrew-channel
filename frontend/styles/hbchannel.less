@@ -1,0 +1,915 @@
+// Homebrew Channel — glass theme.
+//
+// Laid out for a 1920x1080 screen in px; the build's resolution-independence plugin turns px into rem, and the root
+// font size is set to 24px at 1080p (see MainView), so the UI scales on 720p TVs too.
+//
+// Old webOS TVs run Chromium 38–53, so this sticks to what those engines have: flexbox (no grid, no flex `gap`), no
+// CSS custom properties, and backdrop blur only behind @supports, where it is otherwise a translucent solid panel.
+// Blur is only on a few large surfaces; dozens of blurred cards would be too much for older TV GPUs.
+
+@hb-bg: #0c0a24;
+@hb-accent: #7c5cff;
+@hb-accent-ring: rgba(124, 92, 255, 0.55);
+@hb-text: #ffffff;
+@hb-text-2: rgba(255, 255, 255, 0.72);
+@hb-text-3: rgba(255, 255, 255, 0.6);
+@hb-glass: rgba(255, 255, 255, 0.08);
+@hb-glass-border: rgba(255, 255, 255, 0.14);
+@hb-glass-solid: rgba(36, 30, 86, 0.92);
+@hb-green-bg: rgba(52, 211, 153, 0.2);
+@hb-green-fg: #a7f3d0;
+@hb-amber: #fbbf24;
+@hb-amber-fg: #3b2600;
+@hb-rose-bg: rgba(251, 113, 133, 0.14);
+@hb-rose-border: rgba(251, 113, 133, 0.45);
+@hb-rose-fg: #fecdd3;
+@hb-font: "LG Smart UI", "Museo Sans", "Miso", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: @hb-bg;
+}
+
+.hb-app {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: @hb-bg;
+  color: @hb-text;
+  font-family: @hb-font;
+  font-size: 22px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+// Icons are sized here, in px that become rem, so that they scale with everything else (their width/height
+// attributes would stay fixed on 720p screens).
+.hb-app svg {
+  width: 24px;
+  height: 24px;
+}
+.hb-button-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+// Soft colour glows behind everything (cheap radial gradients, no filters).
+.hb-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hb-blob-violet {
+  left: -260px;
+  top: -320px;
+  width: 1200px;
+  height: 1200px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.55) 0%, rgba(124, 58, 237, 0) 65%);
+}
+.hb-blob-blue {
+  right: -300px;
+  top: -200px;
+  width: 1100px;
+  height: 1100px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.45) 0%, rgba(37, 99, 235, 0) 65%);
+}
+.hb-blob-pink {
+  left: 520px;
+  bottom: -560px;
+  width: 1200px;
+  height: 1000px;
+  background: radial-gradient(circle, rgba(219, 39, 119, 0.32) 0%, rgba(219, 39, 119, 0) 65%);
+}
+
+// ---- Glass -----------------------------------------------------------------------------------------------------------
+
+.hb-glass {
+  background: @hb-glass;
+  border: 1px solid @hb-glass-border;
+  box-shadow: 0 10px 40px rgba(6, 4, 24, 0.35);
+}
+// The frosted look, only on large surfaces and only where the engine can blur.
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hb-blur {
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    backdrop-filter: blur(28px) saturate(140%);
+  }
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hb-blur {
+    background: @hb-glass-solid;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+// ---- Pages -------------------------------------------------------------------------------------------------------------
+
+.hb-pages {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+.hb-page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  padding: 54px 96px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 30px;
+}
+.hb-header-left,
+.hb-header-right {
+  display: flex;
+  align-items: center;
+}
+.hb-brand-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  margin-right: 18px;
+}
+.hb-brand-title {
+  font-size: 30px;
+  font-weight: 700;
+}
+.hb-brand-subtitle,
+.hb-crumbs {
+  font-size: 18px;
+  color: @hb-text-2;
+}
+.hb-crumbs { font-size: 20px; }
+.hb-crumbs-current {
+  color: @hb-text;
+  font-weight: 600;
+}
+.hb-page-title {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+// A scrolling area; remote focus scrolls it (see Scroller.js), the Magic Remote wheel scrolls it natively.
+.hb-scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  // Room for focused items, which grow, without clipping them.
+  margin: -16px;
+  padding: 16px;
+}
+.hb-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.hb-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 34px 0 22px;
+}
+.hb-section-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+}
+.hb-section-hint {
+  font-size: 18px;
+  color: @hb-text-2;
+}
+
+// ---- Buttons -----------------------------------------------------------------------------------------------------------
+
+.hb-button {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  box-sizing: border-box;
+  height: 64px;
+  line-height: 64px;
+  padding: 0 32px;
+  border-radius: 18px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.1);
+  color: @hb-text;
+  font-family: @hb-font;
+  font-size: 21px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-transition: -webkit-transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+.hb-button-primary {
+  background: @hb-accent;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+.hb-button-danger {
+  background: @hb-rose-bg;
+  border-color: @hb-rose-border;
+  color: @hb-rose-fg;
+}
+.hb-button-large {
+  height: 76px;
+  line-height: 76px;
+  font-size: 23px;
+  border-radius: 20px;
+}
+.hb-button-icon {
+  width: 60px;
+  height: 60px;
+  line-height: 60px;
+  padding: 0;
+  border-radius: 50%;
+}
+.hb-button-icon svg {
+  vertical-align: middle;
+}
+.hb-button-label {
+  position: relative;
+}
+.hb-button-label svg {
+  vertical-align: -5px;
+  margin-right: 12px;
+}
+.hb-button-icon .hb-button-label svg {
+  margin-right: 0;
+}
+.hb-button-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: @hb-accent;
+  -webkit-transition: width 300ms ease;
+  transition: width 300ms ease;
+}
+.hb-button.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.hb-button.hb-busy {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+// Remote focus: lift, white ring and an accent glow.
+.hb-button.spotlight,
+.hb-card.spotlight,
+.hb-row.spotlight,
+.hb-tab.spotlight,
+.hb-search.spotlight,
+.hb-textblock.spotlight,
+.hb-tile.spotlight,
+.hb-link.spotlight {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 6px @hb-accent-ring, 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.hb-button.spotlight {
+  -webkit-transform: scale(1.04);
+  transform: scale(1.04);
+}
+.hb-button.hb-button-danger.spotlight {
+  background: rgba(251, 113, 133, 0.28);
+}
+
+// ---- Navigation ------------------------------------------------------------------------------------------------------
+
+.hb-tabs {
+  display: flex;
+  padding: 6px;
+  border-radius: 999px;
+}
+.hb-tab {
+  box-sizing: border-box;
+  height: 56px;
+  line-height: 52px;
+  padding: 0 28px;
+  margin-right: 6px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  font-size: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hb-tab:last-child {
+  margin-right: 0;
+}
+.hb-tab.active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1b1640;
+  font-weight: 600;
+}
+.hb-tab-count {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 0 10px;
+  height: 28px;
+  line-height: 28px;
+  border-radius: 999px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.hb-tab.active .hb-tab-count {
+  background: rgba(27, 22, 64, 0.12);
+}
+.hb-tab-count-alert,
+.hb-tab.active .hb-tab-count-alert {
+  background: @hb-amber;
+  color: @hb-amber-fg;
+  font-weight: 700;
+}
+
+.hb-search {
+  position: relative;
+  box-sizing: border-box;
+  width: 300px;
+  height: 60px;
+  margin-right: 14px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+}
+.hb-search svg {
+  position: absolute;
+  left: 22px;
+  top: 16px;
+  color: @hb-text-2;
+}
+.hb-search input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 22px 0 60px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: @hb-text;
+  font-family: @hb-font;
+  font-size: 19px;
+}
+.hb-search input::-webkit-input-placeholder {
+  color: @hb-text-2;
+}
+.hb-header-right .hb-button-icon {
+  margin-left: 14px;
+}
+
+// ---- Hero ------------------------------------------------------------------------------------------------------------
+
+.hb-hero {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 248px;
+  padding: 40px 48px;
+  border-radius: 32px;
+}
+.hb-hero-icon {
+  width: 168px;
+  height: 168px;
+  border-radius: 36px;
+  margin-right: 44px;
+  flex-shrink: 0;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.hb-hero-body {
+  flex: 1;
+  min-width: 0;
+}
+.hb-hero-label {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #c4b5fd;
+  text-transform: uppercase;
+}
+.hb-hero-title {
+  margin: 12px 0;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.hb-hero-text {
+  margin: 0 0 16px;
+  max-width: 980px;
+  font-size: 22px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.8);
+}
+.hb-hero-actions {
+  margin-left: 40px;
+  flex-shrink: 0;
+  width: 240px;
+}
+.hb-hero-actions .hb-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 14px;
+}
+.hb-hero-actions .hb-button:last-child {
+  margin-bottom: 0;
+}
+
+// ---- Chips & badges ----------------------------------------------------------------------------------------------------
+
+.hb-chip {
+  display: inline-block;
+  margin: 0 10px 8px 0;
+  padding: 0 14px;
+  height: 34px;
+  line-height: 34px;
+  border-radius: 999px;
+  font-size: 17px;
+  background: rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+.hb-chip-green {
+  background: @hb-green-bg;
+  color: @hb-green-fg;
+}
+.hb-chip-amber {
+  background: @hb-amber;
+  color: @hb-amber-fg;
+  font-weight: 700;
+}
+.hb-chip-rose {
+  background: @hb-rose-bg;
+  color: @hb-rose-fg;
+}
+.hb-badge {
+  font-size: 15px;
+  font-weight: 700;
+  height: 30px;
+  line-height: 30px;
+  margin: 0;
+}
+
+// ---- App grid ----------------------------------------------------------------------------------------------------------
+
+.hb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -24px;
+}
+.hb-card {
+  box-sizing: border-box;
+  // Six columns, 24px apart (flex gap is too new for old TVs).
+  // Escaped so that LESS leaves the calc() to the browser; 1rem = 24px at 1080p.
+  width: ~"-webkit-calc(16.666% - 1rem)";
+  width: ~"calc(16.666% - 1rem)";
+  margin: 0 24px 24px 0;
+  padding: 22px;
+  border-radius: 26px;
+  border: 2px solid transparent;
+  background: @hb-glass;
+  box-shadow: 0 10px 40px rgba(6, 4, 24, 0.35);
+  cursor: pointer;
+  -webkit-transition: -webkit-transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.hb-card.spotlight {
+  -webkit-transform: scale(1.06);
+  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.2);
+}
+.hb-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.hb-card-icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  object-fit: contain;
+}
+.hb-card-title,
+.hb-card-meta,
+.hb-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hb-card-title {
+  font-size: 22px;
+  font-weight: 600;
+}
+.hb-card-meta {
+  margin-top: 4px;
+  font-size: 16px;
+  color: @hb-text-2;
+}
+
+.hb-empty {
+  padding: 80px 0;
+  text-align: center;
+  font-size: 24px;
+  color: @hb-text-2;
+}
+.hb-notice {
+  margin-top: 24px;
+  padding: 18px 24px;
+  border-radius: 20px;
+  background: @hb-rose-bg;
+  border: 1px solid @hb-rose-border;
+  color: @hb-rose-fg;
+  font-size: 19px;
+}
+
+// Loading spinner (CSS only).
+.hb-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 80px auto 0;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #ffffff;
+  -webkit-animation: hb-spin 900ms linear infinite;
+  animation: hb-spin 900ms linear infinite;
+}
+@-webkit-keyframes hb-spin { to { -webkit-transform: rotate(360deg); } }
+@keyframes hb-spin { to { transform: rotate(360deg); } }
+
+// ---- Panels (details & settings) ---------------------------------------------------------------------------------------
+
+.hb-columns {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.hb-panel {
+  box-sizing: border-box;
+  border-radius: 32px;
+  padding: 40px 44px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+// Side-by-side panels and columns, 36px apart (flex gap is too new for old TVs).
+.hb-columns > * + * {
+  margin-left: 36px;
+}
+.hb-panel-title {
+  margin: 0 0 20px;
+  font-size: 28px;
+  font-weight: 700;
+}
+.hb-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.hb-column .hb-panel + .hb-panel {
+  margin-left: 0;
+  margin-top: 32px;
+}
+
+.hb-app-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.hb-app-icon {
+  width: 148px;
+  height: 148px;
+  border-radius: 34px;
+  margin-right: 28px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.hb-app-title {
+  margin: 0 0 8px;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.hb-app-id {
+  font-size: 19px;
+  color: @hb-text-2;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+
+.hb-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -14px;
+}
+.hb-tile {
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  width: ~"-webkit-calc(50% - 0.58333rem)";
+  width: ~"calc(50% - 0.58333rem)";
+  margin: 0 14px 14px 0;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.hb-tile-label {
+  font-size: 16px;
+  color: @hb-text-2;
+}
+.hb-tile-value {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 700;
+}
+.hb-tile-highlight {
+  background: rgba(251, 191, 36, 0.12);
+}
+.hb-tile-highlight .hb-tile-label {
+  color: #fde68a;
+}
+
+.hb-actions {
+  margin-top: auto;
+  padding-top: 20px;
+}
+.hb-actions > .hb-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 14px;
+}
+.hb-actions-row {
+  display: flex;
+}
+.hb-actions-row .hb-button {
+  flex: 1;
+}
+.hb-actions-row .hb-button + .hb-button {
+  margin-left: 14px;
+}
+
+// Long text that the remote scrolls: focus it, then up/down scroll it.
+.hb-textblock {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: -6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  font-size: 23px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.86);
+}
+.hb-textblock img {
+  max-width: 100%;
+}
+.hb-textblock a {
+  color: #c4b5fd;
+}
+.hb-textblock h1,
+.hb-textblock h2,
+.hb-textblock h3 {
+  color: #ffffff;
+  font-size: 26px;
+  margin: 24px 0 10px;
+}
+
+.hb-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 20px 26px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.hb-link-label {
+  font-size: 16px;
+  color: @hb-text-2;
+}
+.hb-link-value {
+  font-size: 21px;
+  font-weight: 600;
+}
+
+// ---- Settings rows ---------------------------------------------------------------------------------------------------
+
+.hb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 18px 24px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  -webkit-transition: -webkit-transform 140ms ease, box-shadow 140ms ease;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.hb-row.spotlight {
+  -webkit-transform: scale(1.02);
+  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.16);
+}
+.hb-row.disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hb-row-text {
+  min-width: 0;
+  margin-right: 24px;
+}
+.hb-row-label {
+  font-size: 22px;
+  font-weight: 600;
+}
+.hb-row-description {
+  margin-top: 6px;
+  font-size: 17px;
+  line-height: 1.45;
+  color: @hb-text-2;
+}
+.hb-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 68px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  -webkit-transition: background-color 160ms ease;
+  transition: background-color 160ms ease;
+}
+.hb-switch-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  -webkit-transition: left 160ms ease;
+  transition: left 160ms ease;
+}
+.hb-row.checked .hb-switch {
+  background: @hb-accent;
+}
+.hb-row.checked .hb-switch-knob {
+  left: 34px;
+}
+.hb-overline {
+  margin: 18px 0 14px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: @hb-text-2;
+}
+.hb-add-row {
+  display: block;
+  width: 100%;
+  margin-top: auto;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  background: transparent;
+}
+
+.hb-banner {
+  display: flex;
+  align-items: center;
+  padding: 10px 10px 10px 26px;
+  border-radius: 999px;
+}
+.hb-banner-dot {
+  width: 12px;
+  height: 12px;
+  margin-right: 16px;
+  border-radius: 50%;
+  background: @hb-amber;
+}
+.hb-banner-text {
+  margin-right: 18px;
+  font-size: 19px;
+}
+.hb-banner .hb-button {
+  height: 52px;
+  line-height: 48px;
+  border-radius: 999px;
+  background: @hb-amber;
+  color: @hb-amber-fg;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+// ---- Dialog ----------------------------------------------------------------------------------------------------------
+
+.hb-dialog-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 6, 24, 0.62);
+}
+.hb-dialog {
+  box-sizing: border-box;
+  width: 900px;
+  max-width: 90%;
+  padding: 52px 56px;
+  border-radius: 36px;
+  background: rgba(40, 34, 96, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hb-dialog {
+    background: rgba(40, 34, 96, 0.97);
+  }
+}
+.hb-dialog-title {
+  margin: 0 0 12px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.hb-dialog-message {
+  font-size: 21px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+  word-break: break-word;
+}
+.hb-dialog-body {
+  margin-top: 26px;
+}
+.hb-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 34px;
+}
+.hb-dialog-buttons .hb-button {
+  min-width: 200px;
+  margin-left: 16px;
+}
+.hb-field-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+.hb-field {
+  box-sizing: border-box;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.14);
+}
+.hb-field.spotlight {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 6px @hb-accent-ring;
+}
+.hb-field input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 72px;
+  padding: 0 24px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: @hb-text;
+  font-family: @hb-font;
+  font-size: 24px;
+}
+.hb-field-hint {
+  margin-top: 12px;
+  font-size: 17px;
+  color: @hb-text-2;
+}

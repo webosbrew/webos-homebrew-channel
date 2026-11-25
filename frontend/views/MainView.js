@@ -1,39 +1,56 @@
+// The app shell: the glowing background and a stack of pages (Home, then Details or Settings on top).
+//
+// Opening a page adds a Back history entry; Back (or a page's back button) closes the top page and puts focus back
+// where it was.
+
 var
   kind = require('enyo/kind'),
-  Panels = require('moonstone/Panels'),
-  IconButton = require('moonstone/IconButton'),
-  BrowserPanel = require('./BrowserPanel.js'),
-  SettingsPanel = require('./SettingsPanel.js');
+  Control = require('enyo/Control'),
+  EnyoHistory = require('enyo/History'),
+  Spotlight = require('spotlight'),
+  HomeView = require('./HomeView.js'),
+  SettingsView = require('./SettingsView.js');
+
+// The stylesheet is laid out for 1080p at 24px per rem; scale that to the actual screen (720p TVs, desktop windows).
+function fitRootFontSize() {
+  var scale = Math.min(global.innerWidth / 1920, global.innerHeight / 1080);
+  if (!(scale > 0)) scale = 1;
+  document.documentElement.style.fontSize = (24 * scale) + 'px';
+}
 
 module.exports = kind({
-  name: 'myapp.MainView',
-  classes: 'moon enyo-fit main-view',
+  name: 'hb.MainView',
+  kind: Control,
+  classes: 'hb-app enyo-fit',
+
+  handlers: {
+    onRequestPushPanel: 'requestPushPanel',
+    onRequestBack: 'requestBack',
+  },
+
   components: [
-    {
-      kind: Panels,
-      pattern: 'activity',
-      hasCloseButton: false,
-      wrap: true,
-      popOnBack: true,
-      components: [
-        {
-          kind: BrowserPanel,
-        },
-      ],
-      onTransitionFinish: 'transitionFinish',
-    }
+    {classes: 'hb-blob hb-blob-violet', attributes: {'aria-hidden': 'true'}},
+    {classes: 'hb-blob hb-blob-blue', attributes: {'aria-hidden': 'true'}},
+    {classes: 'hb-blob hb-blob-pink', attributes: {'aria-hidden': 'true'}},
+    {name: 'pages', classes: 'hb-pages'},
   ],
+
   create: function () {
     this.inherited(arguments);
     document.title = 'Homebrew Channel';
+    fitRootFontSize();
+    global.addEventListener('resize', fitRootFontSize);
+
+    this.stack = [];
+    this.pushPage({kind: HomeView}, false);
 
     try {
-      if (window.PalmSystem) {
-        document.addEventListener('webOSRelaunch', (function(data) {
+      if (global.PalmSystem) {
+        document.addEventListener('webOSRelaunch', (function (data) {
           this.processLaunchParams(data.detail);
         }).bind(this));
-        this.processLaunchParams(JSON.parse(window.PalmSystem.launchParams));
-      } else {
+        this.processLaunchParams(JSON.parse(global.PalmSystem.launchParams));
+      } else if (location.hash.length > 1) {
         var launchParams = JSON.parse(decodeURIComponent(location.hash.substring(1)));
         if (typeof launchParams === 'object') {
           this.processLaunchParams(launchParams);
@@ -43,29 +60,83 @@ module.exports = kind({
       console.warn('Process launch params failed:', err);
     }
   },
+
+  rendered: function () {
+    this.inherited(arguments);
+    var top = this.stack[this.stack.length - 1];
+    if (top) this.focusPage(top);
+  },
+
   processLaunchParams: function (params) {
     console.info('parsing params:', params);
-    if (typeof params === 'object' && params.launchMode === 'addRepository') {
-      console.info('panels:', this.$.panels);
-
+    if (params && typeof params === 'object' && params.launchMode === 'addRepository') {
       var self = this;
       setTimeout(function () {
-        self.requestPushPanel(null, {
-          panel: {
-            kind: SettingsPanel,
-            templateAddRepository: params.url,
-          }
-        });
-      }, 500);
+        self.pushPage({kind: SettingsView, templateAddRepository: params.url});
+      }, 300);
     }
   },
-  handlers: {
-    onRequestPushPanel: 'requestPushPanel',
+
+  requestPushPanel: function (sender, event) {
+    this.pushPage(event.panel);
+    return true;
   },
-  transitionFinish: function (evt, sender) {
-    document.title = this.$.panels.getActive().title;
+
+  requestBack: function () {
+    if (this.stack.length > 1) EnyoHistory.pop();
+    return true;
   },
-  requestPushPanel: function (sender, ev) {
-    this.$.panels.pushPanel(ev.panel);
+
+  /**
+   * Shows `definition` (a component definition) on top of the current page.
+   */
+  pushPage: function (definition, withHistory) {
+    var below = this.stack[this.stack.length - 1];
+    if (below) {
+      below.lastFocus = Spotlight.getCurrent();
+      below.set('showing', false);
+    }
+
+    var page = this.$.pages.createComponent(definition, {owner: this});
+    this.stack.push(page);
+    if (this.hasNode()) {
+      page.render();
+      this.focusPage(page);
+    }
+    document.title = page.title || 'Homebrew Channel';
+
+    if (withHistory !== false) {
+      EnyoHistory.push({context: this, handler: this.backKeyHandler});
+    }
+  },
+
+  backKeyHandler: function () {
+    this.popPage();
+    return true;
+  },
+
+  popPage: function () {
+    if (this.stack.length <= 1) return;
+    var page = this.stack.pop();
+    page.destroy();
+
+    var below = this.stack[this.stack.length - 1];
+    below.set('showing', true);
+    document.title = below.title || 'Homebrew Channel';
+    if (below.pageShown) below.pageShown();
+    if (below.lastFocus && !below.lastFocus.destroyed && Spotlight.isSpottable(below.lastFocus)) {
+      Spotlight.spot(below.lastFocus);
+    } else {
+      this.focusPage(below);
+    }
+  },
+
+  focusPage: function (page) {
+    var target = page.initialFocus ? page.initialFocus() : null;
+    if (target && Spotlight.isSpottable(target)) {
+      Spotlight.spot(target);
+    } else {
+      Spotlight.spot(page);
+    }
   },
 });
