@@ -1,14 +1,20 @@
 // The home page: the repositories' apps, with tabs for installed apps and pending updates, search, and a featured
 // app (the first pending update, otherwise a daily pick from the official repository).
+//
+// Discover shows the apps by category, one sliding row each; "See all" on a row shows that category as a grid, and
+// Back returns to the rows. The other tabs and search results are grids.
 
 var
   kind = require('enyo/kind'),
   Control = require('enyo/Control'),
   EnyoImage = require('enyo/Image'),
+  EnyoHistory = require('enyo/History'),
   Input = require('enyo/Input'),
   Spotlight = require('spotlight'),
   Button = require('../components/Button.js'),
   AppCard = require('../components/AppCard.js'),
+  CategoryRow = require('../components/CategoryRow.js'),
+  categories = require('../categories.js'),
   Scroller = require('../components/Scroller.js'),
   ConfigUtils = require('../configutils.js'),
   repository = require('../repository.js'),
@@ -119,6 +125,10 @@ module.exports = kind({
     onRequestPushPanel: '',
   },
 
+  handlers: {
+    onSpotlightFocused: 'focusChanged',
+  },
+
   components: [
     {classes: 'hb-header', components: [
       {classes: 'hb-header-left', components: [
@@ -159,7 +169,9 @@ module.exports = kind({
         ]},
       ]},
 
-      {classes: 'hb-section-head', components: [
+      {name: 'rows', showing: false},
+
+      {name: 'sectionHead', classes: 'hb-section-head', components: [
         {name: 'sectionTitle', tag: 'h2', classes: 'hb-section-title', content: 'All apps'},
         {name: 'sectionHint', classes: 'hb-section-hint', content: 'A–Z · press OK to open'},
       ]},
@@ -172,6 +184,7 @@ module.exports = kind({
   create: function () {
     this.inherited(arguments);
     this.tab = 'discover';
+    this.category = null;
     this.query = '';
     this.installed = {};
     this.updateTabs();
@@ -183,6 +196,10 @@ module.exports = kind({
 
   initialFocus: function () {
     if (this.$.hero.showing) return this.$.heroAction;
+    if (this.showingRows()) {
+      var rows = this.$.rows.getClientControls();
+      if (rows.length && rows[0].cards.length) return rows[0].cards[0];
+    }
     var first = this.visibleCards()[0];
     return first || this.$.tabDiscover;
   },
@@ -196,6 +213,15 @@ module.exports = kind({
     } else {
       this.checkInstalled();
     }
+  },
+
+  // Moving focus up into the header shows the top of the list again, so that what is on screen matches the focus.
+  // Not for the Magic Remote's pointer, which would make the list jump under it.
+  focusChanged: function (sender, event) {
+    if (Spotlight.getPointerMode()) return;
+    var scroller = this.$.scroller.hasNode();
+    var target = event.originator && event.originator.hasNode && event.originator.hasNode();
+    if (scroller && target && !scroller.contains(target)) this.$.scroller.scrollToTop();
   },
 
   // ---- Loading ----
@@ -241,6 +267,7 @@ module.exports = kind({
       }, {owner: this}));
     }
     this.$.grid.render();
+    this.buildRows();
 
     var repos = ConfigUtils.getRepositories();
     var host = repos.length === 1 ? repository.repositoryHost(repos[0]) : repos.length + ' repositories';
@@ -254,14 +281,45 @@ module.exports = kind({
     }
   },
 
-  focusedAppUid: function () {
-    var current = Spotlight.getCurrent();
-    return current && (this.cards || []).indexOf(current) !== -1 ? current.app.uid : null;
+  // One row per category that has apps, in the categories' order, apps A–Z as in the repository list.
+  buildRows: function () {
+    var groups = {};
+    (this.packages || []).forEach(function (pkg) {
+      var id = categories.categoryOf(pkg).id;
+      (groups[id] = groups[id] || []).push(pkg);
+    });
+    this.$.rows.destroyClientControls();
+    this.rowCards = [];
+    var self = this;
+    categories.all().forEach(function (category) {
+      if (!groups[category.id]) return;
+      var row = self.$.rows.createComponent({
+        kind: CategoryRow,
+        category: category,
+        apps: groups[category.id],
+        installed: self.installed,
+        onSeeAll: 'showCategory',
+        onOpenApp: 'rowAppOpened',
+      }, {owner: self});
+      self.rowCards = self.rowCards.concat(row.cards);
+    });
+    this.$.rows.render();
   },
 
+  allCards: function () {
+    return (this.cards || []).concat(this.rowCards || []);
+  },
+
+  focusedAppUid: function () {
+    var current = Spotlight.getCurrent();
+    return current && this.allCards().indexOf(current) !== -1 ? current.app.uid : null;
+  },
+
+  // The card for an app in what is on screen now: the rows, or the grid.
   cardForUid: function (uid) {
-    for (var i = 0; i < (this.cards || []).length; i++) {
-      if (this.cards[i].app.uid === uid) return this.cards[i];
+    var cards = this.showingRows() ? this.rowCards || [] : this.cards || [];
+    for (var i = 0; i < cards.length; i++) {
+      if (cards[i].app.uid === uid) return cards[i];
     }
     return null;
   },
@@ -301,7 +359,7 @@ module.exports = kind({
   setInstalledVersion: function (id, version) {
     if (this.installed[id] === version) return;
     this.installed[id] = version;
-    (this.cards || []).forEach(function (card) {
+    this.allCards().forEach(function (card) {
       if (card.app.id === id) card.setInstalledVersion(version);
     });
     this.updateTabs();
@@ -316,11 +374,17 @@ module.exports = kind({
   matches: function (pkg) {
     if (this.tab === 'installed' && !this.installed[pkg.id]) return false;
     if (this.tab === 'updates' && !this.hasUpdate(pkg)) return false;
+    if (this.tab === 'discover' && this.category && categories.categoryOf(pkg) !== this.category) return false;
     if (this.query) {
       var haystack = ((pkg.title || '') + ' ' + pkg.id + ' ' + (pkg.shortDescription || '')).toLowerCase();
       if (haystack.indexOf(this.query) === -1) return false;
     }
     return true;
+  },
+
+  // Discover without a search or a chosen category shows the category rows instead of the grid.
+  showingRows: function () {
+    return this.tab === 'discover' && !this.query && !this.category && !!this.rowCards && this.rowCards.length > 0;
   },
 
   visibleCards: function () {
@@ -336,11 +400,18 @@ module.exports = kind({
       if (show) count++;
     });
 
-    var titles = {discover: 'All apps', installed: 'Installed', updates: 'Updates'};
-    this.$.sectionTitle.set('content', this.query ? 'Results for “' + this.query + '”' : titles[this.tab]);
-    this.$.sectionHint.set('content', count + (count === 1 ? ' app' : ' apps') + ' · press OK to open');
+    var rows = this.showingRows();
+    this.$.rows.set('showing', rows);
+    this.$.grid.set('showing', !rows);
+    this.$.sectionHead.set('showing', !rows);
 
-    var empty = !this.$.spinner.showing && count === 0;
+    var titles = {discover: 'All apps', installed: 'Installed', updates: 'Updates'};
+    var title = this.query ? 'Results for “' + this.query + '”' : this.category && this.tab === 'discover' ? this.category.title : titles[this.tab];
+    this.$.sectionTitle.set('content', title);
+    this.$.sectionHint.set('content', count + (count === 1 ? ' app' : ' apps') +
+      (this.category && this.tab === 'discover' && !this.query ? ' · Back for all categories' : ' · press OK to open'));
+
+    var empty = !rows && !this.$.spinner.showing && count === 0;
     this.$.empty.set('showing', empty);
     if (empty) {
       this.$.empty.set('content',
@@ -349,7 +420,11 @@ module.exports = kind({
             : this.tab === 'updates' ? 'Everything is up to date.'
               : 'No apps found. Check your repositories in Settings.');
     }
-    this.$.hero.set('showing', this.tab === 'discover' && !this.query && !!this.heroApp);
+    this.$.hero.set('showing', this.heroVisible());
+  },
+
+  heroVisible: function () {
+    return this.tab === 'discover' && !this.query && !this.category && !!this.heroApp;
   },
 
   updateTabs: function () {
@@ -371,6 +446,7 @@ module.exports = kind({
   },
 
   selectTab: function (sender) {
+    this.leaveCategory();
     this.tab = sender.tab;
     this.updateTabs();
     this.applyFilter();
@@ -382,6 +458,50 @@ module.exports = kind({
     this.query = String(event.query || '').trim().toLowerCase();
     this.applyFilter();
     this.$.scroller.scrollToTop();
+    return true;
+  },
+
+  // ---- Categories ----
+
+  // "See all" on a row: that category as a grid, until Back.
+  showCategory: function (sender, event) {
+    this.leaveCategory();
+    this.category = event.category;
+    this.categoryRow = event.row;
+    EnyoHistory.push({context: this, handler: this.categoryBack});
+    this.inCategoryHistory = true;
+    this.applyFilter();
+    this.$.scroller.scrollToTop();
+    var first = this.visibleCards()[0];
+    if (first) Spotlight.spot(first);
+    return true;
+  },
+
+  categoryBack: function () {
+    this.inCategoryHistory = false;
+    var row = this.categoryRow;
+    this.category = null;
+    this.categoryRow = null;
+    this.applyFilter();
+    // Back on the row's "See all" tile, scrolled into view.
+    var target = row && !row.destroyed ? row.tile : null;
+    Spotlight.spot(target || this.initialFocus());
+    return true;
+  },
+
+  // Quietly forgets a shown category, e.g. when another tab is chosen.
+  leaveCategory: function () {
+    if (!this.category) return;
+    this.category = null;
+    this.categoryRow = null;
+    if (this.inCategoryHistory) {
+      this.inCategoryHistory = false;
+      EnyoHistory.drop();
+    }
+  },
+
+  rowAppOpened: function (sender, event) {
+    this.openDetails(event.app, false);
     return true;
   },
 
@@ -434,7 +554,7 @@ module.exports = kind({
       var installed = this.installed[app.id];
       this.$.heroAction.set('label', !installed ? 'Install' : this.hasUpdate(app) ? 'Update' : 'Open');
     }
-    this.$.hero.set('showing', this.tab === 'discover' && !this.query && !!app);
+    this.$.hero.set('showing', this.heroVisible());
   },
 
   heroActionTapped: function () {

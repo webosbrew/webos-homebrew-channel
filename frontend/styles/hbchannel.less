@@ -913,3 +913,72 @@ html, body {
   font-size: 17px;
   color: @hb-text-2;
 }
+
+// ---- Category rows (Discover) ----------------------------------------------------------------------------------------
+
+.hb-category {
+  margin-top: 34px;
+}
+.hb-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.hb-category-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+.hb-category-count {
+  margin-left: 14px;
+  font-size: 20px;
+  font-weight: 500;
+  color: @hb-text-2;
+}
+.hb-button-small {
+  height: 48px;
+  line-height: 44px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 18px;
+}
+// The row slides sideways under remote focus (scrollLeft); its padding is room for the focused card to grow.
+.hb-track {
+  overflow: hidden;
+  margin: 0 -16px;
+  padding: 16px;
+}
+.hb-strip {
+  display: flex;
+  flex-wrap: nowrap;
+}
+.hb-strip .hb-card {
+  width: 264px;
+  flex-shrink: 0;
+  margin: 0 24px 0 0;
+}
+.hb-seeall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+}
+.hb-seeall-count {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.hb-seeall-label {
+  margin-top: 6px;
+  font-size: 20px;
+  color: @hb-text-2;
+}
+.hb-seeall.spotlight {
+  border-style: solid;
+}
+.hb-seeall.spotlight .hb-seeall-label {
+  color: #ffffff;
+}
