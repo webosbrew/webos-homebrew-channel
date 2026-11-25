@@ -4,6 +4,7 @@ var DEFAULT_ORDER = [
   'Ambilight & Art',
   'System',
   'Utilities',
+  'Other',
 ];
 
 function normalizeCategory(raw) {
@@ -27,45 +28,21 @@ function normalizeCategory(raw) {
   return s;
 }
 
+// The category comes from the package metadata (repository entry or appinfo).
+// Packages that declare none are listed under 'Other'.
 function classifyApp(pkg) {
-  if (!pkg) {
-    return 'Utilities';
-  }
-  var explicit = pkg.category || (pkg.manifest && pkg.manifest.category);
+  var explicit = pkg && (pkg.category || (pkg.manifest && pkg.manifest.category));
   if (typeof explicit === 'string' && explicit.trim().length > 0) {
     return normalizeCategory(explicit);
   }
-
-  var text = [
-    pkg.id || '',
-    pkg.title || '',
-    pkg.shortDescription || '',
-    (pkg.manifest && pkg.manifest.appDescription) || '',
-  ].join(' ').toLowerCase();
-
-  if (/(hbchannel|homebrew|safeupdate|patcher|entware|inputhook|input\s*hook|input\s*mapper|homechooser|home\s*chooser|updateblocker|update\s*blocker|service\s*menu|bluetooth|sound\s*mode|tveroff|vnc|terminal|bridge-64to32|wolkeeper|wol\s*keeper|withoutspying|dev\s*token|decoder\s*bench|privacy\s*hardening)/.test(text)) {
-    return 'System';
-  }
-  if (/(screensaver|idlegif|hyperion|hyperhdr|piccap|ambilight|luma)/.test(text)) {
-    return 'Ambilight & Art';
-  }
-  if (/(game|pinball|doom|retroarch|scummvm|moonlight|aurora|ihsplay|openttd|2048|fruit\s*ninja|emulator|gamestream)/.test(text)) {
-    return 'Games';
-  }
-  if (/(youtube|twitch|jellyfin|kodi|stremio|iptv|crunchyroll|bilitv|kick\s*tv|immich|moonfin|breezyfin|litefin|ocenfin|plxnative|plex|subsonic|tvheadend|cinema|decotv|punktfunk|streamkatze|cccbib|wink|vk\s*video|video|media\s*player|music|audio\s*player|radio)/.test(text)) {
-    return 'Media';
-  }
-  if (pkg.manifest && pkg.manifest.rootRequired === true) {
-    return 'System';
-  }
-  return 'Utilities';
+  return 'Other';
 }
 
 function buildCategoryList(models) {
   var counts = {};
   var total = 0;
   for (var i = 0; i < models.length; i++) {
-    var cat = models[i].get('category') || 'Utilities';
+    var cat = models[i].get('category') || 'Other';
     counts[cat] = (counts[cat] || 0) + 1;
     total++;
   }
