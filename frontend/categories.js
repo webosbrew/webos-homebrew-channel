@@ -1,5 +1,7 @@
 // App categories, as webosbrew's apps repository defines them: each package's source YAML has a `category`
-// (multimedia, game, amblight, screensaver, launcher, utility, system, internet).
+// (multimedia, game, amblight, screensaver, launcher, utility, system, internet). They are listed in the order of the
+// website's home page, which shows the first six only; Internet and System follow here so that their apps are not
+// hidden.
 //
 // A repository entry's own `category` is used when it has one. The published API (apps.json) does not carry it yet,
 // and third-party repositories have none, so known apps are looked up in a table copied from webosbrew's package
@@ -37,13 +39,6 @@ var CATEGORIES = [
     keywords: /\b(games?|gaming|emulat(or|ion)|arcade|puzzle|gamestream|steam link)\b/i,
   },
   {
-    id: 'internet',
-    title: 'Internet',
-    ids: ['com.tbsniller.smarttwitchwebostv', 'io.github.sarahahzub.chromium', 'twitch.adamffdev.v1',
-      'org.sostk.wpebrowser', 'wikipedia.app'],
-    keywords: /\b(browser|web ?kit|chromium|wikipedia)\b/i,
-  },
-  {
     id: 'amblight',
     title: 'Ambient Light',
     ids: ['org.webosbrew.hyperhdr.loader', 'org.webosbrew.hyperion.ng.loader', 'org.webosbrew.piccap', 'ui30'],
@@ -74,6 +69,13 @@ var CATEGORIES = [
     keywords: /\b(vpn|wireguard|proxy|terminal|vnc|remap(per)?|blocker|service menu|wake-on-lan)\b/i,
   },
   {
+    id: 'internet',
+    title: 'Internet',
+    ids: ['com.tbsniller.smarttwitchwebostv', 'io.github.sarahahzub.chromium', 'twitch.adamffdev.v1',
+      'org.sostk.wpebrowser', 'wikipedia.app'],
+    keywords: /\b(browser|web ?kit|chromium|wikipedia)\b/i,
+  },
+  {
     id: 'system',
     title: 'System',
     ids: ['com.pirate.refresh', 'com.sk.app.lgtv-vpn', 'eu.depau.webos.soundmodefix', 'ooo.lew.lifesgoodwithoutspying',
@@ -81,6 +83,9 @@ var CATEGORIES = [
     keywords: /\b(system|firmware|root)\b/i,
   },
 ];
+
+// Listed first in their category, in this order, as on webosbrew's website (PINNED_APPS in its pelicanconf.py).
+var PINNED = ['org.webosbrew.homechooser'];
 
 var OTHER = {id: 'other', title: 'Other'};
 
@@ -132,7 +137,18 @@ function categoryOf(pkg) {
 }
 
 /**
- * Every category in display order, Other last.
+ * A category's apps in display order: pinned apps first, then the rest in the order given (A–Z from the repository).
+ */
+function sortApps(apps) {
+  return apps.map(function (pkg, index) {
+    var pin = PINNED.indexOf(pkg.id);
+    return {pkg: pkg, key: pin === -1 ? PINNED.length + index : pin};
+  }).sort(function (a, b) { return a.key - b.key; }).map(function (entry) { return entry.pkg; });
+}
+
+/**
+ * Every category in display order (webosbrew's website order, then Internet and System, which the website leaves
+ * off its home page), Other last.
  */
 function all() {
   return CATEGORIES.concat(extra, [OTHER]);
@@ -141,5 +157,6 @@ function all() {
 module.exports = {
   categoryOf: categoryOf,
   all: all,
+  sortApps: sortApps,
   OTHER: OTHER,
 };

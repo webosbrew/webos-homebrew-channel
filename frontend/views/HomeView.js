@@ -1,5 +1,6 @@
 // The home page: the repositories' apps, with tabs for installed apps and pending updates, search, and a featured
-// app (the first pending update, otherwise a daily pick from the official repository).
+// app: the first pending update, otherwise one of the apps the repositories mark as featured (a different one each
+// day, preferring ones not yet installed), otherwise a daily pick from the official repository.
 //
 // Discover shows the apps by category, one sliding row each; "See all" on a row shows that category as a grid, and
 // Back returns to the rows. The other tabs and search results are grids.
@@ -296,7 +297,7 @@ module.exports = kind({
       var row = self.$.rows.createComponent({
         kind: CategoryRow,
         category: category,
-        apps: groups[category.id],
+        apps: categories.sortApps(groups[category.id]),
         installed: self.installed,
         onSeeAll: 'showCategory',
         onOpenApp: 'rowAppOpened',
@@ -483,8 +484,8 @@ module.exports = kind({
     this.category = null;
     this.categoryRow = null;
     this.applyFilter();
-    // Back on the row's "See all" tile, scrolled into view.
-    var target = row && !row.destroyed ? row.tile : null;
+    // Back on the row's "See all" button.
+    var target = row && !row.destroyed ? row.$.seeAll : null;
     Spotlight.spot(target || this.initialFocus());
     return true;
   },
@@ -520,9 +521,14 @@ module.exports = kind({
       }
     }
     if (!app) {
-      var candidates = packages.filter(function (pkg) {
-        return pkg.official && pkg.manifest && pkg.id !== 'org.webosbrew.hbchannel' && !self.installed[pkg.id];
-      });
+      // Homebrew Channel is featured on the website, but here it is the app already open.
+      var usable = function (pkg) { return pkg.manifest && pkg.id !== 'org.webosbrew.hbchannel'; };
+      var featured = packages.filter(function (pkg) { return pkg.featured === true && usable(pkg); });
+      var notInstalled = featured.filter(function (pkg) { return !self.installed[pkg.id]; });
+      var candidates = notInstalled.length ? notInstalled : featured;
+      if (!candidates.length) {
+        candidates = packages.filter(function (pkg) { return pkg.official && usable(pkg) && !self.installed[pkg.id]; });
+      }
       if (candidates.length) {
         // A different pick each day, the same all day.
         var day = Math.floor(Date.now() / 86400000);
