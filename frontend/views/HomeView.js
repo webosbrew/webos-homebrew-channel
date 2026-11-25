@@ -63,7 +63,7 @@ var SearchBox = kind({
   },
   handlers: {
     ontap: 'startEditing',
-    onSpotlightBlur: 'stopEditing',
+    onSpotlightBlur: 'spotlightBlurred',
   },
   components: [
     {tag: 'span', allowHtml: true, content: icons.search},
@@ -83,6 +83,12 @@ var SearchBox = kind({
       if (input.hasNode()) input.node.focus();
     }, 0);
     return true;
+  },
+  // Arrow keys moving focus away end typing. The Magic Remote's pointer does not: focus follows the pointer, and on
+  // its way to the on-screen keyboard it passes over other controls. Typing then ends when the input itself loses
+  // focus (a click elsewhere, or the keyboard closed).
+  spotlightBlurred: function () {
+    if (!Spotlight.getPointerMode()) this.stopEditing();
   },
   stopEditing: function () {
     if (!this.editing) return;
