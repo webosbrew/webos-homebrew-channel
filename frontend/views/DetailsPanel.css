@@ -23,3 +23,31 @@
 .app-description img {
     max-width: 100%;
 }
+
+.hb-category-bar {
+    padding: 8px 0 12px 0;
+    white-space: nowrap;
+}
+
+.hb-category-btn {
+    margin-right: 10px !important;
+    padding: 0 22px !important;
+    height: 48px !important;
+    line-height: 48px !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-radius: 999px !important;
+    background-color: rgba(255, 255, 255, 0.09) !important;
+    color: #d8d8d8 !important;
+    font-size: 21px !important;
+}
+
+.hb-category-btn .moon-button-content-text {
+    font-size: 21px !important;
+    line-height: 48px !important;
+}
+
+.hb-category-btn.hb-category-active {
+    background-color: #cf0652 !important;
+    color: #ffffff !important;
+}

@@ -4,6 +4,7 @@ var
   DetailsPanel = require('./DetailsPanel'),
   Overlay = require('moonstone/Overlay'),
   Item = require('moonstone/Item'),
+  Button = require('moonstone/Button'),
   IconButton = require('moonstone/IconButton'),
   Scroller = require('moonstone/Scroller'),
   MoonImage = require('moonstone/Image'),
@@ -18,8 +19,10 @@ var
   AjaxSource = require('enyo/AjaxSource'),
   Ajax = require('enyo/Ajax'),
   Collection = require('enyo/Collection'),
+  FittableRows = require('layout/FittableRows'),
   LunaService = require('enyo-webos/LunaService'),
   ConfigUtils = require('../configutils.js'),
+  Categories = require('../categories.js'),
   SettingsPanel = require('./SettingsPanel.js');
 
 // TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
@@ -99,15 +102,33 @@ module.exports = kind({
     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
     {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading some repositories.', modal: false, autoDismiss: true, allowBackKey: true},
     {
-      name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
-        {kind: AppListItem}
-      ], ontap: 'itemSelected',
+      kind: FittableRows,
+      classes: 'enyo-fill',
+      components: [
+        {
+          name: 'categoryScroller',
+          kind: Scroller,
+          vertical: 'hidden',
+          horizontal: 'auto',
+          spotlightPagingControls: false,
+          style: 'height: 70px;',
+          showing: false,
+          components: [
+            {name: 'categoryBar', classes: 'hb-category-bar'},
+          ],
+        },
+        {
+          name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
+            {kind: AppListItem}
+          ], ontap: 'itemSelected',
+        },
+      ],
     },
     {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
     {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
   ],
   bindings: [
-    {from: 'repository', to: '$.appList.collection'},
+    {from: 'filteredRepository', to: '$.appList.collection'},
     {
       from: 'repository.status', to: '$.spinner.showing', transform: function (value) {
         return this.repository.isBusy() && !this.repository.isError();
@@ -125,12 +146,80 @@ module.exports = kind({
       }
     },
   ],
+  activeCategory: null,
+  categories: null,
+
   create: function () {
     this.inherited(arguments);
+    this.set('filteredRepository', new Collection([], {model: RepoPackageModel}));
     this.refresh();
 
     this.$.updateStartupScript.send({});
     this.$.autostart.send({});
+  },
+
+  rebuildCategories: function () {
+    var models = (this.repository && this.repository.models) ? this.repository.models : [];
+    var cats = Categories.buildCategoryList(models);
+    this.categories = cats;
+
+    var hasActive = false;
+    for (var i = 0; i < cats.length; i++) {
+      if (cats[i].id === this.activeCategory) {
+        hasActive = true;
+        break;
+      }
+    }
+    if (!hasActive) {
+      this.activeCategory = cats.length > 0 ? cats[0].id : null;
+    }
+
+    this.$.categoryBar.destroyClientControls();
+    for (var j = 0; j < cats.length; j++) {
+      var cat = cats[j];
+      var isActive = cat.id === this.activeCategory;
+      this.$.categoryBar.createComponent({
+        kind: Button,
+        small: true,
+        minWidth: false,
+        content: cat.label + ' (' + cat.count + ')',
+        categoryId: cat.id,
+        classes: isActive ? 'hb-category-btn hb-category-active' : 'hb-category-btn',
+        ontap: 'categorySelected',
+      }, {owner: this});
+    }
+    this.$.categoryBar.render();
+    this.$.categoryScroller.set('showing', cats.length > 0);
+    this.applyCategoryFilter();
+  },
+
+  categorySelected: function (sender) {
+    if (!sender || !sender.categoryId) {
+      return true;
+    }
+    this.activeCategory = sender.categoryId;
+    var controls = this.$.categoryBar.getClientControls();
+    for (var i = 0; i < controls.length; i++) {
+      controls[i].addRemoveClass('hb-category-active', controls[i].categoryId === this.activeCategory);
+    }
+    this.applyCategoryFilter();
+    if (this.$.appList && this.$.appList.$.scroller) {
+      this.$.appList.$.scroller.setScrollTop(0);
+    }
+    return true;
+  },
+
+  applyCategoryFilter: function () {
+    var models = (this.repository && this.repository.models) ? this.repository.models : [];
+    var filtered = [];
+    for (var i = 0; i < models.length; i++) {
+      var m = models[i];
+      if (!this.activeCategory || this.activeCategory === 'All' || m.get('category') === this.activeCategory) {
+        filtered.push(m);
+      }
+    }
+    this.filteredRepository.empty();
+    this.filteredRepository.add(filtered);
   },
 
   transitionFinished: function (evt) {
@@ -150,8 +239,10 @@ module.exports = kind({
     console.info('Loading from:', repos);
     if (repos.length === 0) {
       this.set('repository', new Collection([]));
+      this.rebuildCategories();
     } else {
-      this.set('repository', new Collection({
+      var self = this;
+      var col = new Collection({
         model: RepoPackageModel,
         source: repos.map(function (url) {
           return new NestedSource({
@@ -167,6 +258,7 @@ module.exports = kind({
                       element.uid = element.id + '|' + url;
                       element.repository = url;
                       element.official = url === ConfigUtils.repositoryBaseURL;
+                      element.category = Categories.classifyApp(element);
                     });
                     return data.packages;
                   }
@@ -181,8 +273,13 @@ module.exports = kind({
             }),
           });
         }),
-      }));
-      this.repository.fetch();
+      });
+      col.on('add', function () { self.rebuildCategories(); });
+      col.on('reset', function () { self.rebuildCategories(); });
+      this.set('repository', col);
+      this.repository.fetch({
+        success: function () { self.rebuildCategories(); },
+      });
     }
   },
 
